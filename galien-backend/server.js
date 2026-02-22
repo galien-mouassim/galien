@@ -65,6 +65,134 @@ async function ensureAuthSchema() {
     `);
 }
 
+async function ensureCoreSchema() {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'user',
+            display_name TEXT,
+            profile_photo TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS modules (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+        )
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS sources (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+        )
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS courses (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            module_id INTEGER REFERENCES modules(id) ON DELETE SET NULL,
+            UNIQUE(name, module_id)
+        )
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS questions (
+            id SERIAL PRIMARY KEY,
+            question TEXT NOT NULL,
+            option_a TEXT NOT NULL,
+            option_b TEXT NOT NULL,
+            option_c TEXT NOT NULL,
+            option_d TEXT NOT NULL,
+            option_e TEXT NOT NULL,
+            correct_options TEXT NOT NULL,
+            explanation TEXT,
+            module_id INTEGER REFERENCES modules(id) ON DELETE SET NULL,
+            course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+            source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS results (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            score NUMERIC(10,4) NOT NULL DEFAULT 0,
+            total NUMERIC(10,4) NOT NULL DEFAULT 0,
+            mode TEXT NOT NULL DEFAULT 'training',
+            elapsed_seconds INTEGER NOT NULL DEFAULT 0,
+            correction_system TEXT NOT NULL DEFAULT 'tout_ou_rien',
+            time_limit_seconds INTEGER,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS user_question_flags (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+            flag_type TEXT NOT NULL,
+            tags TEXT[] NOT NULL DEFAULT '{}',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE(user_id, question_id, flag_type)
+        )
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS question_reports (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+            reason TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            resolved BOOLEAN NOT NULL DEFAULT FALSE,
+            resolved_at TIMESTAMPTZ,
+            resolved_by INTEGER REFERENCES users(id)
+        )
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS question_comments (
+            id SERIAL PRIMARY KEY,
+            question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            body TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS comment_reactions (
+            id SERIAL PRIMARY KEY,
+            comment_id INTEGER NOT NULL REFERENCES question_comments(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            value INTEGER NOT NULL CHECK (value IN (1, -1)),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE(comment_id, user_id)
+        )
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS user_messages (
+            id SERIAL PRIMARY KEY,
+            sender_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            recipient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            body TEXT NOT NULL,
+            is_read BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `);
+}
+
 async function ensureQuestionNotesSchema() {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS question_notes (
@@ -1892,7 +2020,8 @@ app.post('/api/questions/import', async (req, res) => {
 
 
 const PORT = process.env.PORT || 5000;
-ensureAuthSchema()
+ensureCoreSchema()
+    .then(() => ensureAuthSchema())
     .then(() => ensureQuestionNotesSchema())
     .then(() => ensureSessionResultsSchema())
     .then(() => ensureUserPreferencesSchema())

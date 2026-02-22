@@ -1,0 +1,430 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Galien - Tableau de bord</title>
+<link rel="icon" type="image/svg+xml" href="assets/galien-icon.svg">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="dashboard-wrap">
+  <div class="dash-topbar">
+    <div class="dash-brand brand-with-icon topbar-logo" aria-label="Galien">
+      <img src="assets/galien-icon.svg" alt="Galien" class="brand-icon">
+    </div>
+    <div id="dashUserArea"></div>
+  </div>
+
+  <div class="dashboard-main">
+    <div class="dashboard-card">
+      <h2>Nouvelle session</h2>
+      <p class="muted" style="margin-bottom:22px">Choisissez votre mode, filtrez par module, cours ou source, puis lancez.</p>
+
+      <div class="mode-cards">
+        <button class="mode-card selected" id="modeTraining" type="button">
+          <div class="mode-card-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+          <h4>Entrainement</h4>
+          <p>Correction immediate avec explications. Avance automatique possible.</p>
+        </button>
+        <button class="mode-card" id="modeExam" type="button">
+          <div class="mode-card-icon"><i class="bi bi-clock-fill"></i></div>
+          <h4>Examen</h4>
+          <p>Minuteur, pas d'explication pendant la session. Resultats a la fin.</p>
+        </button>
+      </div>
+
+      <!-- Hidden native selects — read by dashboard.js unchanged -->
+      <select id="sel_module" class="multi-select" multiple style="display:none"></select>
+      <select id="sel_course" class="multi-select" multiple style="display:none"></select>
+      <select id="sel_source" class="multi-select" multiple style="display:none"></select>
+      <select id="sel_favtag" class="multi-select" multiple style="display:none"></select>
+
+      <div class="dash-panel filter-panel" id="filtersRow">
+        <div class="filter-panel-header">
+          <div class="dash-panel-title"><i class="bi bi-sliders"></i> Filtres</div>
+          <button class="filter-reset-btn" id="filterResetBtn" type="button">
+            <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser
+          </button>
+        </div>
+
+        <!-- Row 1: structural filters -->
+        <div class="filter-grid filter-grid-top">
+          <!-- MODULE -->
+          <div class="filter-item">
+            <div class="filter-item-header">
+              <div class="filter-item-label">
+                <span class="filter-icon"><i class="bi bi-grid-3x3-gap"></i></span>
+                <span>Module</span>
+              </div>
+              <span class="filter-badge" id="badge_module">Tous</span>
+            </div>
+            <div class="filter-select-wrap" id="wrap_module">
+              <button class="ms-trigger" id="trigger_module" type="button">
+                <span class="ms-trigger-text placeholder" id="text_module">Tous les modules</span>
+                <i class="bi bi-chevron-down ms-chevron"></i>
+              </button>
+              <div class="ms-dropdown hidden" id="drop_module">
+                <div class="ms-search-wrap"><i class="bi bi-search"></i><input class="ms-search" placeholder="Rechercher…" id="search_module"></div>
+                <div class="ms-select-all" id="all_module"><div class="ms-all-checkbox" id="allbox_module"></div><span id="alltext_module">Tout sélectionner</span></div>
+                <div class="ms-options" id="opts_module"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- COURS -->
+          <div class="filter-item">
+            <div class="filter-item-header">
+              <div class="filter-item-label">
+                <span class="filter-icon"><i class="bi bi-book"></i></span>
+                <span>Cours</span>
+              </div>
+              <span class="filter-badge" id="badge_course">Tous</span>
+            </div>
+            <div class="filter-select-wrap" id="wrap_course">
+              <button class="ms-trigger" id="trigger_course" type="button">
+                <span class="ms-trigger-text placeholder" id="text_course">Tous les cours</span>
+                <i class="bi bi-chevron-down ms-chevron"></i>
+              </button>
+              <div class="ms-dropdown hidden" id="drop_course">
+                <div class="ms-search-wrap"><i class="bi bi-search"></i><input class="ms-search" placeholder="Rechercher…" id="search_course"></div>
+                <div class="ms-select-all" id="all_course"><div class="ms-all-checkbox" id="allbox_course"></div><span id="alltext_course">Tout sélectionner</span></div>
+                <div class="ms-options" id="opts_course"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: source + favtag -->
+        <div class="filter-grid filter-grid-bottom">
+          <!-- SOURCE -->
+          <div class="filter-item">
+            <div class="filter-item-header">
+              <div class="filter-item-label">
+                <span class="filter-icon"><i class="bi bi-file-earmark-text"></i></span>
+                <span>Source</span>
+              </div>
+              <span class="filter-badge" id="badge_source">Tous</span>
+            </div>
+            <div class="filter-select-wrap" id="wrap_source">
+              <button class="ms-trigger" id="trigger_source" type="button">
+                <span class="ms-trigger-text placeholder" id="text_source">Toutes les sources</span>
+                <i class="bi bi-chevron-down ms-chevron"></i>
+              </button>
+              <div class="ms-dropdown hidden" id="drop_source">
+                <div class="ms-search-wrap"><i class="bi bi-search"></i><input class="ms-search" placeholder="Rechercher…" id="search_source"></div>
+                <div class="ms-select-all" id="all_source"><div class="ms-all-checkbox" id="allbox_source"></div><span id="alltext_source">Tout sélectionner</span></div>
+                <div class="ms-options" id="opts_source"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAG FAVORIS -->
+          <div class="filter-item filter-item--fav">
+            <div class="filter-item-header">
+              <div class="filter-item-label">
+                <span class="filter-icon filter-icon--fav"><i class="bi bi-heart-fill"></i></span>
+                <span>Tags favoris</span>
+              </div>
+              <span class="filter-badge filter-badge--fav" id="badge_favtag">Tous</span>
+            </div>
+            <div class="filter-select-wrap" id="wrap_favtag">
+              <button class="ms-trigger ms-trigger--fav" id="trigger_favtag" type="button">
+                <span class="ms-trigger-text placeholder" id="text_favtag">Tous les tags</span>
+                <i class="bi bi-chevron-down ms-chevron"></i>
+              </button>
+              <div class="ms-dropdown hidden" id="drop_favtag">
+                <div class="ms-search-wrap"><i class="bi bi-search"></i><input class="ms-search" placeholder="Rechercher un tag…" id="search_favtag"></div>
+                <div class="ms-select-all" id="all_favtag"><div class="ms-all-checkbox ms-all-checkbox--fav" id="allbox_favtag"></div><span id="alltext_favtag">Tout sélectionner</span></div>
+                <div class="ms-options" id="opts_favtag"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="filters-count-wrap">
+          <div class="question-counter">
+            <span class="question-counter-num" id="questionsCount">…</span>
+            <span class="question-counter-label">questions disponibles</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-panel" id="trainingPanel">
+        <div class="dash-panel-title"><i class="bi bi-lightning-charge"></i> Options entrainement</div>
+        <div class="filters-row" style="margin-bottom:12px">
+          <div class="field" style="margin-bottom:0">
+            <span>Systeme de correction</span>
+            <select id="training_correction_system">
+              <option value="tout_ou_rien">Tout ou rien</option>
+              <option value="partiel_positive">Partiel positif</option>
+              <option value="partiel_negative">Partiel negatif</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <div class="qcount-slider-wrap">
+              <div class="slider-header">
+                <span>Nombre de questions</span>
+                <div class="slider-count">
+                  <strong id="training_question_count_value">1 <span>questions</span></strong>
+                </div>
+              </div>
+              <input type="range" id="training_question_count" min="1" value="1">
+              <div class="slider-ends">
+                <span>1</span>
+                <span id="training_slider_max">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="toggle-row" style="border-top:none;padding-top:0">
+          <div class="toggle-label">
+            Avance automatique apres correction
+            <small>Passe a la question suivante automatiquement</small>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="autoAdvanceToggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div id="delayPanel" class="hidden" style="margin-top:12px">
+          <div class="delay-row">
+            <div class="field" style="margin-bottom:0">
+              <span>Delai rapide</span>
+              <select id="delayPreset">
+                <option value="2">2 secondes</option>
+                <option value="5">5 secondes</option>
+                <option value="10">10 secondes</option>
+                <option value="custom">Personnalise...</option>
+              </select>
+            </div>
+            <div class="delay-input-wrap hidden" id="customDelayWrap">
+              <span>Secondes</span>
+              <input type="number" id="customDelay" min="1" max="60" placeholder="Ex: 7" style="width:90px">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-panel hidden" id="examPanel">
+        <div class="dash-panel-title"><i class="bi bi-clock"></i> Options examen</div>
+        <div class="filters-row" style="margin-bottom:12px">
+          <div class="field" style="margin-bottom:0">
+            <span>Duree (minutes)</span>
+            <input type="number" id="exam_minutes" min="1" placeholder="Ex: 30">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <span>Systeme de correction</span>
+            <select id="correction_system">
+              <option value="tout_ou_rien">Tout ou rien</option>
+              <option value="partiel_positive">Partiel positif</option>
+              <option value="partiel_negative">Partiel negatif</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <div class="qcount-slider-wrap">
+              <div class="slider-header">
+                <span>Nombre de questions</span>
+                <div class="slider-count">
+                  <strong id="exam_question_count_value">1 <span>questions</span></strong>
+                </div>
+              </div>
+              <input type="range" id="exam_question_count" min="1" value="1">
+              <div class="slider-ends">
+                <span>1</span>
+                <span id="exam_slider_max">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="help-text" id="correctionHelp">Vous devez cocher toutes les bonnes reponses et uniquement celles-ci.</div>
+      </div>
+
+      <button class="btn start-btn" id="startBtn" type="button"><i class="bi bi-play-fill"></i> Commencer</button>
+      <button class="btn ghost hidden" id="resumeBtn" type="button" style="margin-top:8px"><i class="bi bi-arrow-counterclockwise"></i> Reprendre la session en cours</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/dashboard.js"></script>
+<script>
+// ─── Patch: dashboard.js calls setOptions() on the hidden native selects.
+// After each call we rebuild the custom dropdown options to match.
+// We wrap setOptions to hook into it.
+(function() {
+  const _orig = window.setOptions;
+  if (typeof _orig !== 'function') return;
+  const map = { sel_module:'module', sel_course:'course', sel_source:'source', sel_favtag:'favtag' };
+  window.setOptions = function(selectEl, items, getLabel, selectedValues) {
+    _orig(selectEl, items, getLabel, selectedValues);
+    const key = selectEl && map[selectEl.id];
+    if (key) rebuildDropdown(key, selectEl);
+  };
+})();
+
+// ─── Multi-select state ───────────────────────────────────────────────────
+const MS_FILTERS   = ['module', 'course', 'source', 'favtag'];
+const MS_NATIVE_ID = { module:'sel_module', course:'sel_course', source:'sel_source', favtag:'sel_favtag' };
+const MS_PLACEHOLDER = { module:'Tous les modules', course:'Tous les cours', source:'Toutes les sources', favtag:'Tous les tags' };
+const msState = { module:new Set(), course:new Set(), source:new Set(), favtag:new Set() };
+
+function getCustomOpts(id) {
+  return Array.from(document.querySelectorAll(`#opts_${id} .ms-option`));
+}
+function getVisibleOpts(id) {
+  return getCustomOpts(id).filter(o => !o.classList.contains('hidden-opt'));
+}
+
+// Build custom option rows from the hidden <select>
+function rebuildDropdown(id, selectEl) {
+  const container = document.getElementById(`opts_${id}`);
+  if (!container) return;
+  const prevSel = new Set(msState[id]);
+  container.innerHTML = '';
+  Array.from(selectEl.options).forEach(opt => {
+    const div = document.createElement('div');
+    div.className = 'ms-option' + (prevSel.has(opt.value) ? ' selected' : '');
+    div.dataset.val = opt.value;
+    div.innerHTML = `<div class="ms-checkbox"></div>${opt.textContent}`;
+    container.appendChild(div);
+  });
+  renderAllCheckbox(id);
+  renderTrigger(id);
+}
+
+// Sync custom state → native select (so dashboard.js reads correct values)
+function syncNative(id) {
+  const sel = document.getElementById(MS_NATIVE_ID[id]);
+  if (!sel) return;
+  Array.from(sel.options).forEach(o => { o.selected = msState[id].has(o.value); });
+  sel.dispatchEvent(new Event('change'));
+}
+
+function renderTrigger(id) {
+  const vals = [...msState[id]];
+  const textEl  = document.getElementById(`text_${id}`);
+  const badge   = document.getElementById(`badge_${id}`);
+  if (!textEl || !badge) return;
+
+  if (vals.length === 0) {
+    textEl.innerHTML = MS_PLACEHOLDER[id];
+    textEl.className = 'ms-trigger-text placeholder';
+    badge.textContent = 'Tous';
+    badge.classList.remove('active');
+  } else {
+    const firstVal = vals[0];
+    const firstLabel = document.querySelector(`#opts_${id} [data-val="${CSS.escape(firstVal)}"]`)?.textContent?.trim() || firstVal;
+    const short = firstLabel.length > 16 ? `${firstLabel.slice(0,14)}…` : firstLabel;
+    const tags = `<span class="ms-tag">${short}</span>`;
+    const more = vals.length > 1 ? `<span class="ms-tag-more">+${vals.length-1}</span>` : '';
+    textEl.innerHTML = `<span class="ms-tags">${tags}${more}</span>`;
+    textEl.className = 'ms-trigger-text';
+    const n = vals.length;
+    badge.textContent = `${n} sélectionné${n>1?'s':''}`;
+    badge.classList.add('active');
+  }
+}
+
+function renderAllCheckbox(id) {
+  const box = document.getElementById(`allbox_${id}`);
+  const txt = document.getElementById(`alltext_${id}`);
+  if (!box || !txt) return;
+  const vis = getVisibleOpts(id);
+  const selCount = vis.filter(o => msState[id].has(o.dataset.val)).length;
+  box.className = 'ms-all-checkbox';
+  if (selCount === 0) {
+    txt.textContent = 'Tout sélectionner';
+  } else if (selCount === vis.length) {
+    box.classList.add('all'); txt.textContent = 'Tout désélectionner';
+  } else {
+    box.classList.add('partial'); txt.textContent = `${selCount} / ${vis.length} sélectionnés`;
+  }
+}
+
+function renderOptions(id) {
+  getCustomOpts(id).forEach(o => o.classList.toggle('selected', msState[id].has(o.dataset.val)));
+}
+
+function msFilterSearch(id, q) {
+  q = (q||'').toLowerCase().trim();
+  getCustomOpts(id).forEach(o => o.classList.toggle('hidden-opt', !!q && !o.textContent.toLowerCase().includes(q)));
+  let empty = document.getElementById(`empty_${id}`);
+  if (getVisibleOpts(id).length === 0) {
+    if (!empty) {
+      empty = document.createElement('div');
+      empty.className = 'ms-empty'; empty.id = `empty_${id}`; empty.textContent = 'Aucun résultat';
+      document.getElementById(`opts_${id}`).appendChild(empty);
+    }
+  } else if (empty) empty.remove();
+}
+
+function closeAllDropdowns(except) {
+  MS_FILTERS.forEach(id => {
+    if (id === except) return;
+    document.getElementById(`drop_${id}`)?.classList.add('hidden');
+    document.getElementById(`trigger_${id}`)?.classList.remove('open');
+  });
+}
+
+// Wire up each filter
+MS_FILTERS.forEach(id => {
+  const trigger = document.getElementById(`trigger_${id}`);
+  const drop    = document.getElementById(`drop_${id}`);
+  const search  = document.getElementById(`search_${id}`);
+  const allRow  = document.getElementById(`all_${id}`);
+  const optsEl  = document.getElementById(`opts_${id}`);
+  if (!trigger || !drop) return;
+
+  trigger.addEventListener('click', e => {
+    e.stopPropagation();
+    const isOpen = !drop.classList.contains('hidden');
+    closeAllDropdowns(id);
+    drop.classList.toggle('hidden', isOpen);
+    trigger.classList.toggle('open', !isOpen);
+    if (!isOpen) { search.value=''; msFilterSearch(id,''); setTimeout(()=>search.focus(),40); }
+  });
+
+  optsEl.addEventListener('click', e => {
+    const opt = e.target.closest('.ms-option'); if (!opt) return;
+    const val = opt.dataset.val;
+    msState[id].has(val) ? msState[id].delete(val) : msState[id].add(val);
+    renderOptions(id); renderTrigger(id); renderAllCheckbox(id); syncNative(id);
+  });
+
+  allRow.addEventListener('click', () => {
+    const vis = getVisibleOpts(id).map(o => o.dataset.val);
+    const allSel = vis.every(v => msState[id].has(v));
+    allSel ? vis.forEach(v => msState[id].delete(v)) : vis.forEach(v => msState[id].add(v));
+    renderOptions(id); renderTrigger(id); renderAllCheckbox(id); syncNative(id);
+  });
+
+  search.addEventListener('input', () => { msFilterSearch(id, search.value); renderAllCheckbox(id); });
+  search.addEventListener('click', e => e.stopPropagation());
+  drop.addEventListener('click',   e => e.stopPropagation());
+});
+
+document.addEventListener('click', () => closeAllDropdowns(null));
+
+// Reset button
+document.getElementById('filterResetBtn')?.addEventListener('click', () => {
+  MS_FILTERS.forEach(id => {
+    msState[id].clear();
+    const search = document.getElementById(`search_${id}`);
+    if (search) { search.value=''; msFilterSearch(id,''); }
+    renderOptions(id); renderTrigger(id); renderAllCheckbox(id); syncNative(id);
+  });
+  if (typeof scheduleCountRefresh === 'function') scheduleCountRefresh();
+});
+
+// Slider max label sync
+[['training_question_count','training_slider_max'],['exam_question_count','exam_slider_max']].forEach(([sid,mid])=>{
+  const s=document.getElementById(sid), m=document.getElementById(mid);
+  if(s&&m) new MutationObserver(()=>{ m.textContent=s.max||'—'; }).observe(s,{attributes:true,attributeFilter:['max']});
+});
+</script>
+<script src="js/profile-link.js"></script>
+</body>
+</html>

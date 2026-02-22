@@ -1,0 +1,1858 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Galien — Admin</title>
+<link rel="icon" type="image/svg+xml" href="assets/galien-icon.svg">
+<link rel="stylesheet" href="css/style.css">
+<style>
+/* ── Admin Shell ── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg);
+  overflow-x: hidden;
+}
+
+/* ── Sidebar ── */
+.adm-sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: #0b1420;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 200;
+  border-right: 1px solid rgba(255,255,255,.06);
+}
+
+.adm-sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  margin-bottom: 8px;
+  text-decoration: none;
+}
+.adm-sidebar-logo span {
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -.03em;
+}
+.adm-sidebar-label {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.25);
+  padding: 16px 20px 6px;
+}
+
+/* Nav items */
+.adm-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin: 2px 10px;
+  border-radius: 10px;
+  font-size: .875rem;
+  font-weight: 500;
+  color: rgba(255,255,255,.5);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  user-select: none;
+  position: relative;
+}
+.adm-nav-item:hover {
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.85);
+}
+.adm-nav-item.active {
+  background: rgba(13,148,136,.2);
+  color: #2dd4bf;
+}
+.adm-nav-item.active .adm-nav-icon {
+  color: #2dd4bf;
+}
+.adm-nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: .7;
+}
+.adm-nav-item.active .adm-nav-icon { opacity: 1; }
+
+.adm-nav-badge {
+  margin-left: auto;
+  background: #ef4444;
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 99px;
+  line-height: 1.4;
+}
+
+.adm-sidebar-spacer { flex: 1; }
+
+.adm-sidebar-footer {
+  padding: 16px 10px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.adm-logout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: .875rem;
+  font-weight: 500;
+  color: rgba(255,255,255,.35);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  background: transparent;
+  border: none;
+  width: 100%;
+  font-family: inherit;
+}
+.adm-logout:hover {
+  background: rgba(239,68,68,.12);
+  color: #f87171;
+}
+
+/* ── Main Content ── */
+.adm-main {
+  margin-left: 240px;
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.adm-topbar {
+  height: 60px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.adm-topbar-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -.02em;
+}
+.adm-topbar-sub {
+  font-size: .78rem;
+  color: var(--ink-4);
+  margin-top: 1px;
+}
+.adm-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.adm-content {
+  padding: 32px;
+  max-width: 960px;
+  width: 100%;
+}
+
+/* ── Panels ── */
+.adm-panel { display: none; }
+.adm-panel.active { display: block; }
+
+/* ── Section headers ── */
+.adm-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.adm-section-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -.03em;
+}
+.adm-section-desc {
+  font-size: .85rem;
+  color: var(--ink-3);
+  margin-top: 3px;
+}
+
+/* ── Form card ── */
+.adm-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 4px rgba(15,23,42,.04);
+}
+.adm-card-title {
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.adm-card-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Grid helpers ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+/* ── Option lettering ── */
+.option-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.option-letter {
+  width: 32px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-light);
+  color: var(--accent-2);
+  font-size: .75rem;
+  font-weight: 800;
+  border-radius: 6px 0 0 6px;
+  flex-shrink: 0;
+  letter-spacing: .03em;
+}
+.option-row input {
+  border-radius: 0 6px 6px 0 !important;
+  border-left: none !important;
+}
+
+/* ── Correct answer highlight ── */
+.correct-field {
+  background: var(--green-light);
+  border-radius: 10px;
+  padding: 14px;
+}
+.correct-field .field { margin-bottom: 0; }
+
+/* ── Similarity panel ── */
+.similarity-panel {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 14px 0;
+}
+.similarity-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.similarity-head strong {
+  font-size: 1.1rem;
+  color: var(--ink);
+}
+.similarity-warning {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: .82rem;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.similarity-warning.sim-red { background: var(--red-light); color: #991b1b; }
+.similarity-warning.sim-orange { background: var(--amber-light); color: #92400e; }
+.similarity-list { display: flex; flex-direction: column; gap: 8px; }
+.similarity-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: .82rem;
+}
+.similarity-item.sim-red { border-color: #fca5a5; background: var(--red-light); }
+.similarity-item.sim-orange { border-color: #fde68a; background: var(--amber-light); }
+.similarity-item.sim-yellow { border-color: var(--border); }
+.sim-head { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.sim-text { color: var(--ink-2); line-height: 1.4; margin-bottom: 3px; }
+.sim-meta { font-size: .75rem; }
+.sim-source-diff-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:2px 8px;
+  margin-right:8px;
+  border-radius:999px;
+  font-size:.68rem;
+  font-weight:700;
+  letter-spacing:.02em;
+  background:var(--amber-light);
+  color:#92400e;
+  border:1px solid #fcd34d;
+  white-space:nowrap;
+}
+
+/* ── Question list items ── */
+.question-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 8px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.question-item:hover {
+  border-color: var(--border-2);
+  box-shadow: 0 2px 8px rgba(15,23,42,.06);
+}
+.question-item-text {
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.question-item-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: .75rem;
+  color: var(--ink-4);
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.question-item-tag {
+  padding: 2px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  font-size: .72rem;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+.question-item-correct {
+  padding: 2px 8px;
+  background: var(--green-light);
+  border: 1px solid #bbf7d0;
+  border-radius: 99px;
+  font-size: .72rem;
+  font-weight: 700;
+  color: #166534;
+}
+.question-item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Filters bar ── */
+.filter-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+.filter-bar .field { margin-bottom: 0; }
+.filter-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .82rem;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+  padding-bottom: 4px;
+  cursor: pointer;
+}
+.filter-check input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+
+/* ── Report items ── */
+.report-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 10px;
+  transition: border-color .15s;
+}
+.report-item.resolved { opacity: .7; }
+.report-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: .8rem;
+  flex-wrap: wrap;
+}
+.report-meta strong { color: var(--ink); font-weight: 600; }
+.report-meta span { color: var(--ink-4); }
+.flag-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-size: .72rem;
+  font-weight: 700;
+}
+.flag-status.pending { background: var(--amber-light); color: #92400e; }
+.flag-status.resolved { background: var(--green-light); color: #166534; }
+.report-question {
+  font-size: .88rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.report-reason {
+  font-size: .82rem;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border-left: 3px solid var(--accent);
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.report-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── Report tabs ── */
+.adm-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  width: fit-content;
+  margin-bottom: 20px;
+}
+.adm-tab {
+  padding: 7px 18px;
+  border-radius: 7px;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+}
+.adm-tab.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(15,23,42,.08);
+}
+
+/* ── Import box ── */
+.import-drop {
+  border: 2px dashed var(--border-2);
+  border-radius: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  transition: border-color .15s, background .15s;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+.import-drop:hover, .import-drop.dragover {
+  border-color: var(--accent);
+  background: var(--accent-ghost);
+}
+.import-drop-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+.import-drop p { font-size: .88rem; color: var(--ink-3); margin: 0; }
+.import-drop strong { color: var(--accent); }
+.import-progress {
+  background: var(--border);
+  border-radius: 99px;
+  height: 6px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.import-progress-bar {
+  background: var(--accent);
+  height: 100%;
+  width: 0;
+  transition: width .3s;
+  border-radius: 99px;
+}
+
+/* ── Edit modal enhancements ── */
+.modal-content h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-content input, .modal-content select, .modal-content textarea {
+  margin-bottom: 10px;
+}
+
+/* ── Empty state ── */
+.adm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--ink-4);
+}
+.adm-empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: .5; }
+.adm-empty p { font-size: .9rem; margin: 0; }
+
+/* ── Mobile sidebar toggle ── */
+.adm-menu-toggle {
+  display: none;
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 300;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #0b1420;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+.adm-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 150;
+}
+
+@media(max-width: 768px) {
+  .adm-sidebar {
+    transform: translateX(-100%);
+    transition: transform .25s;
+  }
+  .adm-sidebar.open {
+    transform: translateX(0);
+  }
+  .adm-main { margin-left: 0; }
+  .adm-content { padding: 20px 16px; }
+  .adm-menu-toggle { display: flex; }
+  .adm-overlay.open { display: block; }
+  .grid-4 { grid-template-columns: 1fr 1fr; }
+  .filter-bar { grid-template-columns: 1fr 1fr; }
+  .option-grid { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- Mobile toggle -->
+<button class="adm-menu-toggle" id="menuToggle">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
+    <path d="M3 12h18M3 6h18M3 18h18"/>
+  </svg>
+</button>
+<div class="adm-overlay" id="sidebarOverlay"></div>
+
+<!-- ── Sidebar ── -->
+<aside class="adm-sidebar" id="sidebar">
+
+  <a href="dashboard.html" class="adm-sidebar-logo">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="30" height="30" style="flex-shrink:0;border-radius:8px">
+      <rect width="64" height="64" rx="16" fill="#0d9488"/>
+      <rect x="18" y="18" width="28" height="5" rx="2.5" fill="white" opacity="0.9"/>
+      <rect x="18" y="18" width="5" height="28" rx="2.5" fill="white" opacity="0.9"/>
+      <rect x="18" y="41" width="28" height="5" rx="2.5" fill="white" opacity="0.9"/>
+      <rect x="33" y="30" width="13" height="5" rx="2.5" fill="white" opacity="0.9"/>
+      <rect x="41" y="30" width="5" height="16" rx="2.5" fill="white" opacity="0.9"/>
+    </svg>
+    <span>Galien</span>
+  </a>
+
+  <div class="adm-sidebar-label">Gestion</div>
+
+  <div class="adm-nav-item active" data-panel="questions">
+    <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>
+    </svg>
+    Questions
+  </div>
+
+  <div class="adm-nav-item" data-panel="import">
+    <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    Import CSV
+  </div>
+
+  <div class="adm-nav-item" data-panel="reports">
+    <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+    Signalements
+    <span class="adm-nav-badge" id="reportsBadge" style="display:none">0</span>
+  </div>
+
+  <div class="adm-nav-item" data-panel="messages">
+    <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+    Messages
+  </div>
+
+  <div class="adm-sidebar-spacer"></div>
+
+  <div class="adm-sidebar-footer">
+    <button class="adm-logout" onclick="localStorage.removeItem('token');window.location.href='login.html'">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+      </svg>
+      Déconnexion
+    </button>
+  </div>
+</aside>
+
+<!-- ── Main ── -->
+<main class="adm-main">
+
+  <!-- Topbar -->
+  <div class="adm-topbar">
+    <div>
+      <div class="adm-topbar-title" id="topbarTitle">Questions</div>
+      <div class="adm-topbar-sub" id="topbarSub">Gérez la base de questions</div>
+    </div>
+    <div class="adm-topbar-actions"></div>
+  </div>
+
+  <div class="adm-content">
+
+    <!-- ═══ PANEL: QUESTIONS ═══ -->
+    <div class="adm-panel active" id="panel-questions">
+
+      <!-- Add question -->
+      <div class="adm-section-header">
+        <div>
+          <div class="adm-section-title">Ajouter une question</div>
+          <div class="adm-section-desc">Renseignez tous les champs, l'analyse de similarité se lance automatiquement.</div>
+        </div>
+      </div>
+
+      <div class="adm-card">
+        <div class="adm-card-title">Classification</div>
+        <form id="addQuestionForm">
+          <div class="grid-4">
+            <label class="field">
+              <span>Module</span>
+              <select id="module_id" required></select>
+            </label>
+            <label class="field">
+              <span>Cours</span>
+              <select id="course_id"></select>
+            </label>
+            <label class="field">
+              <span>Source</span>
+              <select id="source_id"></select>
+            </label>
+          </div>
+
+          <div class="adm-card-title" style="margin-top:8px">Référentiels (ajout rapide)</div>
+          <div class="grid-3" style="margin-bottom:12px">
+            <div class="field" style="margin:0">
+              <span>Ajouter module</span>
+              <div style="display:flex;gap:8px">
+                <input type="text" id="new_module_name" placeholder="Nom du module">
+                <button type="button" id="addModuleInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap">Ajouter</button>
+              </div>
+            </div>
+            <div class="field" style="margin:0">
+              <span>Ajouter cours (module courant)</span>
+              <div style="display:flex;gap:8px">
+                <input type="text" id="new_course_name" placeholder="Nom du cours">
+                <button type="button" id="addCourseInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap">Ajouter</button>
+              </div>
+              <small id="courseManageStatus" class="muted" style="min-height:18px;display:block"></small>
+            </div>
+            <div class="field" style="margin:0">
+              <span>Ajouter source</span>
+              <div style="display:flex;gap:8px">
+                <input type="text" id="new_source_name" placeholder="Nom de la source">
+                <button type="button" id="addSourceInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap">Ajouter</button>
+              </div>
+              <small id="sourceManageStatus" class="muted" style="min-height:18px;display:block"></small>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-bottom:14px">
+            <div class="field" style="margin:0">
+              <span>Gestion des cours</span>
+              <div style="display:flex;gap:8px">
+                <select id="manage_course_id" style="flex:1"></select>
+                <button type="button" id="deleteCourseInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap;color:var(--red);border-color:color-mix(in srgb, var(--red) 45%, var(--border))">
+                  <i class="bi bi-trash"></i> Supprimer
+                </button>
+              </div>
+              <small class="muted">Supprime le cours sélectionné s'il n'est lié à aucune question.</small>
+            </div>
+            <div class="field" style="margin:0">
+              <span>Gestion des sources</span>
+              <div style="display:flex;gap:8px">
+                <select id="manage_source_id" style="flex:1"></select>
+                <button type="button" id="deleteSourceInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap;color:var(--red);border-color:color-mix(in srgb, var(--red) 45%, var(--border))">
+                  <i class="bi bi-trash"></i> Supprimer
+                </button>
+              </div>
+              <small class="muted">Supprime la source sélectionnée si elle n'est liée à aucune question.</small>
+            </div>
+          </div>
+
+          <div class="adm-card-title" style="margin-top:8px">Énoncé</div>
+          <label class="field" style="margin-bottom:18px">
+            <span>Question</span>
+            <input type="text" id="question" placeholder="Texte de la question" required>
+          </label>
+
+          <div class="adm-card-title">Options de réponse</div>
+          <div class="option-grid">
+            <div class="option-row">
+              <div class="option-letter">A</div>
+              <input type="text" id="option_a" placeholder="Option A" required>
+            </div>
+            <div class="option-row">
+              <div class="option-letter">B</div>
+              <input type="text" id="option_b" placeholder="Option B" required>
+            </div>
+            <div class="option-row">
+              <div class="option-letter">C</div>
+              <input type="text" id="option_c" placeholder="Option C" required>
+            </div>
+            <div class="option-row">
+              <div class="option-letter">D</div>
+              <input type="text" id="option_d" placeholder="Option D" required>
+            </div>
+            <div class="option-row">
+              <div class="option-letter">E</div>
+              <input type="text" id="option_e" placeholder="Option E" required>
+            </div>
+            <div class="correct-field">
+              <label class="field">
+                <span>✓ Bonne(s) réponse(s)</span>
+                <input type="text" id="correct_option" placeholder="Ex: A ou A,C" required>
+              </label>
+            </div>
+          </div>
+
+          <label class="field">
+            <span>Explication (optionnel)</span>
+            <textarea id="explanation" placeholder="Pourquoi cette réponse ?"></textarea>
+          </label>
+
+          <!-- Similarity -->
+          <div id="similarityPanel" class="similarity-panel">
+            <div class="similarity-head">
+              <span>Similarité</span>
+              <strong id="similarityValue">0%</strong>
+              <span id="similarityLoading" class="muted hidden">Calcul en cours…</span>
+            </div>
+            <div id="similarityWarning" class="similarity-warning hidden"></div>
+            <div id="similarityList" class="similarity-list"></div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:4px">
+            <button type="submit" id="submitBtn" class="btn" style="flex:1">Ajouter la question</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Filter -->
+      <div class="adm-section-header" style="margin-top:12px">
+        <div>
+          <div class="adm-section-title">Questions existantes</div>
+          <div class="adm-section-desc">Filtrez et modifiez vos questions.</div>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <label class="field">
+          <span>Module</span>
+          <select id="filter_module_id"></select>
+        </label>
+        <label class="field">
+          <span>Cours</span>
+          <select id="filter_course_id"></select>
+        </label>
+        <label class="field">
+          <span>Source</span>
+          <select id="filter_source_id"></select>
+        </label>
+        <label class="field">
+          <span>Recherche</span>
+          <input type="text" id="filter_search" placeholder="Texte…">
+        </label>
+        <div style="display:flex;flex-direction:column;gap:8px;padding-bottom:2px">
+          <label class="filter-check">
+            <input type="checkbox" id="filter_reported">
+            Signalées seulement
+          </label>
+          <button type="button" id="resetFiltersBtn" class="btn ghost btn-sm">Réinitialiser</button>
+        </div>
+      </div>
+
+      <div id="questionsList"></div>
+    </div>
+
+    <!-- ═══ PANEL: IMPORT ═══ -->
+    <div class="adm-panel" id="panel-import">
+      <div class="adm-section-header">
+        <div>
+          <div class="adm-section-title">Import CSV</div>
+          <div class="adm-section-desc">Importez des questions en masse depuis un fichier CSV.</div>
+        </div>
+      </div>
+
+      <div class="adm-card">
+        <div class="adm-card-title">Fichier</div>
+        <div class="import-drop" id="importDropZone">
+          <div class="import-drop-icon">📂</div>
+          <p><strong>Glissez un fichier CSV</strong> ou cliquez pour parcourir</p>
+          <p style="margin-top:6px;font-size:.75rem">Colonnes: question, option_a…e, correct_option, module_id, course_name, source_id/name, explanation</p>
+          <input type="file" id="csvFile" accept=".csv" style="display:none">
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button type="button" id="analyzeImportBtn" class="btn">Analyser le CSV</button>
+          <p id="importStatus" class="muted" style="margin:0"></p>
+        </div>
+
+        <div id="importProgressWrap" class="hidden" style="margin-top:14px">
+          <div id="importProgressText" class="muted" style="font-size:.82rem;margin-bottom:6px"></div>
+          <div class="import-progress">
+            <div id="importProgressBar" class="import-progress-bar"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="importPreview" class="hidden">
+        <div class="adm-card">
+          <div class="adm-card-title">Seuil d'exclusion automatique</div>
+          <label class="field" style="margin-bottom:0">
+            <span>Exclure automatiquement au-dessus de <strong id="autoExcludeLabel">80%</strong></span>
+            <input type="range" id="autoExcludeThreshold" min="70" max="95" value="80">
+          </label>
+          <div id="importSummary" class="muted" style="margin-top:8px;font-size:.82rem"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          <button type="button" id="selectAllImportBtn" class="btn ghost btn-sm">Tout sélectionner</button>
+          <button type="button" id="deselectAllImportBtn" class="btn ghost btn-sm">Tout désélectionner</button>
+          <button type="button" id="importSelectedBtn" class="btn btn-sm">Importer sélection</button>
+          <button type="button" id="importAllBtn" class="btn ghost btn-sm">Importer tout</button>
+          <button type="button" id="cancelImportPreviewBtn" class="btn ghost btn-sm" style="margin-left:auto">Annuler</button>
+        </div>
+
+        <div id="importPreviewTable"></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px">
+          <button type="button" id="prevImportPageBtn" class="btn ghost btn-sm">← Précédent</button>
+          <span id="importPageInfo" class="muted" style="font-size:.82rem"></span>
+          <button type="button" id="nextImportPageBtn" class="btn ghost btn-sm">Suivant →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PANEL: SIGNALEMENTS ═══ -->
+    <div class="adm-panel" id="panel-reports">
+      <div class="adm-section-header">
+        <div>
+          <div class="adm-section-title">Signalements</div>
+          <div class="adm-section-desc">Questions signalées par les utilisateurs.</div>
+        </div>
+      </div>
+
+      <div class="adm-tabs">
+        <button class="adm-tab active" id="reportsTabPending"
+          onclick="showResolvedReports=false;setActiveTab(this);loadReports()">
+          En attente
+        </button>
+        <button class="adm-tab" id="reportsTabResolved"
+          onclick="showResolvedReports=true;setActiveTab(this);loadReports()">
+          Résolus
+        </button>
+      </div>
+
+      <div id="reportsList"></div>
+    </div>
+
+    <!-- ═══ PANEL: MESSAGES ═══ -->
+    <div class="adm-panel" id="panel-messages">
+      <div class="adm-section-header">
+        <div>
+          <div class="adm-section-title">Envoyer un message</div>
+          <div class="adm-section-desc">Contactez un utilisateur directement.</div>
+        </div>
+      </div>
+
+      <div class="adm-card" style="max-width:560px">
+        <div class="adm-card-title">Nouveau message</div>
+        <label class="field">
+          <span>Destinataire</span>
+          <select id="message_user_id"></select>
+        </label>
+        <label class="field">
+          <span>Message</span>
+          <textarea id="message_body" placeholder="Votre message…" style="min-height:120px"></textarea>
+        </label>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button type="button" id="sendMessageBtn" class="btn">Envoyer</button>
+          <p id="messageStatus" class="muted" style="margin:0;font-size:.82rem"></p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /adm-content -->
+</main>
+
+<!-- ── Edit Modal ── -->
+<div id="editModal" class="modal hidden">
+  <div class="modal-content" style="max-width:560px">
+    <h3>Modifier la question</h3>
+    <input type="hidden" id="edit_id">
+    <label class="field"><span>Question</span><input type="text" id="edit_question" placeholder="Question" required></label>
+    <div class="option-grid" style="margin-bottom:10px">
+      <div class="option-row"><div class="option-letter">A</div><input type="text" id="edit_option_a" placeholder="Option A" required></div>
+      <div class="option-row"><div class="option-letter">B</div><input type="text" id="edit_option_b" placeholder="Option B" required></div>
+      <div class="option-row"><div class="option-letter">C</div><input type="text" id="edit_option_c" placeholder="Option C" required></div>
+      <div class="option-row"><div class="option-letter">D</div><input type="text" id="edit_option_d" placeholder="Option D" required></div>
+      <div class="option-row"><div class="option-letter">E</div><input type="text" id="edit_option_e" placeholder="Option E" required></div>
+      <div class="correct-field"><label class="field" style="margin:0"><span>✓ Bonne(s) réponse(s)</span><input type="text" id="edit_correct_option" placeholder="A ou A,C" required></label></div>
+    </div>
+    <label class="field"><span>Explication</span><textarea id="edit_explanation" placeholder="Explication (optionnel)"></textarea></label>
+    <div class="grid-3" style="margin-bottom:10px">
+      <label class="field" style="margin:0"><span>Module</span><select id="edit_module_id" required></select></label>
+      <label class="field" style="margin:0"><span>Cours</span><select id="edit_course_id"></select></label>
+      <label class="field" style="margin:0"><span>Source</span><select id="edit_source_id"></select></label>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="saveEditBtn" class="btn">Enregistrer</button>
+      <button type="button" id="closeEditBtn" class="btn ghost">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="script.js"></script>
+<script>
+
+/* ══ Sidebar Navigation ══ */
+const panelMeta = {
+  questions: { title: 'Questions',      sub: 'Gérez la base de questions' },
+  import:    { title: 'Import CSV',     sub: 'Importez des questions en masse' },
+  reports:   { title: 'Signalements',   sub: 'Questions signalées par les utilisateurs' },
+  messages:  { title: 'Messages',       sub: 'Contactez vos utilisateurs' },
+};
+
+function switchPanel(name) {
+  document.querySelectorAll('.adm-nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.adm-panel').forEach(el => el.classList.remove('active'));
+  document.querySelector(`[data-panel="${name}"]`).classList.add('active');
+  document.getElementById(`panel-${name}`).classList.add('active');
+  const m = panelMeta[name] || {};
+  document.getElementById('topbarTitle').textContent = m.title || '';
+  document.getElementById('topbarSub').textContent = m.sub || '';
+}
+
+document.querySelectorAll('.adm-nav-item[data-panel]').forEach(item => {
+  item.addEventListener('click', () => {
+    switchPanel(item.dataset.panel);
+    // close mobile sidebar
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  });
+});
+
+// Mobile sidebar
+document.getElementById('menuToggle').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+});
+document.getElementById('sidebarOverlay').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+});
+
+// Import drop zone
+const dropZone = document.getElementById('importDropZone');
+const csvFileInput = document.getElementById('csvFile');
+dropZone?.addEventListener('click', () => csvFileInput.click());
+dropZone?.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone?.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone?.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) { csvFileInput.files = e.dataTransfer.files; csvFileInput.dispatchEvent(new Event('change')); }
+});
+
+// Tab helper
+function setActiveTab(btn) {
+  btn.closest('.adm-tabs').querySelectorAll('.adm-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+/* ══ All original JS below — no IDs changed ══ */
+
+let allQuestions = [];
+let reportQuestionIds = new Set();
+let similarityTimer = null;
+let latestSimilarity = { maxPercent: 0, matches: [] };
+const moduleNameById = new Map();
+const courseNameById = new Map();
+const sourceNameById = new Map();
+
+function normalizeText(v) {
+  return (v || '').toString().toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function tokenize(v) { const n = normalizeText(v); return n ? n.split(' ').filter(Boolean) : []; }
+function jaccardSimilarity(a, b) {
+  const sa = new Set(tokenize(a)), sb = new Set(tokenize(b));
+  if (!sa.size && !sb.size) return 1;
+  if (!sa.size || !sb.size) return 0;
+  let inter = 0; sa.forEach(t => { if (sb.has(t)) inter++; });
+  const union = new Set([...sa, ...sb]).size;
+  return union ? inter / union : 0;
+}
+function getFormOptions() {
+  return ['option_a','option_b','option_c','option_d','option_e']
+    .map(id => document.getElementById(id).value || '').map(v => normalizeText(v)).filter(Boolean).sort();
+}
+function getQuestionOptions(q) {
+  return [q.option_a,q.option_b,q.option_c,q.option_d,q.option_e]
+    .map(v => normalizeText(v)).filter(Boolean).sort();
+}
+function propositionSimilarity(inputOptions, candidateOptions) {
+  if (!inputOptions.length && !candidateOptions.length) return 1;
+  if (!inputOptions.length || !candidateOptions.length) return 0;
+  const used = new Set(); let total = 0, count = 0;
+  inputOptions.forEach(inp => {
+    let best = -1, bestScore = 0;
+    candidateOptions.forEach((cand, idx) => {
+      if (used.has(idx)) return; const s = jaccardSimilarity(inp, cand);
+      if (s > bestScore) { bestScore = s; best = idx; }
+    });
+    if (best >= 0) { used.add(best); total += bestScore; count++; }
+  });
+  if (!count) return 0;
+  return (total / count) * (count / Math.max(inputOptions.length, candidateOptions.length));
+}
+function parseCorrectionSet(v) {
+  return new Set((v||'').toString().toUpperCase().split(/[\s,;|/]+/).map(x=>x.trim()).filter(Boolean));
+}
+function correctionSimilarity(a,b) {
+  const sa=parseCorrectionSet(a),sb=parseCorrectionSet(b);
+  if(!sa.size&&!sb.size) return 1; if(!sa.size||!sb.size) return 0;
+  let inter=0; sa.forEach(v=>{if(sb.has(v))inter++;});
+  return new Set([...sa,...sb]).size ? inter/new Set([...sa,...sb]).size : 0;
+}
+function getCurrentFormData() {
+  return {
+    question: document.getElementById('question').value||'',
+    module_id: document.getElementById('module_id').value||'',
+    course_id: document.getElementById('course_id').value||'',
+    source_id: document.getElementById('source_id').value||'',
+    correction: document.getElementById('correct_option').value||'',
+    options: getFormOptions()
+  };
+}
+function rowClassForPercent(p) { return p>=90?'sim-red':p>=70?'sim-orange':p>=50?'sim-yellow':''; }
+function isDifferentSource(a, b) {
+  const sa = String(a || '').trim();
+  const sb = String(b || '').trim();
+  if (!sa || !sb) return false;
+  return sa !== sb;
+}
+function refName(map, id, fallback='-') {
+  const key = String(id || '').trim();
+  if (!key) return fallback;
+  return map.get(key) || key;
+}
+function resolveRefDisplay(idValue, nameValue, map, fallback='-') {
+  const idKey = String(idValue || '').trim();
+  const rawName = String(nameValue || '').trim();
+  if (rawName) {
+    // If CSV put an ID in *_name, resolve to real label when possible.
+    if (/^\d+$/.test(rawName) && map.has(rawName)) return map.get(rawName);
+    return rawName;
+  }
+  if (idKey && map.has(idKey)) return map.get(idKey);
+  if (idKey) return idKey;
+  return fallback;
+}
+async function refreshReferenceMaps() {
+  try {
+    const [mRes, cRes, sRes] = await Promise.all([
+      fetch(`${API_URL}/modules`),
+      fetch(`${API_URL}/courses`),
+      fetch(`${API_URL}/sources`)
+    ]);
+    const modules = mRes.ok ? await mRes.json() : [];
+    const courses = cRes.ok ? await cRes.json() : [];
+    const sources = sRes.ok ? await sRes.json() : [];
+    moduleNameById.clear(); courseNameById.clear(); sourceNameById.clear();
+    modules.forEach(m => moduleNameById.set(String(m.id), m.name));
+    courses.forEach(c => courseNameById.set(String(c.id), c.name));
+    sources.forEach(s => sourceNameById.set(String(s.id), s.name));
+  } catch (_) {}
+}
+
+function renderSimilarityUI(maxPercent, matches) {
+  const selectedSourceId = document.getElementById('source_id')?.value || '';
+  document.getElementById('similarityValue').textContent = `${maxPercent}%`;
+  const warning = document.getElementById('similarityWarning');
+  if (maxPercent>90) { warning.classList.remove('hidden'); warning.className='similarity-warning sim-red'; warning.textContent='Risque très élevé de doublon (>90%). Confirmation requise.'; }
+  else if (maxPercent>80) { warning.classList.remove('hidden'); warning.className='similarity-warning sim-orange'; warning.textContent='Question très similaire détectée (>80%). Vérifiez avant de continuer.'; }
+  else { warning.classList.add('hidden'); warning.textContent=''; }
+  const list = document.getElementById('similarityList');
+  if (!matches.length) { list.innerHTML='<p class="muted" style="font-size:.8rem">Aucune question similaire trouvée.</p>'; return; }
+  list.innerHTML = matches.map(m=>{
+    const showSourceDiff = selectedSourceId && isDifferentSource(m.source_id, selectedSourceId);
+    const sourceDiffTag = showSourceDiff ? '<span class="sim-source-diff-tag">Source différente</span>' : '';
+    return `
+    <div class="similarity-item ${rowClassForPercent(m.percent)}">
+      <div class="sim-head"><strong>${m.percent}%</strong><span class="muted">#${m.id}</span></div>
+      <div class="sim-text">${sourceDiffTag}${m.question||''}</div>
+      <div class="muted sim-meta">Module: ${m.module_name||'-'} | Cours: ${m.course_name||'-'} | Source: ${m.source_name||'-'}</div>
+    </div>`;
+  }).join('');
+}
+function setSimilarityLoading(b) { document.getElementById('similarityLoading')?.classList.toggle('hidden',!b); }
+function calculateSimilarityNow() {
+  const formData = getCurrentFormData();
+  if (!normalizeText(formData.question)) { latestSimilarity={maxPercent:0,matches:[]}; renderSimilarityUI(0,[]); return; }
+  const scored = allQuestions.map(q => {
+    const qScore = jaccardSimilarity(formData.question, q.question||'');
+    const pScore = propositionSimilarity(formData.options, getQuestionOptions(q));
+    const cScore = correctionSimilarity(formData.correction, q.correct_option||q.correct_options||'');
+    const mScore = formData.module_id?(String(q.module_id||'')===String(formData.module_id)?1:0):1;
+    const coScore = formData.course_id?(String(q.course_id||'')===String(formData.course_id)?1:0):1;
+    const sScore = formData.source_id?(String(q.source_id||'')===String(formData.source_id)?1:0):1;
+    const locFactors = [];
+    if (formData.module_id) locFactors.push(mScore);
+    if (formData.course_id) locFactors.push(coScore);
+    if (formData.source_id) locFactors.push(sScore);
+    const loc = locFactors.length ? (locFactors.reduce((a,b)=>a+b,0) / locFactors.length) : 1;
+    return {...q, percent: Math.round((qScore*.5+pScore*.4+cScore*.1)*loc*100)};
+  }).sort((a,b)=>b.percent-a.percent);
+  const top = scored.slice(0,5).filter(r=>r.percent>=50);
+  latestSimilarity = {maxPercent:top.length?top[0].percent:0, matches:top};
+  renderSimilarityUI(latestSimilarity.maxPercent, top);
+}
+function scheduleSimilarityCalculation() {
+  if(similarityTimer) clearTimeout(similarityTimer);
+  setSimilarityLoading(true);
+  similarityTimer = setTimeout(()=>{calculateSimilarityNow();setSimilarityLoading(false);},350);
+}
+
+async function loadQuestionsAdmin() {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${API_URL}/questions`,{headers:{'Authorization':'Bearer '+token}});
+  const data = await res.json();
+  allQuestions = data.questions||[];
+  applyQuestionFilters();
+  scheduleSimilarityCalculation();
+}
+
+function renderQuestions(listData) {
+  const list = document.getElementById('questionsList');
+  if (!listData.length) {
+    list.innerHTML = '<div class="adm-empty"><div class="adm-empty-icon">🔍</div><p>Aucune question trouvée.</p></div>';
+    return;
+  }
+  list.innerHTML = listData.map(q => `
+    <div class="question-item">
+      <div class="question-item-text">${q.question}</div>
+      <div class="question-item-meta">
+        ${q.module_name?`<span class="question-item-tag">${q.module_name}</span>`:''}
+        ${q.course_name?`<span class="question-item-tag">${q.course_name}</span>`:''}
+        ${q.source_name?`<span class="question-item-tag">${q.source_name}</span>`:''}
+        <span class="question-item-correct">✓ ${q.correct_option}</span>
+      </div>
+      <div class="question-item-actions">
+        <button class="btn-inline btn-sm" onclick="editQuestion(${q.id})">✏️ Modifier</button>
+        <button class="btn-inline btn-sm" style="color:var(--red)" onclick="deleteQuestion(${q.id})">🗑 Supprimer</button>
+      </div>
+    </div>`).join('');
+}
+
+function applyQuestionFilters() {
+  const moduleId = document.getElementById('filter_module_id').value;
+  const courseId = document.getElementById('filter_course_id').value;
+  const sourceId = document.getElementById('filter_source_id').value;
+  const search = document.getElementById('filter_search').value.trim().toLowerCase();
+  const onlyReported = document.getElementById('filter_reported').checked;
+  const filtered = allQuestions.filter(q => {
+    if (moduleId && String(q.module_id)!==String(moduleId)) return false;
+    if (courseId && String(q.course_id)!==String(courseId)) return false;
+    if (sourceId && String(q.source_id)!==String(sourceId)) return false;
+    if (search && !(q.question||'').toLowerCase().includes(search)) return false;
+    if (onlyReported && !reportQuestionIds.has(q.id)) return false;
+    return true;
+  });
+  renderQuestions(filtered);
+}
+
+function formatReportDate(v) { try { return new Date(v).toLocaleString('fr-FR'); } catch(e){return v;} }
+let showResolvedReports = false;
+
+async function loadReports() {
+  const list = document.getElementById('reportsList');
+  list.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
+  try {
+    const res = await fetch(`${API_URL}/admin/reports?resolved=${showResolvedReports?'1':'0'}`,{headers:getAuthHeaders()});
+    if (!res.ok) { list.innerHTML='<p class="muted">Impossible de charger les signalements.</p>'; return; }
+    const data = await res.json();
+    list.innerHTML = '';
+    if (!data.length) {
+      list.innerHTML = `<div class="adm-empty"><div class="adm-empty-icon">${showResolvedReports?'✅':'📭'}</div><p>${showResolvedReports?'Aucun signalement résolu.':'Aucun signalement en attente. Tout va bien !'}</p></div>`;
+      reportQuestionIds = new Set(); applyQuestionFilters(); return;
+    }
+    reportQuestionIds = new Set(data.map(r=>r.question_id));
+    applyQuestionFilters();
+    // Update badge
+    const badge = document.getElementById('reportsBadge');
+    if (!showResolvedReports && data.length) { badge.textContent=data.length; badge.style.display=''; }
+    else { badge.style.display='none'; }
+
+    data.forEach(r => {
+      const date = formatReportDate(r.created_at);
+      const item = document.createElement('div');
+      item.className = `report-item${r.resolved?' resolved':''}`;
+      item.innerHTML = `
+        <div class="report-meta">
+          <strong>${r.user_email||'Utilisateur'}</strong>
+          <span>${date}</span>
+          ${r.resolved?`<span class="flag-status resolved">✓ Résolu par ${r.resolved_by_email||'admin'}</span>`:'<span class="flag-status pending">⏳ En attente</span>'}
+        </div>
+        <div class="report-question">${r.question||'Question #'+r.question_id}</div>
+        ${r.reason?`<div class="report-reason">${r.reason}</div>`:''}
+        <div class="report-actions">
+          <button class="btn-inline btn-sm" onclick="editQuestion(${r.question_id})">✏️ Modifier la question</button>
+          ${!r.resolved
+            ? `<button class="btn-inline btn-sm resolve-btn" data-id="${r.id}" style="color:var(--green)">✓ Marquer résolu</button>`
+            : `<button class="btn-inline btn-sm resolve-btn" data-id="${r.id}" data-unresolve="1">↩ Rouvrir</button>`}
+        </div>`;
+      list.appendChild(item);
+    });
+
+    list.querySelectorAll('.resolve-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const unresolve = btn.getAttribute('data-unresolve')==='1';
+        btn.textContent='…';
+        try {
+          await fetch(`${API_URL}/admin/reports/${id}/resolve`,{method:'PUT',headers:{...getAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({resolved:!unresolve})});
+          loadReports();
+        } catch(e){loadReports();}
+      });
+    });
+  } catch(err) { list.innerHTML='<p class="muted">Erreur lors du chargement.</p>'; }
+}
+
+async function loadUsersForMessages() {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${API_URL}/admin/users`,{headers:{'Authorization':'Bearer '+token}});
+  const data = await res.json();
+  const select = document.getElementById('message_user_id');
+  select.innerHTML = '<option value="">-- Choisir un utilisateur --</option>';
+  data.forEach(u=>{
+    const opt = document.createElement('option'); opt.value=u.id;
+    opt.textContent = u.display_name?`${u.display_name} (${u.email})`:u.email;
+    select.appendChild(opt);
+  });
+}
+
+const form = document.getElementById('addQuestionForm');
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const token = localStorage.getItem('token');
+  calculateSimilarityNow();
+  if (latestSimilarity.maxPercent>90) { if(!confirm('Similarité > 90%. Voulez-vous vraiment enregistrer ?')) return; }
+  const questionData = {
+    question: document.getElementById('question').value,
+    option_a: document.getElementById('option_a').value,
+    option_b: document.getElementById('option_b').value,
+    option_c: document.getElementById('option_c').value,
+    option_d: document.getElementById('option_d').value,
+    option_e: document.getElementById('option_e').value,
+    correct_option: document.getElementById('correct_option').value.toUpperCase(),
+    module_id: document.getElementById('module_id').value,
+    course_id: document.getElementById('course_id').value||null,
+    source_id: document.getElementById('source_id').value||null,
+    explanation: document.getElementById('explanation').value||null
+  };
+  const res = await fetch(`${API_URL}/questions`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(questionData)});
+  if(res.ok){form.reset();latestSimilarity={maxPercent:0,matches:[]};renderSimilarityUI(0,[]);loadQuestionsAdmin();}
+  else if(res.status===409){const d=await res.json().catch(()=>({}));alert(d.message||'Question déjà existante.');}
+  else{alert('Erreur lors de l\'ajout de la question');}
+});
+
+function bindSimilarityInputs() {
+  ['question','option_a','option_b','option_c','option_d','option_e','correct_option'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.addEventListener('input',scheduleSimilarityCalculation);
+    el.addEventListener('change',scheduleSimilarityCalculation);
+  });
+  document.getElementById('module_id')?.addEventListener('change',async()=>{await loadCourses();scheduleSimilarityCalculation();});
+  document.getElementById('course_id')?.addEventListener('change',scheduleSimilarityCalculation);
+}
+bindSimilarityInputs();
+
+async function deleteQuestion(id) {
+  if(!confirm('Voulez-vous vraiment supprimer cette question ?'))return;
+  const token = localStorage.getItem('token');
+  await fetch(`${API_URL}/questions/${id}`,{method:'DELETE',headers:{'Authorization':'Bearer '+token}});
+  loadQuestionsAdmin();
+}
+
+async function editQuestion(id) {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${API_URL}/questions`,{headers:{'Authorization':'Bearer '+token}});
+  const data = await res.json();
+  const q = data.questions.find(x=>x.id===id);
+  if(!q)return;
+  document.getElementById('edit_id').value=q.id;
+  document.getElementById('edit_question').value=q.question||'';
+  document.getElementById('edit_option_a').value=q.option_a||'';
+  document.getElementById('edit_option_b').value=q.option_b||'';
+  document.getElementById('edit_option_c').value=q.option_c||'';
+  document.getElementById('edit_option_d').value=q.option_d||'';
+  document.getElementById('edit_option_e').value=q.option_e||'';
+  document.getElementById('edit_correct_option').value=q.correct_option||'';
+  document.getElementById('edit_explanation').value=q.explanation||'';
+  await loadModulesForEdit(q.module_id);
+  await loadCoursesForEdit(q.module_id,q.course_id);
+  await loadSourcesForEdit(q.source_id);
+  openEditModal();
+  // Switch to questions panel so modal makes sense
+  switchPanel('questions');
+}
+function openEditModal(){document.getElementById('editModal').classList.remove('hidden');}
+function closeEditModal(){document.getElementById('editModal').classList.add('hidden');}
+document.getElementById('closeEditBtn').addEventListener('click',closeEditModal);
+document.getElementById('saveEditBtn').addEventListener('click',async()=>{
+  const token=localStorage.getItem('token');
+  const id=document.getElementById('edit_id').value;
+  const payload={
+    question:document.getElementById('edit_question').value,
+    option_a:document.getElementById('edit_option_a').value,
+    option_b:document.getElementById('edit_option_b').value,
+    option_c:document.getElementById('edit_option_c').value,
+    option_d:document.getElementById('edit_option_d').value,
+    option_e:document.getElementById('edit_option_e').value,
+    correct_option:document.getElementById('edit_correct_option').value.toUpperCase(),
+    explanation:document.getElementById('edit_explanation').value||null,
+    module_id:document.getElementById('edit_module_id').value,
+    course_id:document.getElementById('edit_course_id').value||null,
+    source_id:document.getElementById('edit_source_id').value||null
+  };
+  const res=await fetch(`${API_URL}/questions/${id}`,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
+  if(res.ok){closeEditModal();loadQuestionsAdmin();}
+  else{alert('Erreur lors de la modification de la question');}
+});
+
+// Load on init
+loadQuestionsAdmin();
+loadReports();
+loadUsersForMessages();
+
+async function loadModules() {
+  const res=await fetch(`${API_URL}/modules`);
+  const modules=await res.json();
+  const select=document.getElementById('module_id');
+  select.innerHTML='<option value="">-- Module --</option>';
+  modules.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.name;select.appendChild(o);});
+  const filterSelect=document.getElementById('filter_module_id');
+  filterSelect.innerHTML='<option value="">Tous les modules</option>';
+  modules.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.name;filterSelect.appendChild(o);});
+}
+loadModules();
+
+async function loadSources() {
+  const res=await fetch(`${API_URL}/sources`);
+  const sources=await res.json();
+  const select=document.getElementById('source_id');
+  select.innerHTML='<option value="">-- Source --</option>';
+  sources.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;select.appendChild(o);});
+  const manage=document.getElementById('manage_source_id');
+  if(manage){
+    manage.innerHTML='<option value="">Choisir une source…</option>';
+    sources.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;manage.appendChild(o);});
+  }
+}
+loadSources();
+
+async function loadModulesForEdit(selectedId) {
+  const res=await fetch(`${API_URL}/modules`);
+  const modules=await res.json();
+  const select=document.getElementById('edit_module_id');
+  select.innerHTML='<option value="">-- Module --</option>';
+  modules.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.name;select.appendChild(o);});
+  if(selectedId)select.value=selectedId;
+}
+
+async function loadCourses() {
+  const moduleId=document.getElementById('module_id').value;
+  const url=moduleId?`${API_URL}/courses?module_id=${moduleId}`:`${API_URL}/courses`;
+  const res=await fetch(url);
+  const courses=await res.json();
+  const select=document.getElementById('course_id');
+  select.innerHTML='<option value="">-- Cours --</option>';
+  courses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;select.appendChild(o);});
+  const manage=document.getElementById('manage_course_id');
+  if(manage){
+    manage.innerHTML='<option value="">Choisir un cours…</option>';
+    courses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;manage.appendChild(o);});
+  }
+}
+loadCourses();
+
+async function loadFilterCourses() {
+  const moduleId=document.getElementById('filter_module_id').value;
+  const url=moduleId?`${API_URL}/courses?module_id=${moduleId}`:`${API_URL}/courses`;
+  const res=await fetch(url);
+  const courses=await res.json();
+  const select=document.getElementById('filter_course_id');
+  select.innerHTML='<option value="">Tous les cours</option>';
+  courses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;select.appendChild(o);});
+}
+loadFilterCourses();
+
+async function loadFilterSources() {
+  const res=await fetch(`${API_URL}/sources`);
+  const sources=await res.json();
+  const select=document.getElementById('filter_source_id');
+  select.innerHTML='<option value="">Toutes les sources</option>';
+  sources.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;select.appendChild(o);});
+}
+loadFilterSources();
+
+async function loadCoursesForEdit(moduleId,selectedId) {
+  const url=moduleId?`${API_URL}/courses?module_id=${moduleId}`:`${API_URL}/courses`;
+  const res=await fetch(url);
+  const courses=await res.json();
+  const select=document.getElementById('edit_course_id');
+  select.innerHTML='<option value="">-- Cours --</option>';
+  courses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;select.appendChild(o);});
+  if(selectedId)select.value=selectedId;
+}
+
+async function loadSourcesForEdit(selectedId) {
+  const res=await fetch(`${API_URL}/sources`);
+  const sources=await res.json();
+  const select=document.getElementById('edit_source_id');
+  select.innerHTML='<option value="">-- Source --</option>';
+  sources.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;select.appendChild(o);});
+  if(selectedId)select.value=selectedId;
+}
+
+document.getElementById('edit_module_id').addEventListener('change',()=>{
+  loadCoursesForEdit(document.getElementById('edit_module_id').value,null);
+});
+document.getElementById('filter_module_id').addEventListener('change',()=>loadFilterCourses().then(()=>applyQuestionFilters()));
+document.getElementById('filter_course_id').addEventListener('change',applyQuestionFilters);
+document.getElementById('filter_source_id').addEventListener('change',applyQuestionFilters);
+document.getElementById('filter_search').addEventListener('input',applyQuestionFilters);
+document.getElementById('filter_reported').addEventListener('change',applyQuestionFilters);
+document.getElementById('resetFiltersBtn').addEventListener('click',()=>{
+  ['filter_module_id','filter_course_id','filter_source_id','filter_search'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('filter_reported').checked=false;
+  loadFilterCourses().then(()=>applyQuestionFilters());
+  loadFilterSources();
+});
+
+document.getElementById('sendMessageBtn').addEventListener('click',async()=>{
+  const token=localStorage.getItem('token');
+  const userId=document.getElementById('message_user_id').value;
+  const body=document.getElementById('message_body').value.trim();
+  const status=document.getElementById('messageStatus');
+  status.textContent='';
+  if(!userId||!body){status.textContent='Choisissez un utilisateur et écrivez un message.';return;}
+  const res=await fetch(`${API_URL}/admin/messages`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({recipient_id:Number(userId),body})});
+  if(res.ok){document.getElementById('message_body').value='';status.textContent='Message envoyé.';}
+  else{status.textContent='Erreur lors de l\'envoi.';}
+});
+
+function openRefConfirm(message, onConfirm){
+  const modal=document.getElementById('refConfirmModal');
+  const text=document.getElementById('refConfirmText');
+  const yes=document.getElementById('refConfirmYesBtn');
+  const no=document.getElementById('refConfirmNoBtn');
+  if(!modal||!text||!yes||!no){
+    if(typeof onConfirm==='function') onConfirm();
+    return;
+  }
+  text.textContent=message||'Confirmer ?';
+  const close=()=>modal.classList.add('hidden');
+  yes.onclick=async()=>{yes.disabled=true;try{await onConfirm?.();}finally{yes.disabled=false;close();}};
+  no.onclick=close;
+  modal.classList.remove('hidden');
+}
+
+document.getElementById('addCourseInlineBtn').addEventListener('click',async()=>{
+  const status=document.getElementById('courseManageStatus');
+  status.textContent='';
+  const name=document.getElementById('new_course_name').value.trim();
+  const moduleId=document.getElementById('module_id').value;
+  if(!name)return;
+  if(!moduleId){status.textContent='Sélectionnez un module avant d’ajouter un cours.';return;}
+  const res=await fetch(`${API_URL}/courses`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,module_id:moduleId})});
+  if(!res.ok){status.textContent='Erreur lors de l’ajout du cours.';return;}
+  document.getElementById('new_course_name').value='';
+  status.textContent='Cours ajouté.';
+  loadCourses();
+});
+document.getElementById('deleteCourseInlineBtn').addEventListener('click',async()=>{
+  const status=document.getElementById('courseManageStatus');
+  status.textContent='';
+  const courseId=document.getElementById('manage_course_id').value;
+  if(!courseId){status.textContent='Choisissez un cours à supprimer.';return;}
+  openRefConfirm('Supprimer ce cours ?', async () => {
+    const res=await fetch(`${API_URL}/courses/${courseId}`,{method:'DELETE'});
+    if(res.ok){
+      await loadCourses();
+      await loadFilterCourses();
+      applyQuestionFilters();
+      status.textContent='Cours supprimé.';
+    }else{
+      const err=await res.json().catch(()=>({}));
+      status.textContent=err.message||err.error||'Suppression impossible.';
+    }
+  });
+});
+
+document.getElementById('addModuleInlineBtn').addEventListener('click',async()=>{
+  const name=document.getElementById('new_module_name').value.trim();
+  if(!name)return;
+  const res=await fetch(`${API_URL}/modules`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  if(!res.ok){alert('Erreur lors de l\'ajout du module.');return;}
+  document.getElementById('new_module_name').value='';
+  await loadModules();
+});
+
+document.getElementById('addSourceInlineBtn').addEventListener('click',async()=>{
+  const status=document.getElementById('sourceManageStatus');
+  status.textContent='';
+  const name=document.getElementById('new_source_name').value.trim();
+  if(!name)return;
+  const res=await fetch(`${API_URL}/sources`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  if(!res.ok){status.textContent='Erreur lors de l’ajout de la source.';return;}
+  document.getElementById('new_source_name').value='';
+  status.textContent='Source ajoutée.';
+  await loadSources();
+  await loadFilterSources();
+});
+document.getElementById('deleteSourceInlineBtn').addEventListener('click',async()=>{
+  const status=document.getElementById('sourceManageStatus');
+  status.textContent='';
+  const sourceId=document.getElementById('manage_source_id').value;
+  if(!sourceId){status.textContent='Choisissez une source à supprimer.';return;}
+  openRefConfirm('Supprimer cette source ?', async () => {
+    const res=await fetch(`${API_URL}/sources/${sourceId}`,{method:'DELETE'});
+    if(res.ok){
+      await loadSources();
+      await loadFilterSources();
+      applyQuestionFilters();
+      status.textContent='Source supprimée.';
+    }else{
+      const err=await res.json().catch(()=>({}));
+      status.textContent=err.message||err.error||'Suppression impossible.';
+    }
+  });
+});
+
+// CSV Import
+let importRows=[];
+let analyzedImportRows=[];
+let importPage=1;
+const importPageSize=100;
+const analyzeImportBtn=document.getElementById('analyzeImportBtn');
+const importStatus=document.getElementById('importStatus');
+const importPreview=document.getElementById('importPreview');
+const importPreviewTable=document.getElementById('importPreviewTable');
+const importSummary=document.getElementById('importSummary');
+const importPageInfo=document.getElementById('importPageInfo');
+const autoExcludeThreshold=document.getElementById('autoExcludeThreshold');
+const autoExcludeLabel=document.getElementById('autoExcludeLabel');
+const importProgressWrap=document.getElementById('importProgressWrap');
+const importProgressText=document.getElementById('importProgressText');
+const importProgressBar=document.getElementById('importProgressBar');
+
+function parseCSVLine(line,delimiter){
+  const result=[];let current='';let inQuotes=false;
+  for(let i=0;i<line.length;i++){
+    const char=line[i],next=line[i+1];
+    if(char==='"'){if(inQuotes&&next==='"'){current+='"';i++;}else{inQuotes=!inQuotes;}}
+    else if(char===delimiter&&!inQuotes){result.push(current);current='';}
+    else{current+=char;}
+  }
+  result.push(current);return result;
+}
+function detectDelimiter(text){const first=text.split('\n')[0]||'';const commas=(first.match(/,/g)||[]).length;const semicolons=(first.match(/;/g)||[]).length;return semicolons>commas?';':',';}
+function parseCSV(text){
+  const delimiter=detectDelimiter(text);const lines=text.split('\n').filter(l=>l.trim());
+  if(!lines.length)return[];
+  const headers=parseCSVLine(lines[0],delimiter).map(h=>h.trim().toLowerCase().replace(/^"|"$/g,''));
+  return lines.slice(1).map((line,idx)=>{
+    const vals=parseCSVLine(line,delimiter);
+    const row={};headers.forEach((h,i)=>{row[h]=(vals[i]||'').trim().replace(/^"|"$/g,'');});
+    row.__row_number=idx+2;return row;
+  }).filter(r=>Object.values(r).some(v=>v&&v!==String(r.__row_number)));
+}
+function validateCsvRow(row){
+  const required=['question','option_a','option_b','option_c','option_d','option_e','correct_option','module_id'];
+  for(const f of required){if(!row[f])return`Champ manquant: ${f}`;}
+  return null;
+}
+function updateImportProgress(current,total,dups){
+  const pct=Math.round((current/total)*100);
+  importProgressBar.style.width=pct+'%';
+  importProgressText.textContent=`Analyse en cours: ${current}/${total} lignes — ${dups} doublons potentiels`;
+  importProgressWrap.classList.remove('hidden');
+}
+function esc(s){
+  return (s==null?'':String(s))
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'",'&#39;');
+}
+function csvLocationSimilarity(inputRow, candidate){
+  const expectedModule = (inputRow.module_id||'').toString().trim();
+  const expectedCourse = (inputRow.course_id||'').toString().trim();
+  const expectedSource = (inputRow.source_id||'').toString().trim();
+  const pieces = [];
+  if (expectedModule) pieces.push(String(candidate.module_id||'')===expectedModule?1:0);
+  if (expectedCourse) pieces.push(String(candidate.course_id||'')===expectedCourse?1:0);
+  if (expectedSource) pieces.push(String(candidate.source_id||'')===expectedSource?1:0);
+  if (!pieces.length) return 1;
+  return pieces.reduce((a,b)=>a+b,0)/pieces.length;
+}
+function computeRowSimilarity(row,existingQs,alreadyImported){
+  const inputOpts=[row.option_a,row.option_b,row.option_c,row.option_d,row.option_e].map(v=>normalizeText(v)).filter(Boolean).sort();
+  let bestDb={percent:0,id:null,question:null,module_id:null,course_id:null,source_id:null,module_name:null,course_name:null,source_name:null};
+  for(const q of existingQs){
+    const qS=jaccardSimilarity(row.question,q.question||'');
+    const pS=propositionSimilarity(inputOpts,getQuestionOptions(q));
+    const cS=correctionSimilarity(row.correct_option,q.correct_option||q.correct_options||'');
+    const locS=csvLocationSimilarity(row,q);
+    const p=Math.round((qS*.5+pS*.4+cS*.1)*locS*100);
+    if(p>bestDb.percent){bestDb={percent:p,id:q.id,question:q.question,module_id:q.module_id,course_id:q.course_id,source_id:q.source_id,module_name:q.module_name,course_name:q.course_name,source_name:q.source_name};}
+  }
+  let bestCsv={percent:0,rowNumber:null,question:null,module_id:null,course_id:null,source_id:null};
+  for(const prev of alreadyImported){
+    const prevOpts=[prev.raw.option_a,prev.raw.option_b,prev.raw.option_c,prev.raw.option_d,prev.raw.option_e].map(v=>normalizeText(v)).filter(Boolean).sort();
+    const qS=jaccardSimilarity(row.question,prev.raw.question||'');
+    const pS=propositionSimilarity(inputOpts,prevOpts);
+    const cS=correctionSimilarity(row.correct_option,prev.raw.correct_option||'');
+    const locS=csvLocationSimilarity(row,prev.raw);
+    const p=Math.round((qS*.5+pS*.4+cS*.1)*locS*100);
+    if(p>bestCsv.percent){bestCsv={percent:p,rowNumber:prev.rowNumber,question:prev.raw.question,module_id:prev.raw.module_id,course_id:prev.raw.course_id,source_id:prev.raw.source_id};}
+  }
+  const best=bestDb.percent>=bestCsv.percent?bestDb:bestCsv;
+  return{percent:best.percent,matchedAgainst:best.question||null,bestDb,bestCsv};
+}
+function getIncludedImportRows(){return analyzedImportRows.filter(r=>r.include);}
+function applyAutoExclude(){
+  const threshold=parseInt(autoExcludeThreshold?.value||'80',10);
+  if(autoExcludeLabel)autoExcludeLabel.textContent=threshold+'%';
+  analyzedImportRows.forEach(r=>{if(!r.validationError){r.include=r.percent<threshold;}});
+  updateImportSummary();renderImportPreviewPage();
+}
+function updateImportSummary(){
+  const total=analyzedImportRows.length;
+  const included=analyzedImportRows.filter(r=>r.include).length;
+  const excluded=total-included;
+  const dups=analyzedImportRows.filter(r=>r.percent>=70).length;
+  if(importSummary)importSummary.textContent=`Total: ${total} | Sélectionnés: ${included} | Exclus: ${excluded} | Doublons potentiels: ${dups}`;
+}
+function renderImportPreviewPage(){
+  if(!importPreviewTable)return;
+  const totalPages=Math.max(1,Math.ceil(analyzedImportRows.length/importPageSize));
+  if(importPage>totalPages)importPage=totalPages;
+  const start=(importPage-1)*importPageSize;
+  const pageRows=analyzedImportRows.slice(start,start+importPageSize);
+  if(importPageInfo)importPageInfo.textContent=`Page ${importPage}/${totalPages}`;
+  importPreviewTable.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:.8rem">
+    <thead><tr style="background:var(--surface-2);text-align:left">
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Inclure</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">#</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Question</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Similarité</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Statut</th>
+    </tr></thead>
+    <tbody>${pageRows.map((r,i)=>{
+      const rowClass=r.validationError?'sim-red':r.percent>=90?'sim-red':r.percent>=70?'sim-orange':'';
+      const absIndex=start+i;
+      const rowSourceName = resolveRefDisplay(r.raw?.source_id, r.raw?.source_name, sourceNameById);
+      const bestDbSourceName = resolveRefDisplay(r.bestDb?.source_id, r.bestDb?.source_name, sourceNameById);
+      const sourceDiffTag = (r.bestDb && r.bestDb.id && isDifferentSource(rowSourceName?.toLowerCase?.(), bestDbSourceName?.toLowerCase?.()))
+        ? '<span class="sim-source-diff-tag">Source différente</span>'
+        : '';
+      return`<tr class="${rowClass}" style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 10px"><input type="checkbox" ${r.include?'checked':''} ${r.validationError?'disabled':''} onchange="analyzedImportRows[${start+i}].include=this.checked;updateImportSummary()"></td>
+        <td style="padding:8px 10px;color:var(--ink-4)">${r.rowNumber}</td>
+        <td style="padding:8px 10px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="toggleImportDetail(${absIndex})" title="Voir détails">${sourceDiffTag}${esc(r.raw.question||'')}</td>
+        <td style="padding:8px 10px;font-weight:700">${r.percent}%</td>
+        <td style="padding:8px 10px">${r.validationError?`<span style="color:var(--red);font-size:.75rem">${r.validationError}</span>`:r.percent>=90?'<span style="color:#991b1b">Doublon probable</span>':r.percent>=70?'<span style="color:#92400e">Similaire</span>':'<span style="color:#166534">OK</span>'}</td>
+      </tr>
+      <tr id="import_detail_${absIndex}" class="hidden">
+        <td colspan="5" style="padding:0 10px 10px 10px">
+          <div style="border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface-2)">
+            ${renderImportDetail(r)}
+          </div>
+        </td>
+      </tr>`;}).join('')}
+    </tbody></table>`;
+}
+function renderImportDetail(r){
+  const row = r.raw || {};
+  const rowModuleName = resolveRefDisplay(row.module_id, row.module_name, moduleNameById);
+  const rowCourseName = resolveRefDisplay(row.course_id, row.course_name, courseNameById);
+  const rowSourceName = resolveRefDisplay(row.source_id, row.source_name, sourceNameById);
+  const opts = ['option_a','option_b','option_c','option_d','option_e']
+    .map((k,idx)=>`<div><strong>${String.fromCharCode(65+idx)}.</strong> ${esc(row[k]||'')}</div>`)
+    .join('');
+  const bestDbText = r.bestDb && r.bestDb.id
+    ? `#${r.bestDb.id} (${r.bestDb.percent}%) — ${esc(r.bestDb.question||'')}<br><span class="muted">Module: ${esc(r.bestDb.module_name||r.bestDb.module_id||'-')} | Cours: ${esc(r.bestDb.course_name||r.bestDb.course_id||'-')} | Source: ${esc(r.bestDb.source_name||r.bestDb.source_id||'-')}</span>`
+    : 'Aucun';
+  const bestCsvText = r.bestCsv && r.bestCsv.rowNumber
+    ? `Ligne ${r.bestCsv.rowNumber} (${r.bestCsv.percent}%) — ${esc(r.bestCsv.question||'')}`
+    : 'Aucun';
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <div><strong>Question:</strong> ${esc(row.question||'')}</div>
+        <div style="margin-top:6px"><strong>Module/Cours/Source:</strong> ${esc(rowModuleName)} / ${esc(rowCourseName)} / ${esc(rowSourceName)}</div>
+        <div style="margin-top:6px"><strong>Correction:</strong> ${esc(row.correct_option||row.correct_options||'-')}</div>
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">${opts}</div>
+      </div>
+      <div>
+        <div><strong>Meilleur match DB:</strong><br>${bestDbText}</div>
+        <div style="margin-top:10px"><strong>Meilleur match CSV:</strong><br>${bestCsvText}</div>
+      </div>
+    </div>`;
+}
+function toggleImportDetail(index){
+  const row = document.getElementById(`import_detail_${index}`);
+  if(!row) return;
+  row.classList.toggle('hidden');
+}
+async function analyzeCsvRows(){
+  if(!importRows.length){importStatus.textContent='Chargez un fichier CSV d\'abord.';return;}
+  await refreshReferenceMaps();
+  if(!allQuestions.length)await loadQuestionsAdmin();
+  analyzedImportRows=[];importPage=1;let potentialDupCount=0;
+  const chunk=50;
+  for(let i=0;i<importRows.length;i++){
+    const row=importRows[i];const validationError=validateCsvRow(row);
+    const sim=computeRowSimilarity(row,allQuestions,analyzedImportRows);
+    if(sim.percent>=70)potentialDupCount++;
+    analyzedImportRows.push({rowNumber:row.__row_number||(i+2),raw:row,percent:sim.percent,matchedAgainst:sim.matchedAgainst,bestDb:sim.bestDb,bestCsv:sim.bestCsv,validationError,include:!validationError});
+    if((i+1)%chunk===0||i===importRows.length-1){updateImportProgress(i+1,importRows.length,potentialDupCount);await new Promise(r=>setTimeout(r,0));}
+  }
+  importProgressWrap.classList.add('hidden');
+  importPreview.classList.remove('hidden');
+  applyAutoExclude();
+  importStatus.textContent=`Analyse terminée: ${importRows.length} lignes, ${potentialDupCount} doublons potentiels.`;
+}
+async function runImport(rowsToImport){
+  const token=localStorage.getItem('token');
+  if(!rowsToImport.length){importStatus.textContent='Aucune ligne sélectionnée.';return;}
+  const payloadRows=rowsToImport.map(r=>{const clone={...r.raw};delete clone.__row_number;return clone;});
+  const res=await fetch(`${API_URL}/questions/import`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({rows:payloadRows})});
+  if(res.ok){
+    const data=await res.json();importStatus.textContent=`Import terminé. ${data.inserted||0} questions importées.`;
+    importPreview.classList.add('hidden');loadQuestionsAdmin();
+  }else{const err=await res.json().catch(()=>({}));importStatus.textContent=err.error||'Erreur d\'import';}
+}
+csvFileInput?.addEventListener('change',async e=>{
+  const file=e.target.files[0];if(!file)return;
+  const text=await file.text();importRows=parseCSV(text);analyzedImportRows=[];
+  importPreview.classList.add('hidden');
+  importStatus.textContent=importRows.length?`Fichier chargé: ${importRows.length} lignes`:'Aucune ligne valide trouvée';
+  dropZone.querySelector('p').innerHTML=`<strong>${file.name}</strong> — ${importRows.length} lignes`;
+});
+analyzeImportBtn?.addEventListener('click',analyzeCsvRows);
+autoExcludeThreshold?.addEventListener('input',applyAutoExclude);
+document.getElementById('selectAllImportBtn')?.addEventListener('click',()=>{analyzedImportRows.forEach(r=>{if(!r.validationError)r.include=true;});updateImportSummary();renderImportPreviewPage();});
+document.getElementById('deselectAllImportBtn')?.addEventListener('click',()=>{analyzedImportRows.forEach(r=>{r.include=false;});updateImportSummary();renderImportPreviewPage();});
+document.getElementById('cancelImportPreviewBtn')?.addEventListener('click',()=>{importPreview.classList.add('hidden');importStatus.textContent='Analyse annulée.';});
+document.getElementById('importSelectedBtn')?.addEventListener('click',()=>runImport(getIncludedImportRows()));
+document.getElementById('importAllBtn')?.addEventListener('click',()=>{analyzedImportRows.forEach(r=>{r.include=!r.validationError;});runImport(analyzedImportRows.filter(r=>!r.validationError));});
+document.getElementById('prevImportPageBtn')?.addEventListener('click',()=>{if(importPage>1){importPage--;renderImportPreviewPage();}});
+document.getElementById('nextImportPageBtn')?.addEventListener('click',()=>{const t=Math.max(1,Math.ceil(analyzedImportRows.length/importPageSize));if(importPage<t){importPage++;renderImportPreviewPage();}});
+</script>
+<div id="refConfirmModal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="refConfirmTitle">Confirmation</h3>
+    <p class="muted" id="refConfirmText">Confirmer l'action ?</p>
+    <div class="modal-actions">
+      <button type="button" id="refConfirmYesBtn" class="btn-danger">Supprimer</button>
+      <button type="button" id="refConfirmNoBtn" class="btn ghost">Annuler</button>
+    </div>
+  </div>
+</div>
+<script src="js/theme.js"></script>
+<script src="js/profile-link.js"></script>
+</body>
+</html>
+
+
+

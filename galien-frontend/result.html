@@ -1,0 +1,316 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Galien - Resultat</title>
+<link rel="icon" type="image/svg+xml" href="assets/galien-icon.svg">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="result-wrap">
+  <div class="result-content">
+    <div class="card result-card">
+      <h2 id="resultTitle" style="margin-bottom:4px">Resultat</h2>
+      <p class="muted" id="resultSubtitle" style="margin-bottom:24px"></p>
+
+      <div class="result-score-circle">
+        <svg viewBox="0 0 160 160">
+          <circle class="circle-bg" cx="80" cy="80" r="70"/>
+          <circle class="circle-fill" id="circleFill" cx="80" cy="80" r="70" stroke="var(--accent)" stroke-dashoffset="440"/>
+        </svg>
+        <div class="result-score-center">
+          <div class="result-score-pct" id="scorePct">0%</div>
+          <div class="result-score-label" id="scoreRaw"></div>
+        </div>
+      </div>
+
+      <div class="result-meta">
+        <div class="result-meta-item"><div class="val" id="metaTime">-</div><div class="lbl">Temps</div></div>
+        <div class="result-meta-item"><div class="val" id="metaMode">-</div><div class="lbl">Mode</div></div>
+        <div class="result-meta-item"><div class="val" id="metaCorrection">-</div><div class="lbl">Correction</div></div>
+      </div>
+
+      <div id="timeoutBanner" class="alert error" style="display:none;margin-bottom:14px">
+        <i class="bi bi-alarm"></i> Temps ecoule - la session s'est terminee automatiquement.
+      </div>
+
+      <div id="saveResultBox" class="result-save-box hidden">
+        <button class="btn" id="saveResultBtn" type="button"><i class="bi bi-cloud-arrow-up"></i> Enregistrer dans l'historique</button>
+        <p class="muted" id="saveResultMsg"></p>
+      </div>
+
+      <div class="result-actions">
+        <a class="btn ghost" href="dashboard.html"><i class="bi bi-arrow-repeat"></i> Nouveau QCM</a>
+        <a class="btn" href="profile.html"><i class="bi bi-graph-up"></i> Mes statistiques</a>
+      </div>
+    </div>
+
+    <div class="result-review" id="reviewSection">
+      <div class="result-review-header">
+        <h3><i class="bi bi-list-check" style="margin-right:8px;color:var(--accent)"></i>Detail des questions</h3>
+        <span class="muted" id="reviewCount"></span>
+      </div>
+      <div id="rrList" class="rr-list"><div class="loading-wrap"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const score = parseFloat(urlParams.get('score') || localStorage.getItem('score') || '0');
+const total = parseInt(urlParams.get('total') || localStorage.getItem('total') || '0', 10);
+const rawTotal = parseInt(localStorage.getItem('raw_total') || total.toString(), 10);
+const elapsed = parseInt(urlParams.get('elapsed_seconds') || localStorage.getItem('elapsed_seconds') || '0', 10);
+const mode = urlParams.get('mode') || localStorage.getItem('mode') || 'training';
+const timeout = localStorage.getItem('exam_timeout') === '1';
+const correctionSystem = urlParams.get('correction_system') || localStorage.getItem('correction_system') || 'tout_ou_rien';
+let sessionId = urlParams.get('session_id') || localStorage.getItem('last_session_id');
+const pendingPayloadRaw = localStorage.getItem('pending_result_payload');
+
+function formatTime(s) {
+  const m = Math.floor(s / 60).toString().padStart(2, '0');
+  const sec = Math.floor(s % 60).toString().padStart(2, '0');
+  return `${m}:${sec}`;
+}
+function formatCorrection(label) {
+  if (label === 'partiel_positive') return 'Partiel +';
+  if (label === 'partiel_negative') return 'Partiel -';
+  return 'Tout ou rien';
+}
+
+const percent = rawTotal > 0 ? Math.round((score / rawTotal) * 100) : 0;
+const circumference = 2 * Math.PI * 70;
+
+document.getElementById('scoreRaw').textContent = `${parseFloat(score.toFixed(2))} / ${rawTotal}`;
+document.getElementById('resultTitle').textContent = percent >= 70 ? 'Bien joue !' : percent >= 50 ? 'Pas mal !' : 'Continuez !';
+document.getElementById('resultSubtitle').textContent = mode === 'exam' ? 'Resultat de votre examen' : 'Resultat de votre entrainement';
+document.getElementById('metaTime').textContent = formatTime(elapsed);
+document.getElementById('metaMode').textContent = mode === 'exam' ? 'Examen' : 'Entrainement';
+document.getElementById('metaCorrection').textContent = formatCorrection(correctionSystem);
+if (timeout) document.getElementById('timeoutBanner').style.display = 'flex';
+
+const circleFill = document.getElementById('circleFill');
+const scorePct = document.getElementById('scorePct');
+const offset = circumference - (percent / 100) * circumference;
+circleFill.style.strokeDasharray = circumference;
+
+function animateScore() {
+  scorePct.textContent = `${percent}%`;
+  circleFill.style.strokeDashoffset = offset;
+}
+
+if (percent >= 70) circleFill.style.stroke = 'var(--green)';
+else if (percent >= 50) circleFill.style.stroke = 'var(--amber)';
+else circleFill.style.stroke = 'var(--red)';
+animateScore();
+
+async function saveResultIfRequested() {
+  const box = document.getElementById('saveResultBox');
+  const btn = document.getElementById('saveResultBtn');
+  const msg = document.getElementById('saveResultMsg');
+
+  if (sessionId || !pendingPayloadRaw) {
+    box.classList.add('hidden');
+    return;
+  }
+
+  box.classList.remove('hidden');
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Enregistrement...';
+    msg.textContent = '';
+    try {
+      const payload = JSON.parse(pendingPayloadRaw);
+      const res = await fetch(`${API_URL}/results`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('save failed');
+      const saved = await res.json();
+      if (saved?.id) {
+        sessionId = String(saved.id);
+        localStorage.setItem('last_session_id', sessionId);
+        localStorage.removeItem('pending_result_payload');
+        msg.textContent = 'Resultat enregistre.';
+        btn.innerHTML = '<i class="bi bi-check2"></i> Enregistre';
+        await loadReview();
+      }
+    } catch (_) {
+      msg.textContent = 'Echec de l\'enregistrement.';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-cloud-arrow-up"></i> Enregistrer dans l\'historique';
+    }
+  }, { once: true });
+}
+
+const OPTS = ['A', 'B', 'C', 'D', 'E'];
+
+function scoreClass(s, max) {
+  if (max <= 0) return 'zero';
+  const ratio = s / max;
+  if (ratio >= 1) return 'full';
+  if (ratio > 0) return 'partial';
+  return 'zero';
+}
+function scoreLabel(s) {
+  const rounded = Math.round(s * 100) / 100;
+  if (rounded === 0) return '0 pt';
+  if (rounded === 1) return '1 pt';
+  return `${rounded.toFixed(2)} pt`;
+}
+
+function escHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function buildDetail(qr, userLetters, correctLetters, idx) {
+  let html = '';
+  if (qr.question_text) html += `<div class="rr-question-text">${escHtml(qr.question_text)}</div>`;
+  html += '<div class="rr-options">';
+  OPTS.forEach(l => {
+    const val = qr[`option_${l.toLowerCase()}`];
+    if (!val) return;
+    const isCorrect = correctLetters.includes(l);
+    const isUser = userLetters.includes(l);
+    let cls = '';
+    if (isCorrect && isUser) cls = 'correct';
+    else if (!isCorrect && isUser) cls = 'wrong';
+    else if (isCorrect && !isUser) cls = 'missed';
+    html += `<div class="rr-option ${cls}"><span class="rr-option-letter">${l}.</span><span>${escHtml(val)}</span></div>`;
+  });
+  html += '</div>';
+  if (qr.explanation) html += `<div class="rr-explanation"><strong>Explication :</strong> ${escHtml(qr.explanation)}</div>`;
+  html += `<div class="rr-history-actions"><button type="button" class="btn-inline" onclick="toggleAttemptHistory(${idx}, ${Number(qr.question_id || 0)})"><i class="bi bi-clock-history"></i> Tentatives precedentes</button><div class="rr-attempt-history hidden" id="attemptHistory_${idx}"></div></div>`;
+  return html;
+}
+
+function renderRow(qr, idx) {
+  const userLetters = qr.user_answer ? qr.user_answer.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean) : [];
+  const correctLetters = qr.correct_answer ? qr.correct_answer.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean) : [];
+  const sc = parseFloat(qr.score || 0);
+  const sClass = scoreClass(sc, 1);
+  const unanswered = !qr.user_answer || !qr.user_answer.trim();
+
+  const userBadges = unanswered
+    ? '<span class="rr-unanswered">Non repondu</span>'
+    : userLetters.map(l => `<span class="rr-letter ${correctLetters.includes(l) ? 'correct' : 'wrong'}">${l}</span>`).join('');
+
+  const missedBadges = correctLetters.filter(l => !userLetters.includes(l)).map(l => `<span class="rr-letter missed">${l}</span>`).join('');
+  const correctBadges = correctLetters.map(l => `<span class="rr-letter correct">${l}</span>`).join('');
+
+  return `<div class="rr-row" data-idx="${idx}">
+    <div class="rr-num">Q${qr.question_num}</div>
+    <div class="rr-answers">
+      <div class="rr-answer-line"><span class="rr-label">Votre rep.</span><div class="rr-letters">${userBadges}${missedBadges ? ' ' + missedBadges : ''}</div></div>
+      <div class="rr-answer-line"><span class="rr-label">Correcte</span><div class="rr-letters">${correctBadges || '<span class="muted">-</span>'}</div></div>
+    </div>
+    <span class="rr-score ${sClass}">${scoreLabel(sc)}</span>
+    <i class="bi bi-chevron-right rr-chevron"></i>
+  </div>
+  <div class="rr-detail" data-detail="${idx}">${buildDetail(qr, userLetters, correctLetters, idx)}</div>`;
+}
+
+async function loadReview() {
+  const rrList = document.getElementById('rrList');
+  const reviewCount = document.getElementById('reviewCount');
+
+  if (!sessionId) {
+    const local = JSON.parse(localStorage.getItem('result_review') || '[]');
+    if (!local.length) {
+      rrList.innerHTML = `<div class="rr-no-data"><i class="bi bi-info-circle" style="font-size:1.5rem"></i><p>Detail non disponible.</p></div>`;
+      return;
+    }
+    reviewCount.textContent = `${local.length} questions`;
+    rrList.innerHTML = local.map((qr, i) => renderRow({
+      question_num: i + 1,
+      question_id: qr.question_id,
+      question_text: qr.question,
+      user_answer: (qr.selected || []).join(','),
+      correct_answer: (qr.correct || []).join(','),
+      score: qr.score,
+      option_a: qr.options?.A,
+      option_b: qr.options?.B,
+      option_c: qr.options?.C,
+      option_d: qr.options?.D,
+      option_e: qr.options?.E,
+      explanation: qr.explanation || ''
+    }, i)).join('');
+  } else {
+    try {
+      const res = await fetch(`${API_URL}/results/${sessionId}/questions`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('error');
+      const data = await res.json();
+      if (!data.length) {
+        rrList.innerHTML = `<div class="rr-no-data"><i class="bi bi-info-circle" style="font-size:1.5rem"></i><p>Aucune question enregistree.</p></div>`;
+        return;
+      }
+      reviewCount.textContent = `${data.length} question${data.length > 1 ? 's' : ''}`;
+      rrList.innerHTML = data.map((qr, i) => renderRow(qr, i)).join('');
+    } catch (_) {
+      rrList.innerHTML = `<div class="rr-no-data"><i class="bi bi-exclamation-circle" style="color:var(--red);font-size:1.5rem"></i><p>Impossible de charger le detail.</p></div>`;
+      return;
+    }
+  }
+
+  rrList.querySelectorAll('.rr-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const idx = row.dataset.idx;
+      const detail = rrList.querySelector(`.rr-detail[data-detail="${idx}"]`);
+      const isOpen = detail.classList.contains('open');
+      rrList.querySelectorAll('.rr-detail.open').forEach(d => d.classList.remove('open'));
+      rrList.querySelectorAll('.rr-row.open').forEach(r => r.classList.remove('open'));
+      if (!isOpen) {
+        detail.classList.add('open');
+        row.classList.add('open');
+      }
+    });
+  });
+}
+
+window.toggleAttemptHistory = async function(detailIndex, questionId) {
+  const box = document.getElementById(`attemptHistory_${detailIndex}`);
+  if (!box || !questionId) return;
+  if (!box.classList.contains('hidden')) {
+    box.classList.add('hidden');
+    return;
+  }
+
+  box.classList.remove('hidden');
+  box.innerHTML = '<div class="muted">Chargement...</div>';
+  try {
+    let res;
+    if (sessionId) {
+      res = await fetch(`${API_URL}/results/${sessionId}/question-history/${questionId}`, { headers: getAuthHeaders() });
+    }
+    if (!res || !res.ok) {
+      res = await fetch(`${API_URL}/questions/${questionId}/attempt-history`, { headers: getAuthHeaders() });
+    }
+    if (!res.ok) throw new Error('error');
+    const rows = await res.json();
+    if (!rows.length) {
+      box.innerHTML = '<div class="muted">Aucune tentative precedente.</div>';
+      return;
+    }
+    box.innerHTML = rows.map(r => {
+      const date = new Date(r.created_at).toLocaleString('fr-FR');
+      return `<div class="attempt-row"><span>${date}</span><span>${(r.user_answer || '-')}</span><span>${Number(r.score || 0).toFixed(2)} pt</span></div>`;
+    }).join('');
+  } catch (_) {
+    box.innerHTML = '<div class="muted">Impossible de charger les tentatives.</div>';
+  }
+}
+
+saveResultIfRequested();
+loadReview();
+</script>
+<script src="js/theme.js"></script>
+<script src="js/profile-link.js"></script>
+</body>
+</html>
+
+
+

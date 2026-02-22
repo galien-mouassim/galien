@@ -1,0 +1,202 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Galien - Profil</title>
+<link rel="icon" type="image/svg+xml" href="assets/galien-icon.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="profile-app container">
+  <aside class="profile-sidebar">
+    <a class="sidebar-back" href="dashboard.html" aria-label="Retour">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M14.7 5.3a1 1 0 0 1 0 1.4L10.41 11H20a1 1 0 1 1 0 2h-9.59l4.3 4.3a1 1 0 0 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.41 0z"></path>
+      </svg>
+    </a>
+
+    <div class="profile-sidebar-top">
+      <img id="sidebarPhoto" class="sidebar-avatar" src="" alt="Photo de profil">
+      <div id="sidebarDisplayName" class="sidebar-name">Utilisateur</div>
+    </div>
+
+    <button type="button" class="profile-tab active" data-section="profile">Profil</button>
+    <button type="button" class="profile-tab" data-section="stats">Statistiques</button>
+    <button type="button" class="profile-tab" data-section="prefs">Pr&eacute;f&eacute;rences</button>
+    <button type="button" class="profile-tab" data-section="history">Historique</button>
+    <button type="button" class="profile-tab tab-messages" data-section="messages">
+      Messages
+      <span id="messageBadge" class="badge hidden">0</span>
+    </button>
+    <button type="button" class="profile-tab" data-section="favorites">Favoris</button>
+    <button type="button" class="profile-tab" data-section="flags">Signalements</button>
+    <button type="button" id="sidebarLogoutBtn" class="profile-tab profile-tab-logout">Deconnexion</button>
+  </aside>
+
+  <main class="profile-sections">
+    <section id="section-profile" class="profile-section active">
+      <div class="card soft">
+        <div class="card-title">
+          <h3>Informations personnelles</h3>
+        </div>
+        <div class="avatar-stack">
+          <img id="profilePhoto" class="avatar xl" src="" alt="Photo de profil">
+          <div class="avatar-actions vertical">
+            <label class="file-btn">
+              <input type="file" id="photoInput" accept="image/*">
+              Changer la photo
+            </label>
+            <button id="uploadPhotoBtn" class="btn-inline">Mettre &agrave; jour</button>
+          </div>
+        </div>
+        <div id="profileInfo" class="info-grid"></div>
+        <label class="field">
+          <span>Nom affich&eacute;</span>
+          <input id="display_name" placeholder="Votre nom">
+        </label>
+        <button id="saveProfileBtn" class="btn">Enregistrer</button>
+      </div>
+    </section>
+
+    <section id="section-stats" class="profile-section hidden">
+      <div class="card soft">
+        <div class="card-title">
+          <h3>Statistiques</h3>
+        </div>
+        <div id="profileStats" class="stat-grid"></div>
+        <div id="statsInsights" class="analytics-grid"></div>
+        <div id="moduleScoresWrap" class="analytics-block"></div>
+        <div id="courseScoresWrap" class="analytics-block"></div>
+        <div id="failedQuestionsWrap" class="analytics-block"></div>
+        <div id="timelineWrap" class="analytics-block"></div>
+      </div>
+    </section>
+
+    <section id="section-prefs" class="profile-section hidden">
+      <div class="card soft">
+        <div class="card-title">
+          <h3>Pr&eacute;f&eacute;rences</h3>
+        </div>
+        <label class="field">
+          <span>Temps d'examen par d&eacute;faut (minutes)</span>
+          <input type="number" id="default_exam_minutes" min="1" placeholder="Ex: 30">
+        </label>
+        <label class="field">
+          <span>Entrainement: passage auto &agrave; la question suivante</span>
+          <select id="pref_auto_next_enabled">
+            <option value="0">Non</option>
+            <option value="1">Oui</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>D&eacute;lai auto-next (secondes)</span>
+          <input type="number" id="pref_auto_next_delay_sec" min="1" max="60" placeholder="Ex: 2">
+        </label>
+        <label class="field">
+          <span>Syst&egrave;me de correction</span>
+          <select id="default_correction_system">
+            <option value="tout_ou_rien">Tout ou rien</option>
+            <option value="partiel_positive">Partiel positif</option>
+            <option value="partiel_negative">Partiel n&eacute;gatif</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Afficher l'explication automatiquement</span>
+          <select id="pref_show_explanation_auto">
+            <option value="1">Oui</option>
+            <option value="0">Non</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Afficher les notes sous la question</span>
+          <select id="pref_show_notes_inline">
+            <option value="0">Non</option>
+            <option value="1">Oui</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Th&egrave;me</span>
+          <select id="pref_theme_preference">
+            <option value="system">Systeme</option>
+            <option value="light">Clair</option>
+            <option value="dark">Sombre</option>
+          </select>
+        </label>
+        <button id="savePrefsBtn" class="btn">Enregistrer</button>
+      </div>
+    </section>
+
+    <section id="section-history" class="profile-section hidden">
+      <div class="card">
+        <div class="card-title">
+          <h3>Historique des examens</h3>
+        </div>
+        <div id="resultsTable"></div>
+      </div>
+    </section>
+
+    <section id="section-messages" class="profile-section hidden">
+      <div class="card">
+        <div class="card-title between">
+          <h3>Messages</h3>
+          <button id="refreshMessagesBtn" class="btn-inline">Rafraichir</button>
+        </div>
+        <div id="messagesList" class="message-list"></div>
+      </div>
+    </section>
+
+    <section id="section-favorites" class="profile-section hidden">
+      <div class="card">
+        <div class="card-title">
+          <h3>Favoris</h3>
+        </div>
+        <div class="favorites-toolbar">
+          <input id="favoriteSearch" type="text" placeholder="Rechercher une question...">
+          <select id="favoriteTagFilter"></select>
+          <select id="favoriteSort">
+            <option value="recent">Plus recent</option>
+            <option value="oldest">Plus ancien</option>
+            <option value="alpha">A - Z</option>
+          </select>
+        </div>
+        <div id="favoritesList"></div>
+      </div>
+    </section>
+
+    <section id="section-flags" class="profile-section hidden">
+      <div class="card">
+        <div class="card-title between">
+          <h3>Signalements</h3>
+          <button id="refreshFlagsBtn" class="btn-inline ghost">Rafraichir</button>
+        </div>
+        <div id="flagsList"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="favoriteTagModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Modifier les tags</h3>
+    <label class="field">
+      <span>Tags (separes par des virgules)</span>
+      <input type="text" id="favoriteTagInput" placeholder="ex: urgent, revision, cardio">
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="favoriteTagSaveBtn">Enregistrer</button>
+      <button type="button" class="btn ghost" id="favoriteTagCancelBtn">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/profile-link.js"></script>
+</body>
+</html>
+
+
+
+

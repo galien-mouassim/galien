@@ -1,0 +1,44 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Galien - Connexion</title>
+<link rel="icon" type="image/svg+xml" href="assets/galien-icon.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="container auth">
+  <div class="auth-hero">
+    <div class="auth-logo-block" aria-label="Galien">
+      <img src="assets/galien-icon.svg" alt="Galien" class="auth-logo-mark">
+      <div class="auth-logo-word">Galien</div>
+    </div>
+    <div class="pill">Acc&egrave;s &eacute;tudiant</div>
+    <h1>Se connecter</h1>
+    <p>
+      Reprenez vos r&eacute;visions, suivez vos r&eacute;sultats et
+      passez en mode examen quand vous &ecirc;tes pr&ecirc;t.
+    </p>
+  </div>
+
+  <div class="card auth-card">
+    <h2>Bienvenue</h2>
+    <p class="muted">Entrez vos identifiants pour continuer.</p>
+    <label class="field">
+      <span>Email</span>
+      <input id="email" type="email" placeholder="nom@exemple.com">
+    </label>
+    <label class="field">
+      <span>Mot de passe</span>
+      <input id="password" type="password" placeholder="********">
+    </label>
+    <button id="loginBtn" class="btn" onclick="login()">Se connecter</button>
+    <p id="msg" class="form-msg"></p>
+  </div>
+</div>
+<script src="js/api.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>

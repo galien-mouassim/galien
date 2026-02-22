@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Galien — QCM Pharmacie · Faculté de Médecine d'Oran</title>
+<link rel="icon" type="image/svg+xml" href="assets/galien-icon.svg">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  /* ── Home-page-only overrides ── */
+
+  body { overflow-x: hidden; }
+
+  /* Fixed nav — transparent then solid on scroll */
+  .home-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px;
+    background: transparent;
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+    transition: background .3s, border-color .3s, box-shadow .3s, opacity .25s ease, transform .25s ease;
+  }
+  .home-nav.scrolled {
+    background: rgba(248,250,252,.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 12px rgba(15,23,42,.06);
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  :root[data-theme="dark"] .home-nav.scrolled {
+    background: rgba(10, 18, 32, .86);
+    border-bottom-color: rgba(148, 163, 184, .22);
+    box-shadow: 0 8px 26px rgba(0, 0, 0, .38);
+  }
+  :root[data-theme="dark"] .home-nav .link {
+    color: #e2e8f0;
+  }
+  :root[data-theme="dark"] .home-nav .link:hover {
+    color: #ffffff;
+  }
+  .home-nav .brand-with-icon span {
+    font-family: var(--font-serif);
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: -.04em;
+  }
+  .home-nav .brand-with-icon.logo-only { padding: 2px 0; }
+  .home-hero .auth-logo-word {
+    color: var(--ink);
+  }
+
+  /* ── Hero ── */
+  .home-hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 72px 24px 80px;
+    position: relative;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  /* Subtle radial glow */
+  .home-hero::before {
+    content: '';
+    position: absolute;
+    top: -10%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 900px;
+    height: 600px;
+    background: radial-gradient(ellipse, rgba(13,148,136,.09) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Decorative teal line — left */
+  .home-hero::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 20%; bottom: 20%;
+    width: 3px;
+    background: linear-gradient(to bottom, transparent, var(--accent), transparent);
+    opacity: .25;
+  }
+
+  /* Dot grid background */
+  .hero-dots {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(13,148,136,.12) 1px, transparent 1px);
+    background-size: 36px 36px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 80%);
+    pointer-events: none;
+  }
+
+  .hero-inner {
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--accent-light);
+    color: var(--accent-2);
+    border-radius: 99px;
+    font-size: .73rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    animation: fadeUp .6s ease both;
+  }
+  .hero-eyebrow-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink 2s ease infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .hero-headline {
+    font-family: var(--font-serif);
+    font-size: clamp(3rem, 7vw, 5.2rem);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -.03em;
+    color: var(--ink);
+    margin-bottom: 24px;
+    animation: fadeUp .6s .1s ease both;
+  }
+  .hero-headline em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .hero-sub {
+    font-size: 1.05rem;
+    color: var(--ink-3);
+    line-height: 1.75;
+    max-width: 48ch;
+    margin-bottom: 40px;
+    animation: fadeUp .6s .2s ease both;
+  }
+
+  .hero-cta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    animation: fadeUp .6s .3s ease both;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .hero-cta a.btn {
+    padding: 13px 28px;
+    font-size: .95rem;
+    font-weight: 700;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 24px rgba(13,148,136,.28);
+  }
+  .hero-cta .btn-ghost-link {
+    font-size: .88rem;
+    font-weight: 600;
+    color: var(--ink-3);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color .18s;
+  }
+  .hero-cta .btn-ghost-link:hover { color: var(--ink); }
+  .hero-cta .btn-ghost-link svg { transition: transform .18s; }
+  .hero-cta .btn-ghost-link:hover svg { transform: translateX(3px); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* ── Stats strip ── */
+  .stats-strip {
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 32px 0;
+    background: var(--surface);
+  }
+  .stats-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+  }
+  .stat-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
+    padding: 0 20px;
+    border-right: 1px solid var(--border);
+  }
+  .stat-block:last-child { border-right: none; }
+  .stat-block .num {
+    font-family: var(--font-serif);
+    font-size: 2.4rem;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -.04em;
+    line-height: 1;
+  }
+  .stat-block .num span { color: var(--accent); }
+  .stat-block .desc {
+    font-size: .8rem;
+    color: var(--ink-4);
+    font-weight: 500;
+    letter-spacing: .01em;
+  }
+
+  /* ── Features ── */
+  .features-section {
+    padding: 96px 24px;
+    max-width: 1060px;
+    margin: 0 auto;
+  }
+  .features-header {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+  .features-header .label {
+    display: block;
+    margin-bottom: 12px;
+  }
+  .features-header h2 {
+    font-family: var(--font-serif);
+    font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -.03em;
+    max-width: 28ch;
+    margin: 0 auto;
+    line-height: 1.2;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .feat {
+    background: var(--surface);
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: background var(--t);
+  }
+  .feat:hover { background: var(--accent-ghost); }
+  .feat-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: var(--accent-light);
+    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .feat h3 {
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -.01em;
+  }
+  .feat p {
+    font-size: .85rem;
+    color: var(--ink-3);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* ── Dark CTA banner ── */
+  .cta-banner {
+    margin: 0 24px 80px;
+    max-width: 1012px;
+    margin-left: auto;
+    margin-right: auto;
+    border-radius: var(--radius-xl);
+    background: var(--ink);
+    padding: 64px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  :root[data-theme="dark"] .cta-banner {
+    background: linear-gradient(120deg, #0f172a 0%, #10243e 55%, #0f766e 100%);
+    border: 1px solid rgba(148, 163, 184, .2);
+  }
+  .cta-banner::before {
+    content: '';
+    position: absolute;
+    right: -60px; top: -60px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(13,148,136,.35) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .cta-banner-text { position: relative; z-index: 1; }
+  .cta-banner-text .label { color: rgba(255,255,255,.4); }
+  :root[data-theme="dark"] .cta-banner-text .label { color: rgba(226, 232, 240, .82); }
+  .cta-banner-text h2 {
+    font-family: var(--font-serif);
+    color: #fff;
+    font-weight: 600;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    letter-spacing: -.03em;
+    margin-top: 8px;
+    line-height: 1.2;
+  }
+  :root[data-theme="dark"] .cta-banner-text h2 { color: #f8fafc; }
+  .cta-banner-action { position: relative; z-index: 1; flex-shrink: 0; }
+  .cta-banner-action a.btn {
+    padding: 14px 32px;
+    font-size: .95rem;
+    font-weight: 700;
+    border-radius: var(--radius-lg);
+    background: var(--accent);
+    box-shadow: 0 8px 24px rgba(13,148,136,.35);
+    white-space: nowrap;
+  }
+
+  /* ── Trust banner ── */
+  .trust-banner {
+    background: var(--accent-ghost);
+    border-top: 1px solid var(--accent-light);
+    border-bottom: 1px solid var(--accent-light);
+    padding: 16px 24px;
+  }
+  .trust-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    text-align: center;
+  }
+  .trust-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: var(--accent-light);
+    color: var(--accent-2);
+    border-radius: 99px;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .trust-inner p {
+    font-size: .88rem;
+    color: var(--ink-2);
+    line-height: 1.5;
+    margin: 0;
+  }
+  .trust-inner p strong {
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  /* ── Footer ── */
+  .home-footer {
+    text-align: center;
+    padding: 28px 24px;
+    border-top: 1px solid var(--border);
+    font-size: .8rem;
+    color: var(--ink-4);
+  }
+
+  /* ── Responsive ── */
+  @media(max-width: 860px) {
+    .features-grid { grid-template-columns: 1fr 1fr; }
+    .cta-banner { flex-direction: column; text-align: center; padding: 48px 32px; }
+    .cta-banner::before { display: none; }
+  }
+  @media(max-width: 640px) {
+    .home-nav { padding: 0 20px; }
+    .home-hero { padding: 56px 20px 64px; }
+    .hero-headline { font-size: clamp(2.4rem, 10vw, 3.2rem); }
+    .stats-inner { grid-template-columns: 1fr; gap: 24px; }
+    .stat-block { border-right: none; border-bottom: 1px solid var(--border); padding: 0 0 24px; }
+    .stat-block:last-child { border-bottom: none; padding-bottom: 0; }
+    .features-grid { grid-template-columns: 1fr; }
+    .features-section { padding: 64px 20px; }
+    .cta-banner { margin: 0 16px 64px; padding: 40px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav class="home-nav" id="homeNav">
+  <a href="index.html" class="brand brand-with-icon logo-only" style="text-decoration:none;display:inline-flex;align-items:center;gap:10px" aria-label="Galien">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="40" height="40" style="flex-shrink:0;border-radius:10px">
+      <rect x="0" y="0" width="64" height="64" rx="16" fill="#0d9488"/>
+      <rect x="18" y="18" width="28" height="5" rx="2.5" fill="white" opacity="0.9"/>
+      <rect x="18" y="18" width="5" height="28" rx="2.5" fill="white" opacity="0.9"/>
+      <rect x="18" y="41" width="28" height="5" rx="2.5" fill="white" opacity="0.9"/>
+      <rect x="33" y="30" width="13" height="5" rx="2.5" fill="white" opacity="0.9"/>
+      <rect x="41" y="30" width="5" height="16" rx="2.5" fill="white" opacity="0.9"/>
+    </svg>
+  </a>
+  <div class="nav-actions" id="homeNavActions">
+    <a class="link" href="login.html" style="font-size:.88rem;font-weight:600">Connexion</a>
+    <a class="btn" href="login.html" style="padding:8px 20px;font-size:.88rem">Commencer</a>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<section class="home-hero">
+  <div class="hero-dots"></div>
+  <div class="hero-inner">
+    <div class="auth-logo-block" style="margin-bottom:28px;animation:fadeUp .5s ease both">
+      <img src="assets/galien-icon.svg" alt="Galien" class="auth-logo-mark">
+      <div class="auth-logo-word">Galien</div>
+    </div>
+
+    <h1 class="hero-headline">
+      Révisez avec<br><em>clarté et méthode.</em>
+    </h1>
+
+    <p class="hero-sub">
+      La plateforme de révision QCM dédiée aux étudiants en pharmacie
+      de la faculté de médecine d'Oran — des milliers de questions
+      issues des concours de résidanat et des EMDs.
+    </p>
+
+    <div class="hero-cta">
+      <a class="btn" href="login.html">
+        Commencer
+      </a>
+      <a href="#features" class="btn-ghost-link">
+        Découvrir les fonctionnalités
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Trust banner ── -->
+<div class="trust-banner">
+  <div class="trust-inner">
+    <div class="trust-badge">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+      </svg>
+      Contenu vérifié
+    </div>
+    <p>
+      Questions issues des <strong>concours de résidanat et des EMDs — Faculté de médecine d'Oran</strong> —
+      sélectionnées par les <strong>majors des promotions pharmacie 2024 et 2025</strong>.
+    </p>
+  </div>
+</div>
+
+<!-- ── Stats ── -->
+<div class="stats-strip">
+  <div class="stats-inner">
+    <div class="stat-block">
+      <div class="num">2<span>modes</span></div>
+      <div class="desc">Entraînement &amp; Examen</div>
+    </div>
+    <div class="stat-block">
+      <div class="num">3<span>systèmes</span></div>
+      <div class="desc">Tout ou rien · Partiel + · Partiel −</div>
+    </div>
+    <div class="stat-block">
+      <div class="num">+<span>milliers</span></div>
+      <div class="desc">Résidanat &amp; EMDs · Pharmacie Oran</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Features ── -->
+<section class="features-section" id="features">
+  <div class="features-header">
+    <span class="label">Fonctionnalités</span>
+    <h2>Tout ce qu'il faut, rien de superflu.</h2>
+  </div>
+
+  <div class="features-grid">
+    <div class="feat">
+      <div class="feat-icon">⚡</div>
+      <h3>Mode entraînement</h3>
+      <p>Correction immédiate avec explications et avance automatique configurable.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">⏱</div>
+      <h3>Mode examen</h3>
+      <p>Minuteur personnalisable, aucune correction pendant la session. Résultats détaillés à la fin.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">📊</div>
+      <h3>Résultats par question</h3>
+      <p>Chaque session enregistre vos réponses, les bonnes réponses et votre score question par question.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🏅</div>
+      <h3>Sélection par les meilleurs</h3>
+      <p>Questions choisies par les majors des sessions résidanat pharmacie d'Oran 2024 et 2025.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🔖</div>
+      <h3>Favoris &amp; notes</h3>
+      <p>Marquez les questions difficiles, ajoutez des notes personnelles, retrouvez-les facilement.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🎯</div>
+      <h3>Filtres précis</h3>
+      <p>Sélectionnez par module, cours ou source pour des sessions ciblées sur vos points faibles.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA Banner ── -->
+<div class="cta-banner">
+  <div class="cta-banner-text">
+    <span class="label">Prêt à commencer ?</span>
+    <h2>Votre prochaine session<br>commence maintenant.</h2>
+  </div>
+  <div class="cta-banner-action">
+    <a class="btn" href="login.html">Accéder à Galien</a>
+  </div>
+</div>
+
+<!-- ── Footer ── -->
+<footer class="home-footer">
+  © 2025 Galien — Plateforme de révision médicale
+</footer>
+
+<script src="js/api.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/profile-link.js"></script>
+<script>
+  const nav = document.getElementById('homeNav');
+  const heroLogo = document.querySelector('.auth-logo-block');
+  const navActions = document.getElementById('homeNavActions');
+
+  function updateNavState() {
+    if (!nav || !heroLogo) return;
+    const logoBottom = heroLogo.getBoundingClientRect().bottom;
+    nav.classList.toggle('scrolled', logoBottom <= 0);
+  }
+
+  async function syncNavAuthState() {
+    const token = localStorage.getItem('token');
+    if (!token || !navActions) return;
+    try {
+      const res = await fetch(`${API_URL}/users/me`, { headers: getAuthHeaders() });
+      if (!res.ok) return;
+      const me = await res.json();
+      const userName = me.display_name || me.email || 'Mon compte';
+      const link = document.createElement('a');
+      link.className = 'link';
+      link.href = 'dashboard.html';
+      link.style.fontSize = '.92rem';
+      link.style.fontWeight = '700';
+      link.textContent = userName;
+      navActions.innerHTML = '';
+      navActions.appendChild(link);
+    } catch (_) {}
+  }
+
+  updateNavState();
+  syncNavAuthState();
+  window.addEventListener('scroll', updateNavState, { passive: true });
+</script>
+</body>
+</html>

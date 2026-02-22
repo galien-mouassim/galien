@@ -1,0 +1,43 @@
+# Dependencies
+**/node_modules/
+
+# Environment / secrets
+.env
+**/.env
+*.env.local
+*.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime / uploads
+galien-backend/uploads/
+uploads/
+
+# Build / cache
+dist/
+build/
+.cache/
+coverage/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Temp files
+*.tmp
+*.bak
+*.swp
+*.swo
+*.sql~
+.tmp_*.sql
+
+# Local backups / exports
+galien-backup-*/
+*_ids.csv

@@ -1,0 +1,181 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Galien - QCM</title>
+<link rel="icon" type="image/svg+xml" href="assets/galien-icon.svg">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/qcm-old.css">
+</head>
+<body>
+<div class="qcm-wrap">
+  <div class="qcm-card">
+    <div class="qcm-headline-row">
+      <div class="progress" id="progress"></div>
+      <div class="jump-wrap">
+        <label for="jumpQuestion" class="muted">Aller a</label>
+        <select id="jumpQuestion" aria-label="Aller a une question"></select>
+      </div>
+    </div>
+    <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="timer" id="timer"></div>
+
+    <h2 id="question"></h2>
+
+    <div class="tag-row">
+      <div class="course-tag" id="moduleTag"></div>
+      <div class="course-tag" id="courseTag"></div>
+    </div>
+
+    <div id="options"></div>
+    <div class="explanation" id="explanation"></div>
+    <div class="question-note-inline hidden" id="questionNoteInline"></div>
+
+    <div class="q-actions">
+      <button class="icon-btn" id="favBtn" type="button" onclick="favoriteCurrent()" aria-label="Favori" title="Favori">
+        <i class="bi bi-heart icon-outline"></i>
+        <i class="bi bi-heart-fill icon-fill"></i>
+      </button>
+      <button class="icon-btn note" id="noteBtn" type="button" onclick="openNoteEditor()" aria-label="Notes" title="Mes notes">
+        <i class="bi bi-journal-text icon-outline"></i>
+        <i class="bi bi-journal-richtext icon-fill"></i>
+      </button>
+      <button class="icon-btn comment" id="commentBtn" type="button" onclick="toggleComments()" aria-label="Commentaires" title="Commentaires">
+        <i class="bi bi-chat icon-outline"></i>
+        <i class="bi bi-chat-fill icon-fill"></i>
+      </button>
+      <button class="icon-btn warn" id="flagBtn" type="button" onclick="flagCurrent()" aria-label="Signaler" title="Signaler">
+        <i class="bi bi-exclamation-circle icon-outline"></i>
+        <i class="bi bi-exclamation-circle-fill icon-fill"></i>
+      </button>
+      <button class="icon-btn pause" id="pauseIconBtn" type="button" onclick="pauseSession()" aria-label="Pause" title="Pause et reprendre plus tard">
+        <i class="bi bi-pause-circle icon-outline"></i>
+        <i class="bi bi-pause-circle-fill icon-fill"></i>
+      </button>
+      <button class="icon-btn end" id="endSessionBtn" type="button" onclick="endSessionNow()" aria-label="Terminer" title="Terminer la session maintenant">
+        <i class="bi bi-stop-circle icon-outline"></i>
+        <i class="bi bi-stop-circle-fill icon-fill"></i>
+      </button>
+    </div>
+
+    <div class="q-nav">
+      <button type="button" class="btn ghost" id="prevBtn" onclick="prevQuestion()">Question precedente</button>
+      <button type="button" id="nextBtn" onclick="next()">Question suivante</button>
+    </div>
+  </div>
+
+  <div class="comment-panel hidden" id="commentBox">
+    <div class="comment-header">
+      <div class="comment-title">
+        <h3>Commentaires <span class="muted" id="commentCount">(0)</span></h3>
+      </div>
+    </div>
+    <div id="commentsList" class="comment-list"></div>
+    <div class="comment-form">
+      <textarea id="commentInput" placeholder="Ajouter un commentaire..."></textarea>
+      <button type="button" id="sendCommentBtn" class="btn">Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<div id="noteModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Ma note personnelle</h3>
+    <p class="muted" id="noteLastEdited">Aucune note pour cette question.</p>
+    <label class="field">
+      <span>Note (max 1000 caracteres)</span>
+      <textarea id="noteInput" maxlength="1000" placeholder="Ajoutez une astuce, un rappel ou une explication personnelle..."></textarea>
+    </label>
+    <div class="note-meta-row">
+      <span id="noteCounter" class="muted">0 / 1000</span>
+      <label class="note-inline-toggle">
+        <input type="checkbox" id="showNoteInlineToggle">Afficher la note sous la question
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="saveNoteBtn">Enregistrer</button>
+      <button type="button" id="deleteNoteBtn">Supprimer</button>
+      <button type="button" id="cancelNoteBtn">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="reportModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Signaler la question</h3>
+    <label class="field">
+      <span>Raison</span>
+      <textarea id="reportReason" placeholder="Expliquez le probleme (erreur, ambiguite, doublon, etc.)"></textarea>
+    </label>
+    <div class="modal-actions">
+      <button type="button" id="sendReportBtn">Envoyer</button>
+      <button type="button" id="cancelReportBtn">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="favoriteModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Classer le favori</h3>
+    <label class="field">
+      <span>Tags (separes par des virgules)</span>
+      <input type="text" id="favoriteTagsInput" placeholder="ex: important, cardio, a revoir">
+    </label>
+    <div class="favorite-tag-picker">
+      <span class="muted">Tags existants</span>
+      <select id="favoriteTagSuggestions" class="favorite-tag-suggestions" multiple size="6" aria-label="Liste des tags existants"></select>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="saveFavoriteBtn">Enregistrer</button>
+      <button type="button" id="removeFavoriteBtn">Retirer des favoris</button>
+      <button type="button" id="cancelFavoriteBtn">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="commentEditModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Modifier le commentaire</h3>
+    <label class="field">
+      <span>Commentaire</span>
+      <textarea id="commentEditInput" placeholder="Votre commentaire..."></textarea>
+    </label>
+    <div class="modal-actions">
+      <button type="button" id="commentEditSave">Enregistrer</button>
+      <button type="button" id="commentEditCancel">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="commentDeleteModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Supprimer le commentaire</h3>
+    <p class="muted">Cette action est definitive.</p>
+    <div class="modal-actions">
+      <button type="button" id="commentDeleteConfirm">Supprimer</button>
+      <button type="button" id="commentDeleteCancel">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="endSessionModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Terminer la session</h3>
+    <p class="muted">Voulez-vous vraiment terminer maintenant ? Le score sera calcule sur les questions deja faites.</p>
+    <div class="modal-actions">
+      <button type="button" id="confirmEndSessionBtn">Terminer</button>
+      <button type="button" id="cancelEndSessionBtn">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/qcm.js"></script>
+<script src="js/profile-link.js"></script>
+</body>
+</html>
+
+
+

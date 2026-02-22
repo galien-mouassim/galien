@@ -1,5 +1,8 @@
 if (!window.API_URL) {
-  window.API_URL = 'http://localhost:5000/api';
+  const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  window.API_URL = isLocal
+    ? 'http://localhost:5000/api'
+    : `${window.location.origin}/api`;
 }
 
 (function enforceRouteAuth() {

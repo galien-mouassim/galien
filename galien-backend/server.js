@@ -16,10 +16,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 const uploadsDir = path.join(__dirname, 'uploads');
+const frontendDir = path.join(__dirname, '..', 'galien-frontend');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
 app.use('/uploads', express.static(uploadsDir));
+if (fs.existsSync(frontendDir)) {
+    app.use(express.static(frontendDir));
+}
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -37,8 +41,8 @@ const upload = multer({
 });
 
 // Health check
-app.get('/', (req, res) => {
-    res.send('Galien backend running ✅');
+app.get('/health', (req, res) => {
+    res.send('Galien backend running OK');
 });
 
 // DB test

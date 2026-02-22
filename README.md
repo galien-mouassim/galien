@@ -57,6 +57,38 @@ npx serve .
 
 Then open the provided local URL.
 
+## Real-World Test (Public URL)
+Recommended quick setup: deploy backend + frontend together as one Render Web Service.
+
+1. Push latest code to GitHub.
+2. On Render, create a PostgreSQL database.
+3. Create a **Web Service** from this repo.
+4. Configure:
+```txt
+Root Directory: (leave empty / repo root)
+Build Command: npm --prefix galien-backend install
+Start Command: npm --prefix galien-backend start
+```
+5. Add environment variables in Render:
+```env
+PORT=10000
+DB_USER=<from Render Postgres>
+DB_PASSWORD=<from Render Postgres>
+DB_HOST=<from Render Postgres>
+DB_PORT=<from Render Postgres>
+DB_DATABASE=<from Render Postgres>
+JWT_SECRET=<strong-random-secret>
+```
+6. Deploy, then open:
+```txt
+https://<your-service>.onrender.com/login.html
+```
+
+Notes:
+- Frontend is served by Express in production.
+- API auto-uses same domain in production (`/api`), so no manual API URL edits are needed.
+- Health endpoint: `GET /health`
+
 ## Main Features
 - Training and exam modes
 - Timer and correction systems

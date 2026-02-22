@@ -15,7 +15,9 @@ const authMiddleware = require('./middleware/authMiddleware');
 const app = express();
 app.use(cors());
 app.use(express.json());
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = process.env.UPLOADS_DIR
+    ? path.resolve(process.env.UPLOADS_DIR)
+    : (process.env.RENDER ? path.join('/tmp', 'galien-uploads') : path.join(__dirname, 'uploads'));
 const frontendDir = path.join(__dirname, '..', 'galien-frontend');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
@@ -27,7 +29,7 @@ if (fs.existsSync(frontendDir)) {
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, 'uploads'));
+        cb(null, uploadsDir);
     },
     filename: (req, file, cb) => {
         const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -37,7 +39,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 }
+    limits: { fileSize: 10 * 1024 * 1024 }
 });
 
 // Health check
@@ -819,9 +821,9 @@ app.put('/api/users/me', authMiddleware, async (req, res) => {
 app.post('/api/users/me/photo', authMiddleware, upload.single('photo'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
-        const originalPath = path.join(__dirname, 'uploads', req.file.filename);
+        const originalPath = path.join(uploadsDir, req.file.filename);
         const compressedName = req.file.filename.replace(/\.[^.]+$/, '') + '.jpg';
-        const compressedPath = path.join(__dirname, 'uploads', compressedName);
+        const compressedPath = path.join(uploadsDir, compressedName);
 
         await sharp(originalPath)
             .rotate()
@@ -840,7 +842,8 @@ app.post('/api/users/me/photo', authMiddleware, upload.single('photo'), async (r
         );
         res.json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('Photo upload error:', err);
+        res.status(500).json({ error: err.message || 'Photo upload failed' });
     }
 });
 

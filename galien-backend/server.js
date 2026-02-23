@@ -142,8 +142,14 @@ async function ensureCoreSchema() {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS modules (
             id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE
+            name TEXT NOT NULL UNIQUE,
+            module_class TEXT
         )
+    `);
+
+    await pool.query(`
+        ALTER TABLE modules
+        ADD COLUMN IF NOT EXISTS module_class TEXT
     `);
 
     await pool.query(`
@@ -828,7 +834,7 @@ app.delete('/api/questions/:id', authMiddleware, requireAdmin, async (req, res) 
 app.get('/api/modules', async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT id, name FROM modules ORDER BY name'
+            'SELECT id, name, module_class FROM modules ORDER BY name'
         );
         res.json(result.rows);
     } catch (err) {

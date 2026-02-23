@@ -646,6 +646,15 @@ body {
     Messages
   </div>
 
+  <div class="adm-nav-item" data-panel="users">
+    <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="8.5" cy="7" r="4"/>
+      <path d="M20 8v6M23 11h-6"/>
+    </svg>
+    Utilisateurs
+  </div>
+
   <div class="adm-sidebar-spacer"></div>
 
   <div class="adm-sidebar-footer">
@@ -954,6 +963,53 @@ body {
       </div>
     </div>
 
+    <!-- ═══ PANEL: USERS ═══ -->
+    <div class="adm-panel" id="panel-users">
+      <div class="adm-section-header">
+        <div>
+          <div class="adm-section-title">Gestion des comptes</div>
+          <div class="adm-section-desc">Créer, modifier les rôles et réinitialiser les mots de passe.</div>
+        </div>
+      </div>
+
+      <div class="adm-card" style="max-width:760px">
+        <div class="adm-card-title">Créer un utilisateur</div>
+        <div class="grid-4">
+          <label class="field">
+            <span>Email</span>
+            <input type="email" id="new_user_email" placeholder="utilisateur@galien.com">
+          </label>
+          <label class="field">
+            <span>Nom affiché</span>
+            <input type="text" id="new_user_display_name" placeholder="Nom Prénom">
+          </label>
+          <label class="field">
+            <span>Mot de passe</span>
+            <input type="text" id="new_user_password" placeholder="mot de passe">
+          </label>
+          <label class="field">
+            <span>Rôle</span>
+            <select id="new_user_role">
+              <option value="user">user</option>
+              <option value="admin">admin</option>
+            </select>
+          </label>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button type="button" class="btn" id="createUserBtn">Créer le compte</button>
+          <p id="userManageStatus" class="muted" style="margin:0"></p>
+        </div>
+      </div>
+
+      <div class="adm-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div class="adm-card-title" style="margin-bottom:0">Comptes existants</div>
+          <button type="button" class="btn ghost btn-sm" id="refreshUsersBtn">Rafraîchir</button>
+        </div>
+        <div id="usersAdminList"></div>
+      </div>
+    </div>
+
   </div><!-- /adm-content -->
 </main>
 
@@ -997,6 +1053,7 @@ const panelMeta = {
   import:    { title: 'Import CSV',     sub: 'Importez des questions en masse' },
   reports:   { title: 'Signalements',   sub: 'Questions signalées par les utilisateurs' },
   messages:  { title: 'Messages',       sub: 'Contactez vos utilisateurs' },
+  users:     { title: 'Utilisateurs',   sub: 'Créez et gérez les comptes' },
 };
 
 function switchPanel(name) {
@@ -1319,6 +1376,55 @@ async function loadUsersForMessages() {
   });
 }
 
+function renderUsersAdminList(rows){
+  const wrap = document.getElementById('usersAdminList');
+  if(!wrap) return;
+  if(!rows?.length){
+    wrap.innerHTML = '<div class="adm-empty"><p>Aucun utilisateur.</p></div>';
+    return;
+  }
+  wrap.innerHTML = rows.map(u => `
+    <div class="question-item" data-user-row="${u.id}">
+      <div class="question-item-text">#${u.id} - ${esc(u.email)}</div>
+      <div class="grid-3" style="margin:10px 0 8px">
+        <label class="field" style="margin:0">
+          <span>Nom affiché</span>
+          <input type="text" data-user-display="${u.id}" value="${esc(u.display_name||'')}">
+        </label>
+        <label class="field" style="margin:0">
+          <span>Rôle</span>
+          <select data-user-role="${u.id}">
+            <option value="user" ${u.role==='user'?'selected':''}>user</option>
+            <option value="admin" ${u.role==='admin'?'selected':''}>admin</option>
+          </select>
+        </label>
+        <label class="field" style="margin:0">
+          <span>Nouveau mot de passe</span>
+          <input type="text" data-user-password="${u.id}" placeholder="laisser vide si inchangé">
+        </label>
+      </div>
+      <div class="question-item-actions">
+        <button class="btn-inline btn-sm" data-user-save="${u.id}">💾 Enregistrer</button>
+        <button class="btn-inline btn-sm" style="color:var(--red)" data-user-delete="${u.id}">🗑 Supprimer</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadUsersAdminManagement(){
+  const status = document.getElementById('userManageStatus');
+  try{
+    const res = await fetch(`${API_URL}/admin/users?page_size=500`, { headers: getAuthHeaders() });
+    if(!res.ok) throw new Error('load failed');
+    const rows = await res.json();
+    renderUsersAdminList(rows);
+    loadUsersForMessages();
+    if(status) status.textContent = '';
+  }catch(_){
+    if(status) status.textContent = 'Impossible de charger les utilisateurs.';
+  }
+}
+
 const form = document.getElementById('addQuestionForm');
 form.addEventListener('submit', async e => {
   e.preventDefault();
@@ -1413,6 +1519,7 @@ document.getElementById('saveEditBtn').addEventListener('click',async()=>{
 loadQuestionsAdmin();
 loadReports();
 loadUsersForMessages();
+loadUsersAdminManagement();
 
 async function loadModules() {
   const res=await fetch(`${API_URL}/modules`);
@@ -1531,6 +1638,95 @@ document.getElementById('sendMessageBtn').addEventListener('click',async()=>{
   else{status.textContent='Erreur lors de l\'envoi.';}
 });
 
+document.getElementById('createUserBtn')?.addEventListener('click', async () => {
+  const status = document.getElementById('userManageStatus');
+  const email = document.getElementById('new_user_email').value.trim();
+  const display_name = document.getElementById('new_user_display_name').value.trim();
+  const password = document.getElementById('new_user_password').value;
+  const role = document.getElementById('new_user_role').value;
+  if(!email || !password){
+    status.textContent = 'Email et mot de passe sont requis.';
+    return;
+  }
+  status.textContent = 'Création...';
+  try{
+    const res = await fetch(`${API_URL}/admin/users`, {
+      method:'POST',
+      headers:getAuthHeaders(),
+      body:JSON.stringify({ email, display_name, password, role })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok){
+      status.textContent = data.message || data.error || 'Erreur lors de la création.';
+      return;
+    }
+    document.getElementById('new_user_email').value='';
+    document.getElementById('new_user_display_name').value='';
+    document.getElementById('new_user_password').value='';
+    document.getElementById('new_user_role').value='user';
+    status.textContent = 'Compte créé.';
+    await loadUsersAdminManagement();
+  }catch(_){
+    status.textContent = 'Erreur lors de la création.';
+  }
+});
+
+document.getElementById('refreshUsersBtn')?.addEventListener('click', loadUsersAdminManagement);
+
+document.getElementById('usersAdminList')?.addEventListener('click', async (e) => {
+  const saveBtn = e.target.closest('[data-user-save]');
+  const deleteBtn = e.target.closest('[data-user-delete]');
+  const status = document.getElementById('userManageStatus');
+
+  if(saveBtn){
+    const userId = saveBtn.getAttribute('data-user-save');
+    const display_name = document.querySelector(`[data-user-display="${userId}"]`)?.value?.trim() ?? '';
+    const role = document.querySelector(`[data-user-role="${userId}"]`)?.value ?? 'user';
+    const password = document.querySelector(`[data-user-password="${userId}"]`)?.value ?? '';
+    const payload = { display_name, role };
+    if(password.trim()) payload.password = password.trim();
+    saveBtn.disabled = true;
+    status.textContent = 'Mise à jour...';
+    try{
+      const res = await fetch(`${API_URL}/admin/users/${userId}`, {
+        method:'PUT',
+        headers:getAuthHeaders(),
+        body:JSON.stringify(payload)
+      });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok){
+        status.textContent = data.message || data.error || 'Erreur de mise à jour.';
+      }else{
+        status.textContent = 'Utilisateur mis à jour.';
+        await loadUsersAdminManagement();
+      }
+    }catch(_){
+      status.textContent = 'Erreur de mise à jour.';
+    }finally{
+      saveBtn.disabled = false;
+    }
+    return;
+  }
+
+  if(deleteBtn){
+    const userId = deleteBtn.getAttribute('data-user-delete');
+    openRefConfirm('Supprimer ce compte utilisateur ?', async () => {
+      status.textContent = 'Suppression...';
+      const res = await fetch(`${API_URL}/admin/users/${userId}`, {
+        method:'DELETE',
+        headers:getAuthHeaders()
+      });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok){
+        status.textContent = data.message || data.error || 'Erreur de suppression.';
+      }else{
+        status.textContent = 'Utilisateur supprimé.';
+        await loadUsersAdminManagement();
+      }
+    });
+  }
+});
+
 function openRefConfirm(message, onConfirm){
   const modal=document.getElementById('refConfirmModal');
   const text=document.getElementById('refConfirmText');
@@ -1554,7 +1750,7 @@ document.getElementById('addCourseInlineBtn').addEventListener('click',async()=>
   const moduleId=document.getElementById('module_id').value;
   if(!name)return;
   if(!moduleId){status.textContent='Sélectionnez un module avant d’ajouter un cours.';return;}
-  const res=await fetch(`${API_URL}/courses`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,module_id:moduleId})});
+  const res=await fetch(`${API_URL}/courses`,{method:'POST',headers:getAuthHeaders(),body:JSON.stringify({name,module_id:moduleId})});
   if(!res.ok){status.textContent='Erreur lors de l’ajout du cours.';return;}
   document.getElementById('new_course_name').value='';
   status.textContent='Cours ajouté.';
@@ -1566,7 +1762,7 @@ document.getElementById('deleteCourseInlineBtn').addEventListener('click',async(
   const courseId=document.getElementById('manage_course_id').value;
   if(!courseId){status.textContent='Choisissez un cours à supprimer.';return;}
   openRefConfirm('Supprimer ce cours ?', async () => {
-    const res=await fetch(`${API_URL}/courses/${courseId}`,{method:'DELETE'});
+    const res=await fetch(`${API_URL}/courses/${courseId}`,{method:'DELETE',headers:getAuthHeaders()});
     if(res.ok){
       await loadCourses();
       await loadFilterCourses();
@@ -1582,7 +1778,7 @@ document.getElementById('deleteCourseInlineBtn').addEventListener('click',async(
 document.getElementById('addModuleInlineBtn').addEventListener('click',async()=>{
   const name=document.getElementById('new_module_name').value.trim();
   if(!name)return;
-  const res=await fetch(`${API_URL}/modules`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  const res=await fetch(`${API_URL}/modules`,{method:'POST',headers:getAuthHeaders(),body:JSON.stringify({name})});
   if(!res.ok){alert('Erreur lors de l\'ajout du module.');return;}
   document.getElementById('new_module_name').value='';
   await loadModules();
@@ -1593,7 +1789,7 @@ document.getElementById('addSourceInlineBtn').addEventListener('click',async()=>
   status.textContent='';
   const name=document.getElementById('new_source_name').value.trim();
   if(!name)return;
-  const res=await fetch(`${API_URL}/sources`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  const res=await fetch(`${API_URL}/sources`,{method:'POST',headers:getAuthHeaders(),body:JSON.stringify({name})});
   if(!res.ok){status.textContent='Erreur lors de l’ajout de la source.';return;}
   document.getElementById('new_source_name').value='';
   status.textContent='Source ajoutée.';
@@ -1606,7 +1802,7 @@ document.getElementById('deleteSourceInlineBtn').addEventListener('click',async(
   const sourceId=document.getElementById('manage_source_id').value;
   if(!sourceId){status.textContent='Choisissez une source à supprimer.';return;}
   openRefConfirm('Supprimer cette source ?', async () => {
-    const res=await fetch(`${API_URL}/sources/${sourceId}`,{method:'DELETE'});
+    const res=await fetch(`${API_URL}/sources/${sourceId}`,{method:'DELETE',headers:getAuthHeaders()});
     if(res.ok){
       await loadSources();
       await loadFilterSources();

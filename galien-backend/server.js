@@ -1921,12 +1921,131 @@ app.get('/api/admin/users', authMiddleware, async (req, res) => {
         if (req.user.role !== 'admin') {
             return res.status(403).json({ message: 'Forbidden' });
         }
+        const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 200, maxPageSize: 500 });
         const result = await pool.query(
             `SELECT id, email, display_name, role
              FROM users
-             ORDER BY email`
+             ORDER BY email
+             LIMIT $1 OFFSET $2`,
+            [pageSize, offset]
         );
         res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/admin/users', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const password = String(req.body?.password || '');
+        const displayName = String(req.body?.display_name || '').trim() || null;
+        const roleRaw = String(req.body?.role || 'user').trim().toLowerCase();
+        const role = roleRaw === 'admin' ? 'admin' : 'user';
+
+        if (!email || !password) {
+            return res.status(400).json({ message: 'email and password are required' });
+        }
+
+        const hash = await bcrypt.hash(password, 10);
+        const result = await pool.query(
+            `INSERT INTO users (email, password, role, display_name)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, email, display_name, role, created_at`,
+            [email, hash, role, displayName]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') {
+            return res.status(409).json({ message: 'email already exists' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const targetId = Number(req.params.id);
+        if (!Number.isInteger(targetId) || targetId <= 0) {
+            return res.status(400).json({ message: 'invalid user id' });
+        }
+
+        const current = await pool.query('SELECT id, role FROM users WHERE id = $1', [targetId]);
+        if (!current.rows.length) return res.status(404).json({ message: 'user not found' });
+
+        const updates = [];
+        const params = [];
+
+        if (req.body.email !== undefined) {
+            const email = String(req.body.email || '').trim().toLowerCase();
+            if (!email) return res.status(400).json({ message: 'email cannot be empty' });
+            params.push(email);
+            updates.push(`email = $${params.length}`);
+        }
+
+        if (req.body.display_name !== undefined) {
+            const displayName = String(req.body.display_name || '').trim() || null;
+            params.push(displayName);
+            updates.push(`display_name = $${params.length}`);
+        }
+
+        if (req.body.role !== undefined) {
+            const requestedRole = String(req.body.role || '').trim().toLowerCase();
+            const role = requestedRole === 'admin' ? 'admin' : 'user';
+            if (req.user.id === targetId && role !== 'admin') {
+                return res.status(400).json({ message: 'you cannot remove your own admin role' });
+            }
+            params.push(role);
+            updates.push(`role = $${params.length}`);
+        }
+
+        if (req.body.password !== undefined) {
+            const plain = String(req.body.password || '');
+            if (plain.length < 4) {
+                return res.status(400).json({ message: 'password must have at least 4 characters' });
+            }
+            const hash = await bcrypt.hash(plain, 10);
+            params.push(hash);
+            updates.push(`password = $${params.length}`);
+        }
+
+        if (!updates.length) {
+            return res.status(400).json({ message: 'no changes provided' });
+        }
+
+        params.push(targetId);
+        const result = await pool.query(
+            `UPDATE users
+             SET ${updates.join(', ')}
+             WHERE id = $${params.length}
+             RETURNING id, email, display_name, role, created_at`,
+            params
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') {
+            return res.status(409).json({ message: 'email already exists' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const targetId = Number(req.params.id);
+        if (!Number.isInteger(targetId) || targetId <= 0) {
+            return res.status(400).json({ message: 'invalid user id' });
+        }
+        if (req.user.id === targetId) {
+            return res.status(400).json({ message: 'you cannot delete your own account' });
+        }
+
+        const result = await pool.query(
+            'DELETE FROM users WHERE id = $1 RETURNING id, email, role',
+            [targetId]
+        );
+        if (!result.rows.length) return res.status(404).json({ message: 'user not found' });
+        res.json({ deleted: result.rows[0] });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

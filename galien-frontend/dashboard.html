@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -41,148 +41,22 @@
       <select id="sel_source" class="multi-select" multiple style="display:none"></select>
       <select id="sel_favtag" class="multi-select" multiple style="display:none"></select>
 
-      <div class="dash-panel principal-filter-panel" id="principalFilterPanel">
-        <div class="principal-filter-head">
-          <div class="dash-panel-title"><i class="bi bi-magic"></i> Constructeur de filtre</div>
-          <div class="filter-mode-switch">
-            <button class="mode-pill active" id="normalFilterBtn" type="button">Filtre normal</button>
-            <button class="mode-pill" id="advancedFilterBtn" type="button">Filtre avance</button>
-          </div>
-        </div>
-
-        <div id="normalFilterBuilder">
-          <div class="builder-step">
-            <div class="builder-label">1. Classe</div>
-            <div class="principal-class-cards" id="principalClassCards"></div>
-          </div>
-          <div class="builder-step">
-            <div class="builder-label">2. Modules</div>
-            <div class="principal-module-chips" id="principalModuleChips"></div>
-          </div>
-          <div class="builder-step">
-            <div class="builder-label">3. Cours</div>
-            <div class="principal-course-chips" id="principalCourseChips"></div>
-          </div>
-          <div class="builder-step">
-            <div class="builder-label">4. Sources</div>
-            <div class="principal-source-pills" id="principalSourcePills"></div>
-          </div>
-          <div class="builder-step">
-            <div class="builder-label">5. Tags favoris (optionnel)</div>
-            <div class="principal-favtag-chips" id="principalFavtagChips"></div>
-          </div>
-          <div class="filters-count-wrap principal-count-wrap">
-            <div class="question-counter">
-              <span class="question-counter-num js-questions-count">…</span>
-              <span class="question-counter-label">questions disponibles</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="dash-panel filter-panel hidden" id="filtersRow">
-        <div class="filter-panel-header">
-          <div class="dash-panel-title"><i class="bi bi-sliders"></i> Filtres</div>
+      <!-- Wizard filter builder -->
+      <div class="dash-panel wb-panel">
+        <div class="wb-header">
+          <div class="dash-panel-title" style="margin-bottom:0"><i class="bi bi-funnel"></i> Filtres de session</div>
           <button class="filter-reset-btn" id="filterResetBtn" type="button">
             <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser
           </button>
         </div>
-
-        <!-- Row 1: structural filters -->
-        <div class="filter-grid filter-grid-top">
-          <!-- MODULE -->
-          <div class="filter-item">
-            <div class="filter-item-header">
-              <div class="filter-item-label">
-                <span class="filter-icon"><i class="bi bi-grid-3x3-gap"></i></span>
-                <span>Module</span>
-              </div>
-              <span class="filter-badge" id="badge_module">Tous</span>
-            </div>
-            <div class="filter-select-wrap" id="wrap_module">
-              <button class="ms-trigger" id="trigger_module" type="button">
-                <span class="ms-trigger-text placeholder" id="text_module">Tous les modules</span>
-                <i class="bi bi-chevron-down ms-chevron"></i>
-              </button>
-              <div class="ms-dropdown hidden" id="drop_module">
-                <div class="ms-search-wrap"><i class="bi bi-search"></i><input class="ms-search" placeholder="Rechercher…" id="search_module"></div>
-                <div class="ms-select-all" id="all_module"><div class="ms-all-checkbox" id="allbox_module"></div><span id="alltext_module">Tout sélectionner</span></div>
-                <div class="ms-options" id="opts_module"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- COURS -->
-          <div class="filter-item">
-            <div class="filter-item-header">
-              <div class="filter-item-label">
-                <span class="filter-icon"><i class="bi bi-book"></i></span>
-                <span>Cours</span>
-              </div>
-              <span class="filter-badge" id="badge_course">Tous</span>
-            </div>
-            <div class="filter-select-wrap" id="wrap_course">
-              <button class="ms-trigger" id="trigger_course" type="button">
-                <span class="ms-trigger-text placeholder" id="text_course">Tous les cours</span>
-                <i class="bi bi-chevron-down ms-chevron"></i>
-              </button>
-              <div class="ms-dropdown hidden" id="drop_course">
-                <div class="ms-search-wrap"><i class="bi bi-search"></i><input class="ms-search" placeholder="Rechercher…" id="search_course"></div>
-                <div class="ms-select-all" id="all_course"><div class="ms-all-checkbox" id="allbox_course"></div><span id="alltext_course">Tout sélectionner</span></div>
-                <div class="ms-options" id="opts_course"></div>
-              </div>
-            </div>
-          </div>
+        <div id="wb-blocks"></div>
+        <div id="wb-wizard"></div>
+        <div id="wb-add-wrap" style="display:none;padding:12px 0 0">
+          <button class="wb-add-btn" id="wb-add-btn" type="button">
+            <i class="bi bi-plus-circle"></i> Ajouter un autre module
+          </button>
         </div>
-
-        <!-- Row 2: source + favtag -->
-        <div class="filter-grid filter-grid-bottom">
-          <!-- SOURCE -->
-          <div class="filter-item">
-            <div class="filter-item-header">
-              <div class="filter-item-label">
-                <span class="filter-icon"><i class="bi bi-file-earmark-text"></i></span>
-                <span>Source</span>
-              </div>
-              <span class="filter-badge" id="badge_source">Tous</span>
-            </div>
-            <div class="filter-select-wrap" id="wrap_source">
-              <button class="ms-trigger" id="trigger_source" type="button">
-                <span class="ms-trigger-text placeholder" id="text_source">Toutes les sources</span>
-                <i class="bi bi-chevron-down ms-chevron"></i>
-              </button>
-              <div class="ms-dropdown hidden" id="drop_source">
-                <div class="ms-search-wrap"><i class="bi bi-search"></i><input class="ms-search" placeholder="Rechercher…" id="search_source"></div>
-                <div class="ms-select-all" id="all_source"><div class="ms-all-checkbox" id="allbox_source"></div><span id="alltext_source">Tout sélectionner</span></div>
-                <div class="ms-options" id="opts_source"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- TAG FAVORIS -->
-          <div class="filter-item filter-item--fav">
-            <div class="filter-item-header">
-              <div class="filter-item-label">
-                <span class="filter-icon filter-icon--fav"><i class="bi bi-heart-fill"></i></span>
-                <span>Tags favoris</span>
-              </div>
-              <span class="filter-badge filter-badge--fav" id="badge_favtag">Tous</span>
-            </div>
-            <div class="filter-select-wrap" id="wrap_favtag">
-              <button class="ms-trigger ms-trigger--fav" id="trigger_favtag" type="button">
-                <span class="ms-trigger-text placeholder" id="text_favtag">Tous les tags</span>
-                <i class="bi bi-chevron-down ms-chevron"></i>
-              </button>
-              <div class="ms-dropdown hidden" id="drop_favtag">
-                <div class="ms-search-wrap"><i class="bi bi-search"></i><input class="ms-search" placeholder="Rechercher un tag…" id="search_favtag"></div>
-                <div class="ms-select-all" id="all_favtag"><div class="ms-all-checkbox ms-all-checkbox--fav" id="allbox_favtag"></div><span id="alltext_favtag">Tout sélectionner</span></div>
-                <div class="ms-options" id="opts_favtag"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="filters-count-wrap">
+        <div class="filters-count-wrap" style="margin-top:12px">
           <div class="question-counter">
             <span class="question-counter-num js-questions-count">…</span>
             <span class="question-counter-label">questions disponibles</span>
@@ -290,393 +164,417 @@
 <script src="js/theme.js"></script>
 <script src="js/dashboard.js"></script>
 <script>
-// ─── Patch: dashboard.js calls setOptions() on the hidden native selects.
-// After each call we rebuild the custom dropdown options to match.
-// We wrap setOptions to hook into it.
-(function() {
+/* ════════════════════════════════════════════════════════════════
+   GALIEN — Wizard Filter Builder v2
+   5-step wizard per block: classe → module → cours → sources → tags
+   Syncs to hidden native <select>s so dashboard.js works unchanged.
+════════════════════════════════════════════════════════════════ */
+
+/* ── Class catalogue ─────────────────────────────────────────── */
+const WB_CLASSES = {
+  biologiques:     { id:'biologiques',     name:'Biologiques',     icon:'🧫', color:'#0d9488', ghost:'#f0fdfa', desc:'Biochimie · Hémobiologie · Microbiologie · Parasitologie · Immunologie' },
+  fondamentaux:    { id:'fondamentaux',    name:'Fondamentaux',    icon:'⚗️',  color:'#7c3aed', ghost:'#f5f3ff', desc:'Biophysique · Chimie analytique · Chimie minérale · Hydrobromatologie' },
+  pharmaceutiques: { id:'pharmaceutiques', name:'Pharmaceutiques', icon:'💊', color:'#d97706', ghost:'#fffbeb', desc:'Pharmacologie · Galénique · Toxicologie · Pharmacognosie…' },
+};
+
+/* ── State ────────────────────────────────────────────────────── */
+let wbBlocks  = [];    // confirmed filter blocks
+let wbWizard  = null;  // active wizard: {step,classId,moduleId,moduleLabel,availCourses,availSources,courseIds,sourceIds,favtags,favEnabled}
+let wbCourseCache = {}; // moduleId → [{id,label}]
+let wbSourceCache = {}; // moduleId → [{id,label}]
+let wbFavtagCache = []; // [{id,label}]
+
+/* ── Hook into dashboard.js setOptions so favtag cache stays fresh ── */
+(function(){
   const _orig = window.setOptions;
   if (typeof _orig !== 'function') return;
-  const map = { sel_module:'module', sel_course:'course', sel_source:'source', sel_favtag:'favtag' };
   window.setOptions = function(selectEl, items, getLabel, selectedValues) {
     _orig(selectEl, items, getLabel, selectedValues);
-    const key = selectEl && map[selectEl.id];
-    if (key) rebuildDropdown(key, selectEl);
+    if (selectEl && selectEl.id === 'sel_favtag') {
+      wbFavtagCache = Array.from(selectEl.options).map(o => ({ id: o.value, label: o.textContent.trim() }));
+      if (wbWizard && wbWizard.step === 4) wbRender();
+    }
+    if (selectEl && selectEl.id === 'sel_course') {
+      items.forEach(c => {
+        const mid = String(c.module_id);
+        if (!wbCourseCache[mid]) wbCourseCache[mid] = [];
+        if (!wbCourseCache[mid].find(x => x.id === String(c.id ?? c.value)))
+          wbCourseCache[mid].push({ id: String(c.id ?? c.value), label: getLabel(c) });
+      });
+    }
+    if (selectEl && selectEl.id === 'sel_source') {
+      items.forEach(s => {
+        const mid = String(s.module_id || '');
+        if (!mid) return;
+        if (!wbSourceCache[mid]) wbSourceCache[mid] = [];
+        if (!wbSourceCache[mid].find(x => x.id === String(s.id ?? s.value)))
+          wbSourceCache[mid].push({ id: String(s.id ?? s.value), label: getLabel(s) });
+      });
+    }
   };
 })();
 
-// ─── Multi-select state ───────────────────────────────────────────────────
-const MS_FILTERS   = ['module', 'course', 'source', 'favtag'];
-const MS_NATIVE_ID = { module:'sel_module', course:'sel_course', source:'sel_source', favtag:'sel_favtag' };
-const MS_PLACEHOLDER = { module:'Tous les modules', course:'Tous les cours', source:'Toutes les sources', favtag:'Tous les tags' };
-const msState = { module:new Set(), course:new Set(), source:new Set(), favtag:new Set() };
-const principalState = { activeClass: null, filterMode: 'normal' };
-const classLabels = {
-  biologiques: { name: 'Biologiques', desc: 'Biochimie, microbio, immuno…' },
-  fondamentaux: { name: 'Fondamentaux', desc: 'Analytique, minérale, biophysique…' },
-  pharmaceutiques: { name: 'Pharmaceutiques', desc: 'Pharmacologie, galénique, toxico…' }
-};
+/* ── Sync blocks → native selects (triggers dashboard.js count) ── */
+function wbSync() {
+  const sm = document.getElementById('sel_module');
+  const sc = document.getElementById('sel_course');
+  const ss = document.getElementById('sel_source');
+  const sf = document.getElementById('sel_favtag');
 
-function getModulesWithClass() {
-  const rows = Array.isArray(window.__dashboardModules) ? window.__dashboardModules : [];
-  return rows.map(m => ({ ...m, module_class: (m.module_class || 'pharmaceutiques').toLowerCase() }));
-}
-
-function classModules(cls) {
-  return getModulesWithClass().filter(m => m.module_class === cls);
-}
-
-function getNativeOptions(id) {
-  const sel = document.getElementById(MS_NATIVE_ID[id]);
-  return sel ? Array.from(sel.options).map(o => ({ value: String(o.value), label: o.textContent || o.value })) : [];
-}
-
-function renderPrincipalClassCards() {
-  const wrap = document.getElementById('principalClassCards');
-  if (!wrap) return;
-  const classes = ['biologiques', 'fondamentaux', 'pharmaceutiques'];
-  wrap.innerHTML = classes.map((cls) => {
-    const c = classLabels[cls];
-    const count = classModules(cls).length;
-    const active = principalState.activeClass === cls ? 'active' : '';
-    return `<button class="principal-class-card ${active}" data-class="${cls}" type="button">
-      <div class="principal-class-title">${c.name}</div>
-      <div class="principal-class-sub">${count} modules</div>
-    </button>`;
-  }).join('');
-}
-
-function renderPrincipalModuleChips() {
-  const wrap = document.getElementById('principalModuleChips');
-  if (!wrap) return;
-  const cls = principalState.activeClass;
-  if (!cls) {
-    wrap.innerHTML = '<div class="principal-empty">Choisissez une classe pour filtrer rapidement les modules.</div>';
+  if (!wbBlocks.length) {
+    [sm, sc, ss, sf].forEach(el => {
+      if (el) Array.from(el.options).forEach(o => o.selected = false);
+    });
+    if (typeof scheduleCountRefresh === 'function') scheduleCountRefresh();
     return;
   }
-  const modules = classModules(cls);
-  if (!modules.length) {
-    wrap.innerHTML = '<div class="principal-empty">Aucun module dans cette classe.</div>';
-    return;
+
+  const allModuleIds  = new Set(wbBlocks.map(b => b.moduleId));
+  const allCourseIds  = new Set(wbBlocks.flatMap(b => b.courseIds));
+  const allSourceIds  = new Set(wbBlocks.flatMap(b => b.sourceIds));
+  const allFavtags    = new Set(wbBlocks.flatMap(b => b.favtags));
+
+  // Modules: select exactly the chosen ones, then fire change so
+  // dashboard.js refreshes sel_course / sel_source lists
+  if (sm) {
+    Array.from(sm.options).forEach(o => { o.selected = allModuleIds.has(o.value); });
+    sm.dispatchEvent(new Event('change'));
   }
-  wrap.innerHTML = modules.map(m => {
-    const active = msState.module.has(String(m.id)) ? 'active' : '';
-    return `<button class="principal-module-chip ${active}" data-module-id="${m.id}" type="button">${m.name}</button>`;
+
+  // Courses & sources: applied after dashboard.js repopulates them (via Promise micro-task)
+  setTimeout(() => {
+    if (sc) Array.from(sc.options).forEach(o => { o.selected = !allCourseIds.size || allCourseIds.has(o.value); });
+    if (ss) Array.from(ss.options).forEach(o => { o.selected = !allSourceIds.size || allSourceIds.has(o.value); });
+    if (sf) Array.from(sf.options).forEach(o => { o.selected = allFavtags.has(o.value); });
+    if (typeof scheduleCountRefresh === 'function') scheduleCountRefresh();
+  }, 350);
+}
+
+/* ── API helpers ─────────────────────────────────────────────── */
+async function wbFetchCourses(moduleId) {
+  const mid = String(moduleId);
+  if (wbCourseCache[mid]) return wbCourseCache[mid];
+  try {
+    const res = await fetch(`${API_URL}/courses`);
+    if (!res.ok) return [];
+    const all = await res.json();
+    all.forEach(c => {
+      const m = String(c.module_id);
+      if (!wbCourseCache[m]) wbCourseCache[m] = [];
+      if (!wbCourseCache[m].find(x => x.id === String(c.id)))
+        wbCourseCache[m].push({ id: String(c.id), label: c.name });
+    });
+    return wbCourseCache[mid] || [];
+  } catch { return []; }
+}
+
+async function wbFetchSources(moduleId) {
+  const mid = String(moduleId);
+  if (wbSourceCache[mid]) return wbSourceCache[mid];
+  try {
+    const res = await fetch(`${API_URL}/sources?module_id=${mid}`);
+    if (!res.ok) return [];
+    const arr = await res.json();
+    wbSourceCache[mid] = arr.map(s => ({ id: String(s.id), label: s.name }));
+    return wbSourceCache[mid];
+  } catch { return []; }
+}
+
+/* ── Main render entry ───────────────────────────────────────── */
+function wbRender() {
+  _wbRenderBlocks();
+  _wbRenderWizard();
+  const addWrap = document.getElementById('wb-add-wrap');
+  if (addWrap) addWrap.style.display = (wbBlocks.length > 0 && !wbWizard) ? 'block' : 'none';
+}
+
+/* ── Render confirmed blocks ─────────────────────────────────── */
+function _wbRenderBlocks() {
+  const el = document.getElementById('wb-blocks');
+  if (!el) return;
+  if (!wbBlocks.length) { el.innerHTML = ''; return; }
+  el.innerHTML = wbBlocks.map((b, i) => {
+    const cls = WB_CLASSES[b.classId] || WB_CLASSES.pharmaceutiques;
+    const courseChips = b.courseIds.length
+      ? b.courseIds.map(id => { const c = b.availCourses.find(x => x.id === id); return `<span class="wb-chip wb-chip--course">${c?.label || id}</span>`; }).join('')
+      : `<span class="wb-chip wb-chip--muted">Tous les cours</span>`;
+    const sourceChips = b.sourceIds.map(id => { const s = b.availSources.find(x => x.id === id); return `<span class="wb-chip wb-chip--source"><i class="bi bi-file-earmark-text"></i> ${s?.label || id}</span>`; }).join('');
+    const favChips   = b.favtags.map(t => `<span class="wb-chip wb-chip--fav"><i class="bi bi-heart-fill"></i> ${t}</span>`).join('');
+    return `<div class="wb-block">
+      <div class="wb-block-num" style="background:${cls.color}">${i+1}</div>
+      <div class="wb-block-info">
+        <div class="wb-block-title">
+          <span class="wb-block-cls" style="color:${cls.color}">${cls.icon} ${cls.name}</span>
+          <span class="wb-block-mod">${b.moduleLabel}</span>
+        </div>
+        <div class="wb-block-chips">${courseChips}${sourceChips}${favChips}</div>
+      </div>
+      <button class="wb-del-btn" data-del="${i}" title="Supprimer"><i class="bi bi-trash"></i></button>
+    </div>`;
   }).join('');
-}
-
-function renderPrincipalCourseChips() {
-  const wrap = document.getElementById('principalCourseChips');
-  if (!wrap) return;
-  const items = getNativeOptions('course');
-  if (!items.length) {
-    wrap.innerHTML = '<div class="principal-empty">Sélectionnez un module pour afficher les cours.</div>';
-    return;
-  }
-  wrap.innerHTML = items.map((it) => {
-    const active = msState.course.has(it.value) ? 'active' : '';
-    return `<button class="principal-course-chip ${active}" data-course-id="${it.value}" type="button">${it.label}</button>`;
-  }).join('');
-}
-
-function renderPrincipalSourcePills() {
-  const wrap = document.getElementById('principalSourcePills');
-  if (!wrap) return;
-  const items = getNativeOptions('source');
-  if (!items.length) {
-    wrap.innerHTML = '<div class="principal-empty">Sources disponibles selon vos modules sélectionnés.</div>';
-    return;
-  }
-  wrap.innerHTML = items.map((it) => {
-    const active = msState.source.has(it.value) ? 'active' : '';
-    return `<button class="principal-source-pill ${active}" data-source-id="${it.value}" type="button">${it.label}</button>`;
-  }).join('');
-}
-
-function renderPrincipalFavtagChips() {
-  const wrap = document.getElementById('principalFavtagChips');
-  if (!wrap) return;
-  const items = getNativeOptions('favtag');
-  if (!items.length) {
-    wrap.innerHTML = '<div class="principal-empty">Aucun tag favori disponible.</div>';
-    return;
-  }
-  wrap.innerHTML = items.map((it) => {
-    const active = msState.favtag.has(it.value) ? 'active' : '';
-    return `<button class="principal-favtag-chip ${active}" data-favtag-id="${it.value}" type="button">${it.label}</button>`;
-  }).join('');
-}
-
-function renderPrincipalBuilder() {
-  renderPrincipalClassCards();
-  renderPrincipalModuleChips();
-  renderPrincipalCourseChips();
-  renderPrincipalSourcePills();
-  renderPrincipalFavtagChips();
-}
-
-function syncPrincipalFromModuleState() {
-  const selectedIds = [...msState.module].map(v => Number(v));
-  const modules = getModulesWithClass().filter(m => selectedIds.includes(Number(m.id)));
-  const classes = new Set(modules.map(m => m.module_class));
-  if (modules.length && classes.size === 1) {
-    principalState.activeClass = modules[0].module_class;
-  }
-  renderPrincipalBuilder();
-}
-
-function getCustomOpts(id) {
-  return Array.from(document.querySelectorAll(`#opts_${id} .ms-option`));
-}
-function getVisibleOpts(id) {
-  return getCustomOpts(id).filter(o => !o.classList.contains('hidden-opt'));
-}
-
-// Build custom option rows from the hidden <select>
-function rebuildDropdown(id, selectEl) {
-  const container = document.getElementById(`opts_${id}`);
-  if (!container) return;
-  const prevSel = new Set(msState[id]);
-  container.innerHTML = '';
-  Array.from(selectEl.options).forEach(opt => {
-    const div = document.createElement('div');
-    div.className = 'ms-option' + (prevSel.has(opt.value) ? ' selected' : '');
-    div.dataset.val = opt.value;
-    div.innerHTML = `<div class="ms-checkbox"></div>${opt.textContent}`;
-    container.appendChild(div);
-  });
-  renderAllCheckbox(id);
-  renderTrigger(id);
-  if (['module', 'course', 'source', 'favtag'].includes(id)) renderPrincipalBuilder();
-}
-
-// Sync custom state → native select (so dashboard.js reads correct values)
-function syncNative(id) {
-  const sel = document.getElementById(MS_NATIVE_ID[id]);
-  if (!sel) return;
-  Array.from(sel.options).forEach(o => { o.selected = msState[id].has(o.value); });
-  sel.dispatchEvent(new Event('change'));
-}
-
-function renderTrigger(id) {
-  const vals = [...msState[id]];
-  const textEl  = document.getElementById(`text_${id}`);
-  const badge   = document.getElementById(`badge_${id}`);
-  if (!textEl || !badge) return;
-
-  if (vals.length === 0) {
-    textEl.innerHTML = MS_PLACEHOLDER[id];
-    textEl.className = 'ms-trigger-text placeholder';
-    badge.textContent = 'Tous';
-    badge.classList.remove('active');
-  } else {
-    const firstVal = vals[0];
-    const firstLabel = document.querySelector(`#opts_${id} [data-val="${CSS.escape(firstVal)}"]`)?.textContent?.trim() || firstVal;
-    const short = firstLabel.length > 16 ? `${firstLabel.slice(0,14)}…` : firstLabel;
-    const tags = `<span class="ms-tag">${short}</span>`;
-    const more = vals.length > 1 ? `<span class="ms-tag-more">+${vals.length-1}</span>` : '';
-    textEl.innerHTML = `<span class="ms-tags">${tags}${more}</span>`;
-    textEl.className = 'ms-trigger-text';
-    const n = vals.length;
-    badge.textContent = `${n} sélectionné${n>1?'s':''}`;
-    badge.classList.add('active');
-  }
-  if (id === 'module') syncPrincipalFromModuleState();
-}
-
-function renderAllCheckbox(id) {
-  const box = document.getElementById(`allbox_${id}`);
-  const txt = document.getElementById(`alltext_${id}`);
-  if (!box || !txt) return;
-  const vis = getVisibleOpts(id);
-  const selCount = vis.filter(o => msState[id].has(o.dataset.val)).length;
-  box.className = 'ms-all-checkbox';
-  if (selCount === 0) {
-    txt.textContent = 'Tout sélectionner';
-  } else if (selCount === vis.length) {
-    box.classList.add('all'); txt.textContent = 'Tout désélectionner';
-  } else {
-    box.classList.add('partial'); txt.textContent = `${selCount} / ${vis.length} sélectionnés`;
-  }
-}
-
-function renderOptions(id) {
-  getCustomOpts(id).forEach(o => o.classList.toggle('selected', msState[id].has(o.dataset.val)));
-}
-
-function msFilterSearch(id, q) {
-  q = (q||'').toLowerCase().trim();
-  getCustomOpts(id).forEach(o => o.classList.toggle('hidden-opt', !!q && !o.textContent.toLowerCase().includes(q)));
-  let empty = document.getElementById(`empty_${id}`);
-  if (getVisibleOpts(id).length === 0) {
-    if (!empty) {
-      empty = document.createElement('div');
-      empty.className = 'ms-empty'; empty.id = `empty_${id}`; empty.textContent = 'Aucun résultat';
-      document.getElementById(`opts_${id}`).appendChild(empty);
-    }
-  } else if (empty) empty.remove();
-}
-
-function closeAllDropdowns(except) {
-  MS_FILTERS.forEach(id => {
-    if (id === except) return;
-    document.getElementById(`drop_${id}`)?.classList.add('hidden');
-    document.getElementById(`trigger_${id}`)?.classList.remove('open');
+  el.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      wbBlocks.splice(parseInt(btn.dataset.del), 1);
+      if (!wbBlocks.length && !wbWizard) wbStartWizard();
+      else { wbSync(); wbRender(); }
+    });
   });
 }
 
-// Wire up each filter
-MS_FILTERS.forEach(id => {
-  const trigger = document.getElementById(`trigger_${id}`);
-  const drop    = document.getElementById(`drop_${id}`);
-  const search  = document.getElementById(`search_${id}`);
-  const allRow  = document.getElementById(`all_${id}`);
-  const optsEl  = document.getElementById(`opts_${id}`);
-  if (!trigger || !drop) return;
+/* ── Render wizard steps ─────────────────────────────────────── */
+function _wbRenderWizard() {
+  const el = document.getElementById('wb-wizard');
+  if (!el) return;
+  if (!wbWizard) { el.innerHTML = ''; return; }
 
-  trigger.addEventListener('click', e => {
-    e.stopPropagation();
-    const isOpen = !drop.classList.contains('hidden');
-    closeAllDropdowns(id);
-    drop.classList.toggle('hidden', isOpen);
-    trigger.classList.toggle('open', !isOpen);
-    if (!isOpen) { search.value=''; msFilterSearch(id,''); setTimeout(()=>search.focus(),40); }
-  });
+  const { step, classId, moduleId, moduleLabel, availCourses, availSources, courseIds, sourceIds, favtags, favEnabled } = wbWizard;
+  const cls = WB_CLASSES[classId];
+  const usedModuleIds = new Set(wbBlocks.map(b => b.moduleId));
+  const allModules = Array.isArray(window.__dashboardModules) ? window.__dashboardModules : [];
+  const STEPS = 5;
 
-  optsEl.addEventListener('click', e => {
-    const opt = e.target.closest('.ms-option'); if (!opt) return;
-    const val = opt.dataset.val;
-    msState[id].has(val) ? msState[id].delete(val) : msState[id].add(val);
-    renderOptions(id); renderTrigger(id); renderAllCheckbox(id); syncNative(id);
-  });
+  const dots = Array.from({length: STEPS}, (_, s) =>
+    `<div class="wb-dot${s === step ? ' active' : s < step ? ' done' : ''}"></div>`
+  ).join('');
 
-  allRow.addEventListener('click', () => {
-    const vis = getVisibleOpts(id).map(o => o.dataset.val);
-    const allSel = vis.every(v => msState[id].has(v));
-    allSel ? vis.forEach(v => msState[id].delete(v)) : vis.forEach(v => msState[id].add(v));
-    renderOptions(id); renderTrigger(id); renderAllCheckbox(id); syncNative(id);
-  });
+  let body = '';
 
-  search.addEventListener('input', () => { msFilterSearch(id, search.value); renderAllCheckbox(id); });
-  search.addEventListener('click', e => e.stopPropagation());
-  drop.addEventListener('click',   e => e.stopPropagation());
-});
+  /* ── Step 0: Classe ── */
+  if (step === 0) {
+    const cards = Object.values(WB_CLASSES).map(c => {
+      const avail = allModules.filter(m => (m.module_class || 'pharmaceutiques').toLowerCase() === c.id && !usedModuleIds.has(String(m.id)));
+      if (!avail.length) return '';
+      const totalQ = avail.reduce((s, m) => s + (m.count || 0), 0);
+      const sel = classId === c.id;
+      return `<button class="wb-class-card${sel ? ' selected' : ''}" data-class="${c.id}"
+        style="--cc:${c.color};--cg:${c.ghost}" type="button">
+        <div class="wb-cc-top"><span class="wb-cc-icon">${c.icon}</span><span class="wb-cc-name">${c.name}</span></div>
+        <div class="wb-cc-desc">${c.desc}</div>
+        <div class="wb-cc-count" style="color:${c.color}">${avail.length} module${avail.length>1?'s':''}${totalQ ? ` · ${totalQ} Q` : ''}</div>
+      </button>`;
+    }).join('');
+    body = `
+      <div class="wb-step-hd"><div class="wb-snum">1</div><span class="wb-slbl">Choisissez une classe</span></div>
+      <div class="wb-class-grid">${cards || '<span class="wb-empty">Tous les modules déjà sélectionnés.</span>'}</div>
+      <div class="wb-nav"><span></span>
+        <button class="wb-next" id="wbN0" ${!classId?'disabled':''} ${cls?`style="background:${cls.color}"`:''}>
+          Suivant <i class="bi bi-arrow-right"></i>
+        </button>
+      </div>`;
+  }
 
-document.addEventListener('click', () => closeAllDropdowns(null));
+  /* ── Step 1: Module ── */
+  else if (step === 1) {
+    const mods = allModules.filter(m => (m.module_class || 'pharmaceutiques').toLowerCase() === classId && !usedModuleIds.has(String(m.id)));
+    const cards = mods.map(m => {
+      const sel = moduleId === String(m.id);
+      return `<button class="wb-mod-card${sel?' selected':''}" data-mid="${m.id}" data-mlbl="${m.name}" type="button">
+        <div class="wb-mod-name">${m.name}</div>
+        ${m.count ? `<div class="wb-mod-count">${m.count} Q</div>` : ''}
+      </button>`;
+    }).join('');
+    body = `
+      <div class="wb-crumb" style="--cc:${cls.color}">
+        <div class="wb-snum done"><i class="bi bi-check"></i></div>
+        <span style="color:${cls.color};font-weight:700">${cls.icon} ${cls.name}</span>
+      </div>
+      <div class="wb-step-hd"><div class="wb-snum">2</div><span class="wb-slbl">Choisissez un module</span></div>
+      <div class="wb-mod-grid">${cards || '<span class="wb-empty">Aucun module disponible.</span>'}</div>
+      <div class="wb-nav">
+        <button class="wb-back" id="wbB1"><i class="bi bi-arrow-left"></i> Retour</button>
+        <button class="wb-next" id="wbN1" ${!moduleId?'disabled':''} ${cls?`style="background:${cls.color}"`:''}>Suivant <i class="bi bi-arrow-right"></i></button>
+      </div>`;
+  }
 
-// Reset button
+  /* ── Step 2: Cours ── */
+  else if (step === 2) {
+    const label = courseIds.length ? `${courseIds.length} sélectionné${courseIds.length>1?'s':''}` : 'Tous si vide';
+    const chips = availCourses.map(c => {
+      const sel = courseIds.includes(c.id);
+      return `<button class="wb-course-chip${sel?' selected':''}" data-cid="${c.id}" type="button">${c.label}</button>`;
+    }).join('');
+    body = `
+      <div class="wb-crumb" style="--cc:${cls.color}">
+        <div class="wb-snum done"><i class="bi bi-check"></i></div>
+        <span style="color:${cls.color};font-weight:700">${cls.icon} ${cls.name}</span>
+        <span class="wb-crumb-val">${moduleLabel}</span>
+      </div>
+      <div class="wb-step-hd">
+        <div class="wb-snum">3</div><span class="wb-slbl">Cours à inclure</span>
+        <span class="wb-sval">${label}</span>
+      </div>
+      <div class="wb-chips-wrap">${chips || '<span class="wb-empty">Aucun cours pour ce module.</span>'}</div>
+      <div class="wb-nav">
+        <button class="wb-back" id="wbB2"><i class="bi bi-arrow-left"></i> Retour</button>
+        <button class="wb-next" id="wbN2" ${cls?`style="background:${cls.color}"`:''}>Suivant <i class="bi bi-arrow-right"></i></button>
+      </div>`;
+  }
+
+  /* ── Step 3: Sources ── */
+  else if (step === 3) {
+    const slabel = sourceIds.length ? `${sourceIds.length} sélectionnée${sourceIds.length>1?'s':''}` : 'optionnel';
+    const pills = availSources.map(s => {
+      const sel = sourceIds.includes(s.id);
+      return `<div class="wb-src-pill${sel?' selected':''}" data-sid="${s.id}">
+        <div class="wb-src-dot"></div><span>${s.label}</span>
+        ${sel?'<i class="bi bi-check wb-src-check"></i>':''}
+      </div>`;
+    }).join('');
+    body = `
+      <div class="wb-crumb" style="--cc:${cls.color}">
+        <div class="wb-snum done"><i class="bi bi-check"></i></div>
+        <span style="color:${cls.color};font-weight:700">${cls.icon} ${cls.name}</span>
+        <span class="wb-crumb-val">${moduleLabel}${courseIds.length ? ` · ${courseIds.length} cours` : ''}</span>
+      </div>
+      <div class="wb-step-hd">
+        <div class="wb-snum">4</div><span class="wb-slbl">Sources</span>
+        <span class="wb-sval">${slabel}</span>
+      </div>
+      <div class="wb-src-grid">${pills || '<span class="wb-empty">Aucune source disponible.</span>'}</div>
+      <div class="wb-nav">
+        <button class="wb-back" id="wbB3"><i class="bi bi-arrow-left"></i> Retour</button>
+        <button class="wb-next" id="wbN3" ${cls?`style="background:${cls.color}"`:''}>Suivant <i class="bi bi-arrow-right"></i></button>
+      </div>`;
+  }
+
+  /* ── Step 4: Tags favoris ── */
+  else if (step === 4) {
+    const tagChips = wbFavtagCache.map(t => {
+      const sel = favtags.includes(t.id);
+      return `<button class="wb-fav-chip${sel?' selected':''}" data-tid="${t.id}" type="button">${t.label}</button>`;
+    }).join('');
+    body = `
+      <div class="wb-crumb" style="--cc:${cls.color}">
+        <div class="wb-snum done"><i class="bi bi-check"></i></div>
+        <span style="color:${cls.color};font-weight:700">${cls.icon} ${cls.name}</span>
+        <span class="wb-crumb-val">${moduleLabel}${sourceIds.length ? ` · ${sourceIds.length} source${sourceIds.length>1?'s':''}` : ''}</span>
+      </div>
+      <div class="wb-step-hd">
+        <div class="wb-snum">5</div><span class="wb-slbl">Tags favoris</span>
+        <span class="wb-sval" style="color:var(--ink-4)">optionnel</span>
+      </div>
+      <div class="wb-fav-toggle-row">
+        <div class="wb-fav-toggle-left">
+          <div class="wb-fav-icon"><i class="bi bi-heart-fill"></i></div>
+          <div><div class="wb-fav-lbl">Filtrer par tag favori</div><div class="wb-fav-sub">Uniquement les questions marquées</div></div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="wbFavToggle" ${favEnabled?'checked':''}>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      ${favEnabled ? `<div class="wb-chips-wrap wb-chips-fav">${tagChips || '<span class="wb-empty">Aucun tag favori trouvé.</span>'}</div>` : ''}
+      <div class="wb-nav">
+        <button class="wb-back" id="wbB4"><i class="bi bi-arrow-left"></i> Retour</button>
+        <button class="wb-confirm" id="wbConfirm"><i class="bi bi-check-lg"></i> Confirmer ce filtre</button>
+      </div>`;
+  }
+
+  el.innerHTML = `<div class="wb-wizard-wrap">
+    <div class="wb-meta">
+      <span class="wb-bloc-label">${wbBlocks.length ? `Bloc ${wbBlocks.length+1}` : 'Nouveau filtre'}</span>
+      <div class="wb-dots">${dots}</div>
+    </div>
+    ${body}
+  </div>`;
+  _wbAttach();
+}
+
+/* ── Event wiring ────────────────────────────────────────────── */
+function _wbAttach() {
+  const { step } = wbWizard;
+
+  if (step === 0) {
+    document.querySelectorAll('.wb-class-card').forEach(card => {
+      card.addEventListener('click', () => {
+        if (wbWizard.classId !== card.dataset.class) { wbWizard.moduleId = null; wbWizard.moduleLabel = ''; wbWizard.courseIds = []; wbWizard.sourceIds = []; }
+        wbWizard.classId = card.dataset.class;
+        wbRender();
+      });
+    });
+    document.getElementById('wbN0')?.addEventListener('click', () => { wbWizard.step = 1; wbRender(); });
+  }
+  else if (step === 1) {
+    document.querySelectorAll('.wb-mod-card').forEach(card => {
+      card.addEventListener('click', async () => {
+        const mid = String(card.dataset.mid);
+        if (wbWizard.moduleId !== mid) { wbWizard.courseIds = []; wbWizard.sourceIds = []; }
+        wbWizard.moduleId = mid;
+        wbWizard.moduleLabel = card.dataset.mlbl;
+        wbWizard.availCourses = await wbFetchCourses(mid);
+        wbWizard.availSources = await wbFetchSources(mid);
+        wbRender();
+      });
+    });
+    document.getElementById('wbB1')?.addEventListener('click', () => { wbWizard.step = 0; wbRender(); });
+    document.getElementById('wbN1')?.addEventListener('click', () => { wbWizard.step = 2; wbRender(); });
+  }
+  else if (step === 2) {
+    document.querySelectorAll('.wb-course-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const cid = chip.dataset.cid;
+        const i = wbWizard.courseIds.indexOf(cid);
+        if (i >= 0) wbWizard.courseIds.splice(i, 1); else wbWizard.courseIds.push(cid);
+        wbRender();
+      });
+    });
+    document.getElementById('wbB2')?.addEventListener('click', () => { wbWizard.step = 1; wbRender(); });
+    document.getElementById('wbN2')?.addEventListener('click', () => { wbWizard.step = 3; wbRender(); });
+  }
+  else if (step === 3) {
+    document.querySelectorAll('.wb-src-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const sid = pill.dataset.sid;
+        const i = wbWizard.sourceIds.indexOf(sid);
+        if (i >= 0) wbWizard.sourceIds.splice(i, 1); else wbWizard.sourceIds.push(sid);
+        wbRender();
+      });
+    });
+    document.getElementById('wbB3')?.addEventListener('click', () => { wbWizard.step = 2; wbRender(); });
+    document.getElementById('wbN3')?.addEventListener('click', () => { wbWizard.step = 4; wbRender(); });
+  }
+  else if (step === 4) {
+    document.getElementById('wbFavToggle')?.addEventListener('change', e => {
+      wbWizard.favEnabled = e.target.checked;
+      if (!e.target.checked) wbWizard.favtags = [];
+      wbRender();
+    });
+    document.querySelectorAll('.wb-fav-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const tid = chip.dataset.tid;
+        const i = wbWizard.favtags.indexOf(tid);
+        if (i >= 0) wbWizard.favtags.splice(i, 1); else wbWizard.favtags.push(tid);
+        wbRender();
+      });
+    });
+    document.getElementById('wbB4')?.addEventListener('click', () => { wbWizard.step = 3; wbRender(); });
+    document.getElementById('wbConfirm')?.addEventListener('click', () => {
+      wbBlocks.push({ ...wbWizard });
+      wbWizard = null;
+      wbSync();
+      wbRender();
+    });
+  }
+}
+
+/* ── Init / Reset ────────────────────────────────────────────── */
+function wbStartWizard() {
+  wbWizard = { step:0, classId:null, moduleId:null, moduleLabel:'', availCourses:[], availSources:[], courseIds:[], sourceIds:[], favtags:[], favEnabled:false };
+  wbRender();
+}
+
+document.getElementById('wb-add-btn')?.addEventListener('click', wbStartWizard);
 document.getElementById('filterResetBtn')?.addEventListener('click', () => {
-  MS_FILTERS.forEach(id => {
-    msState[id].clear();
-    const search = document.getElementById(`search_${id}`);
-    if (search) { search.value=''; msFilterSearch(id,''); }
-    renderOptions(id); renderTrigger(id); renderAllCheckbox(id); syncNative(id);
-  });
-  if (typeof scheduleCountRefresh === 'function') scheduleCountRefresh();
+  wbBlocks = []; wbWizard = null;
+  wbSync();
+  wbStartWizard();
 });
 
-function clearAllSelections() {
-  MS_FILTERS.forEach(id => {
-    msState[id].clear();
-    renderOptions(id);
-    renderTrigger(id);
-    renderAllCheckbox(id);
-    syncNative(id);
-  });
-}
+window.addEventListener('dashboard:modules-loaded', () => wbRender());
+wbStartWizard();
 
-function setFilterMode(mode) {
-  principalState.filterMode = mode;
-  const normalBtn = document.getElementById('normalFilterBtn');
-  const advancedBtn = document.getElementById('advancedFilterBtn');
-  const normalBox = document.getElementById('normalFilterBuilder');
-  const advancedBox = document.getElementById('filtersRow');
-  const isNormal = mode === 'normal';
-
-  normalBtn?.classList.toggle('active', isNormal);
-  advancedBtn?.classList.toggle('active', !isNormal);
-  normalBox?.classList.toggle('hidden', !isNormal);
-  advancedBox?.classList.toggle('hidden', isNormal);
-}
-
-document.getElementById('normalFilterBtn')?.addEventListener('click', () => {
-  if (principalState.filterMode === 'normal') return;
-  clearAllSelections();
-  setFilterMode('normal');
-});
-
-document.getElementById('advancedFilterBtn')?.addEventListener('click', () => {
-  if (principalState.filterMode === 'advanced') return;
-  clearAllSelections();
-  setFilterMode('advanced');
-});
-
-// Principal filter interactions
-document.getElementById('principalClassCards')?.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-class]');
-  if (!btn) return;
-  const cls = btn.getAttribute('data-class');
-  principalState.activeClass = cls;
-  const ids = classModules(cls).map(m => String(m.id));
-  msState.module = new Set(ids);
-  renderOptions('module');
-  renderTrigger('module');
-  renderAllCheckbox('module');
-  syncNative('module');
-});
-
-document.getElementById('principalModuleChips')?.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-module-id]');
-  if (!btn) return;
-  const id = String(btn.getAttribute('data-module-id'));
-  if (msState.module.has(id)) msState.module.delete(id);
-  else msState.module.add(id);
-  renderOptions('module');
-  renderTrigger('module');
-  renderAllCheckbox('module');
-  syncNative('module');
-});
-
-document.getElementById('principalCourseChips')?.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-course-id]');
-  if (!btn) return;
-  const id = String(btn.getAttribute('data-course-id'));
-  if (msState.course.has(id)) msState.course.delete(id);
-  else msState.course.add(id);
-  renderOptions('course');
-  renderTrigger('course');
-  renderAllCheckbox('course');
-  syncNative('course');
-});
-
-document.getElementById('principalSourcePills')?.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-source-id]');
-  if (!btn) return;
-  const id = String(btn.getAttribute('data-source-id'));
-  if (msState.source.has(id)) msState.source.delete(id);
-  else msState.source.add(id);
-  renderOptions('source');
-  renderTrigger('source');
-  renderAllCheckbox('source');
-  syncNative('source');
-});
-
-document.getElementById('principalFavtagChips')?.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-favtag-id]');
-  if (!btn) return;
-  const id = String(btn.getAttribute('data-favtag-id'));
-  if (msState.favtag.has(id)) msState.favtag.delete(id);
-  else msState.favtag.add(id);
-  renderOptions('favtag');
-  renderTrigger('favtag');
-  renderAllCheckbox('favtag');
-  syncNative('favtag');
-});
-
-window.addEventListener('dashboard:modules-loaded', renderPrincipalBuilder);
-setFilterMode('normal');
-renderPrincipalBuilder();
-
-// Slider max label sync
+/* ── Slider max label sync (unchanged from original) ─────────── */
 [['training_question_count','training_slider_max'],['exam_question_count','exam_slider_max']].forEach(([sid,mid])=>{
   const s=document.getElementById(sid), m=document.getElementById(mid);
   if(s&&m) new MutationObserver(()=>{ m.textContent=s.max||'—'; }).observe(s,{attributes:true,attributeFilter:['max']});

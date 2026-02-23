@@ -987,6 +987,9 @@ body {
 <script src="js/api.js"></script>
 <script src="script.js"></script>
 <script>
+if (localStorage.getItem('role') !== 'admin') {
+  window.location.href = 'dashboard.html';
+}
 
 /* ══ Sidebar Navigation ══ */
 const panelMeta = {

@@ -591,7 +591,7 @@ app.post('/api/questions/submit', async (req, res) => {
 // ----------------------
 // ADMIN: Add question
 // ----------------------
-app.post('/api/questions', async (req, res) => {
+app.post('/api/questions', authMiddleware, requireAdmin, async (req, res) => {
     try {
         const {
             question,
@@ -666,7 +666,7 @@ app.post('/api/questions', async (req, res) => {
 // ----------------------
 // ADMIN: Supprimer question
 // ----------------------
-app.delete('/api/questions/:id', async (req, res) => {
+app.delete('/api/questions/:id', authMiddleware, requireAdmin, async (req, res) => {
     const id = req.params.id;
     try {
         await pool.query('DELETE FROM questions WHERE id=$1', [id]);
@@ -708,7 +708,7 @@ app.post('/api/modules', authMiddleware, requireAdmin, async (req, res) => {
 // ----------------------
 // ADMIN: Check duplicate/similar questions
 // ----------------------
-app.post('/api/questions/check-duplicate', authMiddleware, async (req, res) => {
+app.post('/api/questions/check-duplicate', authMiddleware, requireAdmin, async (req, res) => {
     try {
         const {
             question,
@@ -1831,7 +1831,7 @@ app.post('/api/admin/messages', authMiddleware, async (req, res) => {
 // ----------------------
 // ADMIN: Update question
 // ----------------------
-app.put('/api/questions/:id', async (req, res) => {
+app.put('/api/questions/:id', authMiddleware, requireAdmin, async (req, res) => {
     try {
         const id = req.params.id;
         const {

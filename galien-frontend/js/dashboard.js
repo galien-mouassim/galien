@@ -11,7 +11,7 @@ const modeTraining = document.getElementById('modeTraining');
 const modeExam = document.getElementById('modeExam');
 const trainingPanel = document.getElementById('trainingPanel');
 const examPanel = document.getElementById('examPanel');
-const questionsCountEl = document.getElementById('questionsCount');
+const questionsCountEls = Array.from(document.querySelectorAll('.js-questions-count'));
 const resumeBtn = document.getElementById('resumeBtn');
 
 const correctionSel = document.getElementById('correction_system');
@@ -229,15 +229,16 @@ async function loadFavoriteTags() {
 }
 
 async function refreshQuestionCount() {
-  if (!questionsCountEl) return;
+  if (!questionsCountEls.length) return;
+  const setCountText = (v) => questionsCountEls.forEach((el) => { el.textContent = v; });
   try {
     if (isPopulatingFilters) return;
-    questionsCountEl.textContent = '...';
+    setCountText('...');
 
     if (!Array.isArray(questionsCache)) {
       const res = await fetch(`${API_URL}/questions`, { headers: getAuthHeaders() });
       if (!res.ok) {
-        questionsCountEl.textContent = '-';
+        setCountText('-');
         return;
       }
       const data = await res.json();
@@ -264,11 +265,11 @@ async function refreshQuestionCount() {
       return true;
     });
     const total = filtered.length;
-    questionsCountEl.textContent = Number(total).toLocaleString('fr-FR');
+    setCountText(Number(total).toLocaleString('fr-FR'));
     const maxQ = Math.max(1, total);
     syncQuestionSliders(maxQ);
   } catch (_) {
-    questionsCountEl.textContent = '-';
+    setCountText('-');
   }
 }
 

@@ -43,13 +43,41 @@
 
       <div class="dash-panel principal-filter-panel" id="principalFilterPanel">
         <div class="principal-filter-head">
-          <div class="dash-panel-title"><i class="bi bi-magic"></i> Filtre principal</div>
-          <button class="btn ghost btn-sm" id="advancedToggleBtn" type="button">
-            <i class="bi bi-sliders"></i> Filtres avances
-          </button>
+          <div class="dash-panel-title"><i class="bi bi-magic"></i> Constructeur de filtre</div>
+          <div class="filter-mode-switch">
+            <button class="mode-pill active" id="normalFilterBtn" type="button">Filtre normal</button>
+            <button class="mode-pill" id="advancedFilterBtn" type="button">Filtre avance</button>
+          </div>
         </div>
-        <div class="principal-class-cards" id="principalClassCards"></div>
-        <div class="principal-module-chips" id="principalModuleChips"></div>
+
+        <div id="normalFilterBuilder">
+          <div class="builder-step">
+            <div class="builder-label">1. Classe</div>
+            <div class="principal-class-cards" id="principalClassCards"></div>
+          </div>
+          <div class="builder-step">
+            <div class="builder-label">2. Modules</div>
+            <div class="principal-module-chips" id="principalModuleChips"></div>
+          </div>
+          <div class="builder-step">
+            <div class="builder-label">3. Cours</div>
+            <div class="principal-course-chips" id="principalCourseChips"></div>
+          </div>
+          <div class="builder-step">
+            <div class="builder-label">4. Sources</div>
+            <div class="principal-source-pills" id="principalSourcePills"></div>
+          </div>
+          <div class="builder-step">
+            <div class="builder-label">5. Tags favoris (optionnel)</div>
+            <div class="principal-favtag-chips" id="principalFavtagChips"></div>
+          </div>
+          <div class="filters-count-wrap principal-count-wrap">
+            <div class="question-counter">
+              <span class="question-counter-num js-questions-count">…</span>
+              <span class="question-counter-label">questions disponibles</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="dash-panel filter-panel hidden" id="filtersRow">
@@ -156,7 +184,7 @@
 
         <div class="filters-count-wrap">
           <div class="question-counter">
-            <span class="question-counter-num" id="questionsCount">…</span>
+            <span class="question-counter-num js-questions-count">…</span>
             <span class="question-counter-label">questions disponibles</span>
           </div>
         </div>
@@ -281,7 +309,7 @@ const MS_FILTERS   = ['module', 'course', 'source', 'favtag'];
 const MS_NATIVE_ID = { module:'sel_module', course:'sel_course', source:'sel_source', favtag:'sel_favtag' };
 const MS_PLACEHOLDER = { module:'Tous les modules', course:'Tous les cours', source:'Toutes les sources', favtag:'Tous les tags' };
 const msState = { module:new Set(), course:new Set(), source:new Set(), favtag:new Set() };
-const principalState = { activeClass: null };
+const principalState = { activeClass: null, filterMode: 'normal' };
 const classLabels = {
   biologiques: { name: 'Biologiques', desc: 'Biochimie, microbio, immuno…' },
   fondamentaux: { name: 'Fondamentaux', desc: 'Analytique, minérale, biophysique…' },
@@ -295,6 +323,11 @@ function getModulesWithClass() {
 
 function classModules(cls) {
   return getModulesWithClass().filter(m => m.module_class === cls);
+}
+
+function getNativeOptions(id) {
+  const sel = document.getElementById(MS_NATIVE_ID[id]);
+  return sel ? Array.from(sel.options).map(o => ({ value: String(o.value), label: o.textContent || o.value })) : [];
 }
 
 function renderPrincipalClassCards() {
@@ -331,6 +364,56 @@ function renderPrincipalModuleChips() {
   }).join('');
 }
 
+function renderPrincipalCourseChips() {
+  const wrap = document.getElementById('principalCourseChips');
+  if (!wrap) return;
+  const items = getNativeOptions('course');
+  if (!items.length) {
+    wrap.innerHTML = '<div class="principal-empty">Sélectionnez un module pour afficher les cours.</div>';
+    return;
+  }
+  wrap.innerHTML = items.map((it) => {
+    const active = msState.course.has(it.value) ? 'active' : '';
+    return `<button class="principal-course-chip ${active}" data-course-id="${it.value}" type="button">${it.label}</button>`;
+  }).join('');
+}
+
+function renderPrincipalSourcePills() {
+  const wrap = document.getElementById('principalSourcePills');
+  if (!wrap) return;
+  const items = getNativeOptions('source');
+  if (!items.length) {
+    wrap.innerHTML = '<div class="principal-empty">Sources disponibles selon vos modules sélectionnés.</div>';
+    return;
+  }
+  wrap.innerHTML = items.map((it) => {
+    const active = msState.source.has(it.value) ? 'active' : '';
+    return `<button class="principal-source-pill ${active}" data-source-id="${it.value}" type="button">${it.label}</button>`;
+  }).join('');
+}
+
+function renderPrincipalFavtagChips() {
+  const wrap = document.getElementById('principalFavtagChips');
+  if (!wrap) return;
+  const items = getNativeOptions('favtag');
+  if (!items.length) {
+    wrap.innerHTML = '<div class="principal-empty">Aucun tag favori disponible.</div>';
+    return;
+  }
+  wrap.innerHTML = items.map((it) => {
+    const active = msState.favtag.has(it.value) ? 'active' : '';
+    return `<button class="principal-favtag-chip ${active}" data-favtag-id="${it.value}" type="button">${it.label}</button>`;
+  }).join('');
+}
+
+function renderPrincipalBuilder() {
+  renderPrincipalClassCards();
+  renderPrincipalModuleChips();
+  renderPrincipalCourseChips();
+  renderPrincipalSourcePills();
+  renderPrincipalFavtagChips();
+}
+
 function syncPrincipalFromModuleState() {
   const selectedIds = [...msState.module].map(v => Number(v));
   const modules = getModulesWithClass().filter(m => selectedIds.includes(Number(m.id)));
@@ -338,8 +421,7 @@ function syncPrincipalFromModuleState() {
   if (modules.length && classes.size === 1) {
     principalState.activeClass = modules[0].module_class;
   }
-  renderPrincipalClassCards();
-  renderPrincipalModuleChips();
+  renderPrincipalBuilder();
 }
 
 function getCustomOpts(id) {
@@ -364,6 +446,7 @@ function rebuildDropdown(id, selectEl) {
   });
   renderAllCheckbox(id);
   renderTrigger(id);
+  if (['module', 'course', 'source', 'favtag'].includes(id)) renderPrincipalBuilder();
 }
 
 // Sync custom state → native select (so dashboard.js reads correct values)
@@ -491,6 +574,42 @@ document.getElementById('filterResetBtn')?.addEventListener('click', () => {
   if (typeof scheduleCountRefresh === 'function') scheduleCountRefresh();
 });
 
+function clearAllSelections() {
+  MS_FILTERS.forEach(id => {
+    msState[id].clear();
+    renderOptions(id);
+    renderTrigger(id);
+    renderAllCheckbox(id);
+    syncNative(id);
+  });
+}
+
+function setFilterMode(mode) {
+  principalState.filterMode = mode;
+  const normalBtn = document.getElementById('normalFilterBtn');
+  const advancedBtn = document.getElementById('advancedFilterBtn');
+  const normalBox = document.getElementById('normalFilterBuilder');
+  const advancedBox = document.getElementById('filtersRow');
+  const isNormal = mode === 'normal';
+
+  normalBtn?.classList.toggle('active', isNormal);
+  advancedBtn?.classList.toggle('active', !isNormal);
+  normalBox?.classList.toggle('hidden', !isNormal);
+  advancedBox?.classList.toggle('hidden', isNormal);
+}
+
+document.getElementById('normalFilterBtn')?.addEventListener('click', () => {
+  if (principalState.filterMode === 'normal') return;
+  clearAllSelections();
+  setFilterMode('normal');
+});
+
+document.getElementById('advancedFilterBtn')?.addEventListener('click', () => {
+  if (principalState.filterMode === 'advanced') return;
+  clearAllSelections();
+  setFilterMode('advanced');
+});
+
 // Principal filter interactions
 document.getElementById('principalClassCards')?.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-class]');
@@ -517,21 +636,45 @@ document.getElementById('principalModuleChips')?.addEventListener('click', (e) =
   syncNative('module');
 });
 
-const advancedBtn = document.getElementById('advancedToggleBtn');
-const advancedPanel = document.getElementById('filtersRow');
-advancedBtn?.addEventListener('click', () => {
-  const open = advancedPanel.classList.toggle('hidden');
-  advancedBtn.innerHTML = open
-    ? '<i class="bi bi-sliders"></i> Filtres avances'
-    : '<i class="bi bi-chevron-up"></i> Masquer filtres avances';
+document.getElementById('principalCourseChips')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-course-id]');
+  if (!btn) return;
+  const id = String(btn.getAttribute('data-course-id'));
+  if (msState.course.has(id)) msState.course.delete(id);
+  else msState.course.add(id);
+  renderOptions('course');
+  renderTrigger('course');
+  renderAllCheckbox('course');
+  syncNative('course');
 });
 
-window.addEventListener('dashboard:modules-loaded', () => {
-  renderPrincipalClassCards();
-  renderPrincipalModuleChips();
+document.getElementById('principalSourcePills')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-source-id]');
+  if (!btn) return;
+  const id = String(btn.getAttribute('data-source-id'));
+  if (msState.source.has(id)) msState.source.delete(id);
+  else msState.source.add(id);
+  renderOptions('source');
+  renderTrigger('source');
+  renderAllCheckbox('source');
+  syncNative('source');
 });
-renderPrincipalClassCards();
-renderPrincipalModuleChips();
+
+document.getElementById('principalFavtagChips')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-favtag-id]');
+  if (!btn) return;
+  const id = String(btn.getAttribute('data-favtag-id'));
+  if (msState.favtag.has(id)) msState.favtag.delete(id);
+  else msState.favtag.add(id);
+  renderOptions('favtag');
+  renderTrigger('favtag');
+  renderAllCheckbox('favtag');
+  syncNative('favtag');
+});
+
+window.addEventListener('dashboard:modules-loaded', renderPrincipalBuilder);
+setFilterMode('normal');
+renderPrincipalBuilder();
 
 // Slider max label sync
 [['training_question_count','training_slider_max'],['exam_question_count','exam_slider_max']].forEach(([sid,mid])=>{

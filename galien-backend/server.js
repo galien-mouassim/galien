@@ -8,11 +8,11 @@ const crypto = require('crypto');
 const sharp = require('sharp');
 const pool = require('./config/database');
 const initAdmin = require('./config/initAdmin');
-initAdmin();
 const authMiddleware = require('./middleware/authMiddleware');
 
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json());
 const uploadsDir = process.env.UPLOADS_DIR
@@ -42,23 +42,82 @@ const upload = multer({
     limits: { fileSize: 10 * 1024 * 1024 }
 });
 
+function createRateLimiter({ windowMs, max, keyFn }) {
+    const hits = new Map();
+
+    setInterval(() => {
+        const now = Date.now();
+        for (const [key, entry] of hits.entries()) {
+            if (entry.resetAt <= now) hits.delete(key);
+        }
+    }, Math.max(30000, Math.floor(windowMs / 2))).unref();
+
+    return (req, res, next) => {
+        const now = Date.now();
+        const key = keyFn(req);
+        if (!key) return next();
+
+        let entry = hits.get(key);
+        if (!entry || entry.resetAt <= now) {
+            entry = { count: 0, resetAt: now + windowMs };
+        }
+
+        entry.count += 1;
+        hits.set(key, entry);
+
+        if (entry.count > max) {
+            const retryAfterSec = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+            res.setHeader('Retry-After', String(retryAfterSec));
+            return res.status(429).json({ message: 'Too many requests, please retry later.' });
+        }
+
+        return next();
+    };
+}
+
+const apiLimiter = createRateLimiter({
+    windowMs: 60 * 1000,
+    max: 300,
+    keyFn: (req) => req.ip || req.socket?.remoteAddress || 'unknown'
+});
+app.use('/api', apiLimiter);
+
+const loginLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 15,
+    keyFn: (req) => {
+        const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+        const email = String(req.body?.email || '').toLowerCase().trim();
+        return `${ip}:${email || 'no-email'}`;
+    }
+});
+
 // Health check
 app.get('/health', (req, res) => {
     res.send('Galien backend running OK');
 });
 
-// DB test
-app.get('/db-test', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT NOW()');
-        res.json({ dbTime: result.rows[0] });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+// DB test (disabled in production)
+if (process.env.NODE_ENV !== 'production') {
+    app.get('/db-test', async (req, res) => {
+        try {
+            const result = await pool.query('SELECT NOW()');
+            res.json({ dbTime: result.rows[0] });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+}
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+
+function requireAdmin(req, res, next) {
+    if (req.user?.role !== 'admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+    return next();
+}
 
 async function ensureAuthSchema() {
     await pool.query(`
@@ -336,7 +395,7 @@ function weightedSimilarity(parts) {
     return weightSum > 0 ? weighted / weightSum : 0;
 }
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
     const { email, password } = req.body;
 
     try {
@@ -628,7 +687,7 @@ app.get('/api/modules', async (req, res) => {
     }
 });
 
-app.post('/api/modules', async (req, res) => {
+app.post('/api/modules', authMiddleware, requireAdmin, async (req, res) => {
     try {
         const { name } = req.body || {};
         if (!name || !String(name).trim()) {
@@ -740,7 +799,7 @@ app.get('/api/sources', async (req, res) => {
     }
 });
 
-app.post('/api/sources', async (req, res) => {
+app.post('/api/sources', authMiddleware, requireAdmin, async (req, res) => {
     try {
         const { name } = req.body || {};
         if (!name || !String(name).trim()) {
@@ -759,7 +818,7 @@ app.post('/api/sources', async (req, res) => {
     }
 });
 
-app.delete('/api/sources/:id', async (req, res) => {
+app.delete('/api/sources/:id', authMiddleware, requireAdmin, async (req, res) => {
     try {
         const sourceId = Number(req.params.id);
         if (!Number.isInteger(sourceId) || sourceId <= 0) {
@@ -1856,7 +1915,7 @@ app.get('/api/courses', async (req, res) => {
     }
 });
 
-app.post('/api/courses', async (req, res) => {
+app.post('/api/courses', authMiddleware, requireAdmin, async (req, res) => {
     try {
         const { name, module_id } = req.body;
         if (!name || !name.trim()) {
@@ -1873,7 +1932,7 @@ app.post('/api/courses', async (req, res) => {
     }
 });
 
-app.delete('/api/courses/:id', async (req, res) => {
+app.delete('/api/courses/:id', authMiddleware, requireAdmin, async (req, res) => {
     try {
         const courseId = Number(req.params.id);
         if (!Number.isInteger(courseId) || courseId <= 0) {
@@ -1907,7 +1966,7 @@ app.delete('/api/courses/:id', async (req, res) => {
 // ----------------------
 // ADMIN: Bulk import questions (CSV -> JSON rows)
 // ----------------------
-app.post('/api/questions/import', async (req, res) => {
+app.post('/api/questions/import', authMiddleware, requireAdmin, async (req, res) => {
     const { rows } = req.body;
 
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -2028,12 +2087,13 @@ ensureCoreSchema()
     .then(() => ensureQuestionNotesSchema())
     .then(() => ensureSessionResultsSchema())
     .then(() => ensureUserPreferencesSchema())
+    .then(() => initAdmin())
     .then(() => {
         app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
         });
     })
     .catch((err) => {
-        console.error('Failed to initialize auth schema:', err.message);
+        console.error('Failed to initialize schema:', err.message);
         process.exit(1);
     });

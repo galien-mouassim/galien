@@ -33,6 +33,8 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_DATABASE=galien
 JWT_SECRET=change_me
+ADMIN_EMAIL=admin@galien.com
+ADMIN_PASSWORD=admin123
 ```
 4. Start server:
 ```bash
@@ -42,9 +44,7 @@ npm start
 Notes:
 - Server runs on `http://localhost:5000`
 - API base URL used by frontend: `http://localhost:5000/api`
-- Admin account is auto-created on boot (if missing):
-  - email: `admin@galien.com`
-  - password: `admin123`
+- Admin account is auto-created on boot (if missing) from `ADMIN_EMAIL` and `ADMIN_PASSWORD`
 
 ## Frontend Setup
 You can open `galien-frontend/login.html` directly, or serve frontend with a static server.

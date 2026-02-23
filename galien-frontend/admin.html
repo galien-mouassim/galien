@@ -1457,7 +1457,11 @@ function bindSimilarityInputs() {
     el.addEventListener('input',scheduleSimilarityCalculation);
     el.addEventListener('change',scheduleSimilarityCalculation);
   });
-  document.getElementById('module_id')?.addEventListener('change',async()=>{await loadCourses();scheduleSimilarityCalculation();});
+  document.getElementById('module_id')?.addEventListener('change',async()=>{
+    await loadCourses();
+    await loadSources();
+    scheduleSimilarityCalculation();
+  });
   document.getElementById('course_id')?.addEventListener('change',scheduleSimilarityCalculation);
 }
 bindSimilarityInputs();
@@ -1486,7 +1490,7 @@ async function editQuestion(id) {
   document.getElementById('edit_explanation').value=q.explanation||'';
   await loadModulesForEdit(q.module_id);
   await loadCoursesForEdit(q.module_id,q.course_id);
-  await loadSourcesForEdit(q.source_id);
+  await loadSourcesForEdit(q.source_id, q.module_id);
   openEditModal();
   // Switch to questions panel so modal makes sense
   switchPanel('questions');
@@ -1534,7 +1538,9 @@ async function loadModules() {
 loadModules();
 
 async function loadSources() {
-  const res=await fetch(`${API_URL}/sources`);
+  const moduleId=document.getElementById('module_id').value;
+  const url=moduleId?`${API_URL}/sources?module_id=${moduleId}`:`${API_URL}/sources`;
+  const res=await fetch(url);
   const sources=await res.json();
   const select=document.getElementById('source_id');
   select.innerHTML='<option value="">-- Source --</option>';
@@ -1584,7 +1590,9 @@ async function loadFilterCourses() {
 loadFilterCourses();
 
 async function loadFilterSources() {
-  const res=await fetch(`${API_URL}/sources`);
+  const moduleId=document.getElementById('filter_module_id').value;
+  const url=moduleId?`${API_URL}/sources?module_id=${moduleId}`:`${API_URL}/sources`;
+  const res=await fetch(url);
   const sources=await res.json();
   const select=document.getElementById('filter_source_id');
   select.innerHTML='<option value="">Toutes les sources</option>';
@@ -1602,8 +1610,9 @@ async function loadCoursesForEdit(moduleId,selectedId) {
   if(selectedId)select.value=selectedId;
 }
 
-async function loadSourcesForEdit(selectedId) {
-  const res=await fetch(`${API_URL}/sources`);
+async function loadSourcesForEdit(selectedId, moduleId) {
+  const url=moduleId?`${API_URL}/sources?module_id=${moduleId}`:`${API_URL}/sources`;
+  const res=await fetch(url);
   const sources=await res.json();
   const select=document.getElementById('edit_source_id');
   select.innerHTML='<option value="">-- Source --</option>';
@@ -1612,9 +1621,11 @@ async function loadSourcesForEdit(selectedId) {
 }
 
 document.getElementById('edit_module_id').addEventListener('change',()=>{
-  loadCoursesForEdit(document.getElementById('edit_module_id').value,null);
+  const moduleId = document.getElementById('edit_module_id').value;
+  loadCoursesForEdit(moduleId,null);
+  loadSourcesForEdit(null, moduleId);
 });
-document.getElementById('filter_module_id').addEventListener('change',()=>loadFilterCourses().then(()=>applyQuestionFilters()));
+document.getElementById('filter_module_id').addEventListener('change',()=>loadFilterCourses().then(()=>loadFilterSources()).then(()=>applyQuestionFilters()));
 document.getElementById('filter_course_id').addEventListener('change',applyQuestionFilters);
 document.getElementById('filter_source_id').addEventListener('change',applyQuestionFilters);
 document.getElementById('filter_search').addEventListener('input',applyQuestionFilters);
@@ -1788,8 +1799,10 @@ document.getElementById('addSourceInlineBtn').addEventListener('click',async()=>
   const status=document.getElementById('sourceManageStatus');
   status.textContent='';
   const name=document.getElementById('new_source_name').value.trim();
+  const moduleId=document.getElementById('module_id').value;
   if(!name)return;
-  const res=await fetch(`${API_URL}/sources`,{method:'POST',headers:getAuthHeaders(),body:JSON.stringify({name})});
+  if(!moduleId){status.textContent='Sélectionnez un module avant d’ajouter une source.';return;}
+  const res=await fetch(`${API_URL}/sources`,{method:'POST',headers:getAuthHeaders(),body:JSON.stringify({name,module_id:moduleId})});
   if(!res.ok){status.textContent='Erreur lors de l’ajout de la source.';return;}
   document.getElementById('new_source_name').value='';
   status.textContent='Source ajoutée.';

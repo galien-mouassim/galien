@@ -173,12 +173,18 @@ async function loadCourses() {
 }
 
 async function loadSources() {
+  const selectedModules = getSelectedValues(selModule);
+  const prevSelectedSources = getSelectedValues(selSource);
+  if (!selectedModules.length) {
+    selSource.innerHTML = '';
+    return;
+  }
   try {
     isPopulatingFilters = true;
-    const res = await fetch(`${API_URL}/sources`);
+    const res = await fetch(`${API_URL}/sources?module_id=${selectedModules.join(',')}`);
     if (!res.ok) return;
     const sources = await res.json();
-    setOptions(selSource, sources, (s) => s.name, getSelectedValues(selSource));
+    setOptions(selSource, sources, (s) => s.name, prevSelectedSources);
   } catch (_) {}
   finally { isPopulatingFilters = false; }
 }
@@ -331,7 +337,7 @@ function setupResumeButton() {
 
 selModule.addEventListener('change', () => {
   if (isPopulatingFilters) return;
-  loadCourses().then(scheduleCountRefresh);
+  Promise.all([loadCourses(), loadSources()]).then(scheduleCountRefresh);
 });
 selCourse.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
 selSource.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });

@@ -154,6 +154,15 @@ async function ensureCoreSchema() {
     `);
 
     await pool.query(`
+        CREATE TABLE IF NOT EXISTS module_sources (
+            module_id INTEGER NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+            source_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (module_id, source_id)
+        )
+    `);
+
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS courses (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
@@ -291,7 +300,9 @@ async function ensurePerformanceIndexes() {
         'CREATE INDEX IF NOT EXISTS idx_reactions_comment_user ON comment_reactions(comment_id, user_id)',
         'CREATE INDEX IF NOT EXISTS idx_messages_recipient_created ON user_messages(recipient_id, created_at DESC)',
         'CREATE INDEX IF NOT EXISTS idx_messages_recipient_read_at ON user_messages(recipient_id, read_at)',
-        'CREATE INDEX IF NOT EXISTS idx_courses_module_name ON courses(module_id, name)'
+        'CREATE INDEX IF NOT EXISTS idx_courses_module_name ON courses(module_id, name)',
+        'CREATE INDEX IF NOT EXISTS idx_module_sources_module ON module_sources(module_id)',
+        'CREATE INDEX IF NOT EXISTS idx_module_sources_source ON module_sources(source_id)'
     ];
 
     for (const q of queries) {
@@ -318,6 +329,17 @@ async function ensurePerformanceIndexes() {
             END IF;
         END
         $$;
+    `);
+}
+
+async function ensureModuleSourceBackfill() {
+    await pool.query(`
+        INSERT INTO module_sources (module_id, source_id)
+        SELECT DISTINCT q.module_id, q.source_id
+        FROM questions q
+        WHERE q.module_id IS NOT NULL
+          AND q.source_id IS NOT NULL
+        ON CONFLICT (module_id, source_id) DO NOTHING
     `);
 }
 
@@ -773,6 +795,14 @@ app.post('/api/questions', authMiddleware, requireAdmin, async (req, res) => {
         ];
 
         const result = await pool.query(query, values);
+        if (normalizedModuleId && toIntOrNull(source_id)) {
+            await pool.query(
+                `INSERT INTO module_sources (module_id, source_id)
+                 VALUES ($1, $2)
+                 ON CONFLICT (module_id, source_id) DO NOTHING`,
+                [normalizedModuleId, toIntOrNull(source_id)]
+            );
+        }
         res.json(result.rows[0]);
 
     } catch (err) {
@@ -909,9 +939,23 @@ app.post('/api/questions/check-duplicate', authMiddleware, requireAdmin, async (
 
 app.get('/api/sources', async (req, res) => {
     try {
-        const result = await pool.query(
-            'SELECT id, name FROM sources ORDER BY name'
-        );
+        const moduleIds = parseIntList(req.query.module_id || req.query.module);
+        let result;
+        if (moduleIds.length) {
+            result = await pool.query(
+                `SELECT s.id, s.name
+                 FROM sources s
+                 JOIN module_sources ms ON ms.source_id = s.id
+                 WHERE ms.module_id = ANY($1::int[])
+                 GROUP BY s.id, s.name
+                 ORDER BY s.name`,
+                [moduleIds]
+            );
+        } else {
+            result = await pool.query(
+                'SELECT id, name FROM sources ORDER BY name'
+            );
+        }
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -920,7 +964,7 @@ app.get('/api/sources', async (req, res) => {
 
 app.post('/api/sources', authMiddleware, requireAdmin, async (req, res) => {
     try {
-        const { name } = req.body || {};
+        const { name, module_id } = req.body || {};
         if (!name || !String(name).trim()) {
             return res.status(400).json({ message: 'Source name required' });
         }
@@ -931,7 +975,19 @@ app.post('/api/sources', authMiddleware, requireAdmin, async (req, res) => {
              RETURNING id, name`,
             [String(name).trim()]
         );
-        res.json(result.rows[0]);
+        const source = result.rows[0];
+        const moduleIds = parseIntList(module_id);
+        if (moduleIds.length) {
+            for (const mid of moduleIds) {
+                await pool.query(
+                    `INSERT INTO module_sources (module_id, source_id)
+                     VALUES ($1, $2)
+                     ON CONFLICT (module_id, source_id) DO NOTHING`,
+                    [mid, source.id]
+                );
+            }
+        }
+        res.json(source);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -2131,6 +2187,16 @@ app.put('/api/questions/:id', authMiddleware, requireAdmin, async (req, res) => 
         ];
 
         const result = await pool.query(query, values);
+        const mId = toIntOrNull(module_id);
+        const sId = toIntOrNull(source_id);
+        if (mId && sId) {
+            await pool.query(
+                `INSERT INTO module_sources (module_id, source_id)
+                 VALUES ($1, $2)
+                 ON CONFLICT (module_id, source_id) DO NOTHING`,
+                [mId, sId]
+            );
+        }
         res.json(result.rows[0]);
     } catch (err) {
         console.error(err);
@@ -2297,6 +2363,15 @@ app.post('/api/questions/import', authMiddleware, requireAdmin, async (req, res)
                 source_id = sourceRes.rows[0].id;
             }
 
+            if (module_id && source_id) {
+                await client.query(
+                    `INSERT INTO module_sources (module_id, source_id)
+                     VALUES ($1, $2)
+                     ON CONFLICT (module_id, source_id) DO NOTHING`,
+                    [module_id, source_id]
+                );
+            }
+
             const insertQuery = `
                 INSERT INTO questions
                 (question, option_a, option_b, option_c, option_d, option_e, correct_options, module_id, course_id, source_id, explanation)
@@ -2333,6 +2408,7 @@ app.post('/api/questions/import', authMiddleware, requireAdmin, async (req, res)
 
 const PORT = process.env.PORT || 5000;
 ensureCoreSchema()
+    .then(() => ensureModuleSourceBackfill())
     .then(() => ensurePerformanceIndexes())
     .then(() => ensureAuthSchema())
     .then(() => ensureQuestionNotesSchema())

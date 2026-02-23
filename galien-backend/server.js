@@ -207,6 +207,20 @@ async function ensureCoreSchema() {
         )
     `);
 
+    // Main flags table used by API routes
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS question_flags (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+            flag_type TEXT NOT NULL,
+            tags TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE(user_id, question_id, flag_type)
+        )
+    `);
+
     await pool.query(`
         CREATE TABLE IF NOT EXISTS question_reports (
             id SERIAL PRIMARY KEY,
@@ -249,8 +263,61 @@ async function ensureCoreSchema() {
             recipient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             body TEXT NOT NULL,
             is_read BOOLEAN NOT NULL DEFAULT FALSE,
+            read_at TIMESTAMPTZ,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
+    `);
+
+    await pool.query(`
+        ALTER TABLE user_messages
+        ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ
+    `);
+}
+
+async function ensurePerformanceIndexes() {
+    const queries = [
+        'CREATE INDEX IF NOT EXISTS idx_questions_module_id ON questions(module_id)',
+        'CREATE INDEX IF NOT EXISTS idx_questions_course_id ON questions(course_id)',
+        'CREATE INDEX IF NOT EXISTS idx_questions_source_id ON questions(source_id)',
+        'CREATE INDEX IF NOT EXISTS idx_questions_created_at ON questions(created_at DESC)',
+        'CREATE INDEX IF NOT EXISTS idx_question_notes_q_u ON question_notes(question_id, user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_results_user_created ON results(user_id, created_at DESC)',
+        'CREATE INDEX IF NOT EXISTS idx_sqr_session_qnum ON session_question_results(session_id, question_num)',
+        'CREATE INDEX IF NOT EXISTS idx_sqr_question_session ON session_question_results(question_id, session_id)',
+        'CREATE INDEX IF NOT EXISTS idx_reports_resolved_created ON question_reports(resolved, created_at DESC)',
+        'CREATE INDEX IF NOT EXISTS idx_reports_user_created ON question_reports(user_id, created_at DESC)',
+        'CREATE INDEX IF NOT EXISTS idx_comments_question_created ON question_comments(question_id, created_at DESC)',
+        'CREATE INDEX IF NOT EXISTS idx_comments_user_created ON question_comments(user_id, created_at DESC)',
+        'CREATE INDEX IF NOT EXISTS idx_reactions_comment_user ON comment_reactions(comment_id, user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_messages_recipient_created ON user_messages(recipient_id, created_at DESC)',
+        'CREATE INDEX IF NOT EXISTS idx_messages_recipient_read_at ON user_messages(recipient_id, read_at)',
+        'CREATE INDEX IF NOT EXISTS idx_courses_module_name ON courses(module_id, name)'
+    ];
+
+    for (const q of queries) {
+        await pool.query(q);
+    }
+
+    // Flags table can be either legacy or current depending on historical migrations.
+    await pool.query(`
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema='public' AND table_name='question_flags'
+            ) THEN
+                EXECUTE 'CREATE INDEX IF NOT EXISTS idx_question_flags_user_type_created ON question_flags(user_id, flag_type, created_at DESC)';
+                EXECUTE 'CREATE INDEX IF NOT EXISTS idx_question_flags_question ON question_flags(question_id)';
+            END IF;
+            IF EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema='public' AND table_name='user_question_flags'
+            ) THEN
+                EXECUTE 'CREATE INDEX IF NOT EXISTS idx_user_question_flags_user_type_created ON user_question_flags(user_id, flag_type, created_at DESC)';
+                EXECUTE 'CREATE INDEX IF NOT EXISTS idx_user_question_flags_question ON user_question_flags(question_id)';
+            END IF;
+        END
+        $$;
     `);
 }
 
@@ -387,6 +454,20 @@ function parseIntList(v) {
         .filter(n => Number.isInteger(n) && n > 0);
 }
 
+function toPositiveInt(value, fallback) {
+    const n = Number(value);
+    if (!Number.isInteger(n) || n <= 0) return fallback;
+    return n;
+}
+
+function getPagination(req, defaults = { page: 1, pageSize: 50, maxPageSize: 200 }) {
+    const page = toPositiveInt(req.query.page, defaults.page);
+    const pageSizeRaw = toPositiveInt(req.query.page_size || req.query.limit, defaults.pageSize);
+    const pageSize = Math.min(pageSizeRaw, defaults.maxPageSize);
+    const offset = (page - 1) * pageSize;
+    return { page, pageSize, offset };
+}
+
 function weightedSimilarity(parts) {
     const valid = parts.filter(p => typeof p.score === 'number' && typeof p.weight === 'number' && p.weight > 0);
     if (!valid.length) return 0;
@@ -445,6 +526,8 @@ app.get('/api/questions', authMiddleware, async (req, res) => {
         const moduleIds = parseIntList(req.query.module);
         const sourceIds = parseIntList(req.query.source);
         const courseIds = parseIntList(req.query.course);
+        const shouldPaginate = req.query.page !== undefined || req.query.page_size !== undefined || req.query.limit !== undefined;
+        const { page, pageSize, offset } = getPagination(req, { page: 1, pageSize: 100, maxPageSize: 300 });
 
         let query = `
             SELECT q.*, m.name AS module_name, c.name AS course_name, s.name AS source_name,
@@ -475,6 +558,11 @@ app.get('/api/questions', authMiddleware, async (req, res) => {
         if (filters.length) {
             query += ' WHERE ' + filters.join(' AND ');
         }
+        query += ' ORDER BY q.id ASC';
+        if (shouldPaginate) {
+            query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+            params.push(pageSize, offset);
+        }
 
         const result = await pool.query(query, params);
 
@@ -499,8 +587,39 @@ app.get('/api/questions', authMiddleware, async (req, res) => {
             };
         });
 
-        res.json({
-            questions
+        if (!shouldPaginate) {
+            return res.json({ questions });
+        }
+
+        let countQuery = 'SELECT COUNT(*)::int AS total FROM questions q';
+        const countParams = [];
+        const countFilters = [];
+        if (moduleIds.length) {
+            countFilters.push(`q.module_id = ANY($${countParams.length + 1}::int[])`);
+            countParams.push(moduleIds);
+        }
+        if (sourceIds.length) {
+            countFilters.push(`q.source_id = ANY($${countParams.length + 1}::int[])`);
+            countParams.push(sourceIds);
+        }
+        if (courseIds.length) {
+            countFilters.push(`q.course_id = ANY($${countParams.length + 1}::int[])`);
+            countParams.push(courseIds);
+        }
+        if (countFilters.length) {
+            countQuery += ' WHERE ' + countFilters.join(' AND ');
+        }
+        const countRes = await pool.query(countQuery, countParams);
+        const total = Number(countRes.rows[0]?.total || 0);
+
+        return res.json({
+            questions,
+            pagination: {
+                page,
+                page_size: pageSize,
+                total,
+                total_pages: Math.max(1, Math.ceil(total / pageSize))
+            }
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -1107,13 +1226,14 @@ app.get('/api/questions/:id/attempt-history', authMiddleware, async (req, res) =
 
 app.get('/api/users/results', authMiddleware, async (req, res) => {
     try {
+        const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 20, maxPageSize: 100 });
         const result = await pool.query(
             `SELECT id, score, total, mode, elapsed_seconds, correction_system, time_limit_seconds, created_at
              FROM results
              WHERE user_id = $1
              ORDER BY created_at DESC
-             LIMIT 20`,
-            [req.user.id]
+             LIMIT $2 OFFSET $3`,
+            [req.user.id, pageSize, offset]
         );
         res.json(result.rows);
     } catch (err) {
@@ -1345,14 +1465,16 @@ app.delete('/api/users/questions/:id/flag', authMiddleware, async (req, res) => 
 app.get('/api/users/flags', authMiddleware, async (req, res) => {
     try {
         const type = req.query.type;
+        const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 20, maxPageSize: 100 });
+        const hasType = !!type;
         const result = await pool.query(
             `SELECT q.id, q.question, f.flag_type, f.created_at, f.tags
              FROM question_flags f
              JOIN questions q ON q.id = f.question_id
-             WHERE f.user_id = $1 ${type ? 'AND f.flag_type = $2' : ''}
+             WHERE f.user_id = $1 ${hasType ? 'AND f.flag_type = $2' : ''}
              ORDER BY f.created_at DESC
-             LIMIT 20`,
-            type ? [req.user.id, type] : [req.user.id]
+             LIMIT $${hasType ? 3 : 2} OFFSET $${hasType ? 4 : 3}`,
+            hasType ? [req.user.id, type, pageSize, offset] : [req.user.id, pageSize, offset]
         );
         res.json(result.rows);
     } catch (err) {
@@ -1517,6 +1639,7 @@ app.get('/api/admin/reports', authMiddleware, async (req, res) => {
             return res.status(403).json({ message: 'Forbidden' });
         }
         const showResolved = req.query.resolved === '1';
+        const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 100, maxPageSize: 200 });
         const result = await pool.query(
             `SELECT r.id, r.reason, r.created_at, r.resolved, r.resolved_at,
                     u.email AS user_email,
@@ -1528,8 +1651,8 @@ app.get('/api/admin/reports', authMiddleware, async (req, res) => {
              LEFT JOIN users ru ON ru.id = r.resolved_by
              WHERE r.resolved = $1
              ORDER BY r.created_at DESC
-             LIMIT 100`,
-            [showResolved]
+             LIMIT $2 OFFSET $3`,
+            [showResolved, pageSize, offset]
         );
         res.json(result.rows);
     } catch (err) {
@@ -1604,6 +1727,7 @@ app.delete('/api/users/reports/:id', authMiddleware, async (req, res) => {
 app.get('/api/questions/:id/comments', authMiddleware, async (req, res) => {
     try {
         const questionId = req.params.id;
+        const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 50, maxPageSize: 200 });
         const result = await pool.query(
             `SELECT c.id, c.body, c.created_at, c.user_id, u.display_name, u.email, u.profile_photo,
                     COALESCE(SUM(CASE WHEN r.value = 1 THEN 1 ELSE 0 END), 0) AS likes,
@@ -1616,8 +1740,8 @@ app.get('/api/questions/:id/comments', authMiddleware, async (req, res) => {
              WHERE c.question_id = $1
              GROUP BY c.id, u.display_name, u.email, u.profile_photo
              ORDER BY c.created_at DESC
-             LIMIT 50`,
-            [questionId, req.user.id, req.user.role]
+             LIMIT $4 OFFSET $5`,
+            [questionId, req.user.id, req.user.role, pageSize, offset]
         );
         res.json(result.rows);
     } catch (err) {
@@ -1740,6 +1864,7 @@ app.delete('/api/comments/:id', authMiddleware, async (req, res) => {
 // ----------------------
 app.get('/api/messages', authMiddleware, async (req, res) => {
     try {
+        const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 100, maxPageSize: 300 });
         const result = await pool.query(
             `SELECT m.id, m.body, m.created_at, m.read_at,
                     u.email AS sender_email, u.display_name AS sender_name
@@ -1747,8 +1872,8 @@ app.get('/api/messages', authMiddleware, async (req, res) => {
              LEFT JOIN users u ON u.id = m.sender_id
              WHERE m.recipient_id = $1
              ORDER BY m.created_at DESC
-             LIMIT 100`,
-            [req.user.id]
+             LIMIT $2 OFFSET $3`,
+            [req.user.id, pageSize, offset]
         );
         res.json(result.rows);
     } catch (err) {
@@ -1897,6 +2022,8 @@ app.put('/api/questions/:id', authMiddleware, requireAdmin, async (req, res) => 
 app.get('/api/courses', async (req, res) => {
     try {
         const moduleId = req.query.module_id;
+        const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 500, maxPageSize: 1000 });
+        const shouldPaginate = req.query.page !== undefined || req.query.page_size !== undefined || req.query.limit !== undefined;
 
         let query = 'SELECT id, name, module_id FROM courses';
         const params = [];
@@ -1907,6 +2034,10 @@ app.get('/api/courses', async (req, res) => {
         }
 
         query += ' ORDER BY name';
+        if (shouldPaginate) {
+            query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+            params.push(pageSize, offset);
+        }
 
         const result = await pool.query(query, params);
         res.json(result.rows);
@@ -2083,6 +2214,7 @@ app.post('/api/questions/import', authMiddleware, requireAdmin, async (req, res)
 
 const PORT = process.env.PORT || 5000;
 ensureCoreSchema()
+    .then(() => ensurePerformanceIndexes())
     .then(() => ensureAuthSchema())
     .then(() => ensureQuestionNotesSchema())
     .then(() => ensureSessionResultsSchema())

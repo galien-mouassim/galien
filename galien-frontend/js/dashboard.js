@@ -147,7 +147,9 @@ async function loadModules() {
     const res = await fetch(`${API_URL}/modules`);
     if (!res.ok) return;
     const modules = await res.json();
+    window.__dashboardModules = Array.isArray(modules) ? modules : [];
     setOptions(selModule, modules, (m) => m.name, getSelectedValues(selModule));
+    window.dispatchEvent(new CustomEvent('dashboard:modules-loaded', { detail: { modules: window.__dashboardModules } }));
   } catch (_) {}
   finally { isPopulatingFilters = false; }
 }

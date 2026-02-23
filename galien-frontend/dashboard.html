@@ -41,7 +41,18 @@
       <select id="sel_source" class="multi-select" multiple style="display:none"></select>
       <select id="sel_favtag" class="multi-select" multiple style="display:none"></select>
 
-      <div class="dash-panel filter-panel" id="filtersRow">
+      <div class="dash-panel principal-filter-panel" id="principalFilterPanel">
+        <div class="principal-filter-head">
+          <div class="dash-panel-title"><i class="bi bi-magic"></i> Filtre principal</div>
+          <button class="btn ghost btn-sm" id="advancedToggleBtn" type="button">
+            <i class="bi bi-sliders"></i> Filtres avances
+          </button>
+        </div>
+        <div class="principal-class-cards" id="principalClassCards"></div>
+        <div class="principal-module-chips" id="principalModuleChips"></div>
+      </div>
+
+      <div class="dash-panel filter-panel hidden" id="filtersRow">
         <div class="filter-panel-header">
           <div class="dash-panel-title"><i class="bi bi-sliders"></i> Filtres</div>
           <button class="filter-reset-btn" id="filterResetBtn" type="button">
@@ -270,6 +281,66 @@ const MS_FILTERS   = ['module', 'course', 'source', 'favtag'];
 const MS_NATIVE_ID = { module:'sel_module', course:'sel_course', source:'sel_source', favtag:'sel_favtag' };
 const MS_PLACEHOLDER = { module:'Tous les modules', course:'Tous les cours', source:'Toutes les sources', favtag:'Tous les tags' };
 const msState = { module:new Set(), course:new Set(), source:new Set(), favtag:new Set() };
+const principalState = { activeClass: null };
+const classLabels = {
+  biologiques: { name: 'Biologiques', desc: 'Biochimie, microbio, immuno…' },
+  fondamentaux: { name: 'Fondamentaux', desc: 'Analytique, minérale, biophysique…' },
+  pharmaceutiques: { name: 'Pharmaceutiques', desc: 'Pharmacologie, galénique, toxico…' }
+};
+
+function getModulesWithClass() {
+  const rows = Array.isArray(window.__dashboardModules) ? window.__dashboardModules : [];
+  return rows.map(m => ({ ...m, module_class: (m.module_class || 'pharmaceutiques').toLowerCase() }));
+}
+
+function classModules(cls) {
+  return getModulesWithClass().filter(m => m.module_class === cls);
+}
+
+function renderPrincipalClassCards() {
+  const wrap = document.getElementById('principalClassCards');
+  if (!wrap) return;
+  const classes = ['biologiques', 'fondamentaux', 'pharmaceutiques'];
+  wrap.innerHTML = classes.map((cls) => {
+    const c = classLabels[cls];
+    const count = classModules(cls).length;
+    const active = principalState.activeClass === cls ? 'active' : '';
+    return `<button class="principal-class-card ${active}" data-class="${cls}" type="button">
+      <div class="principal-class-title">${c.name}</div>
+      <div class="principal-class-sub">${count} modules</div>
+    </button>`;
+  }).join('');
+}
+
+function renderPrincipalModuleChips() {
+  const wrap = document.getElementById('principalModuleChips');
+  if (!wrap) return;
+  const cls = principalState.activeClass;
+  if (!cls) {
+    wrap.innerHTML = '<div class="principal-empty">Choisissez une classe pour filtrer rapidement les modules.</div>';
+    return;
+  }
+  const modules = classModules(cls);
+  if (!modules.length) {
+    wrap.innerHTML = '<div class="principal-empty">Aucun module dans cette classe.</div>';
+    return;
+  }
+  wrap.innerHTML = modules.map(m => {
+    const active = msState.module.has(String(m.id)) ? 'active' : '';
+    return `<button class="principal-module-chip ${active}" data-module-id="${m.id}" type="button">${m.name}</button>`;
+  }).join('');
+}
+
+function syncPrincipalFromModuleState() {
+  const selectedIds = [...msState.module].map(v => Number(v));
+  const modules = getModulesWithClass().filter(m => selectedIds.includes(Number(m.id)));
+  const classes = new Set(modules.map(m => m.module_class));
+  if (modules.length && classes.size === 1) {
+    principalState.activeClass = modules[0].module_class;
+  }
+  renderPrincipalClassCards();
+  renderPrincipalModuleChips();
+}
 
 function getCustomOpts(id) {
   return Array.from(document.querySelectorAll(`#opts_${id} .ms-option`));
@@ -326,6 +397,7 @@ function renderTrigger(id) {
     badge.textContent = `${n} sélectionné${n>1?'s':''}`;
     badge.classList.add('active');
   }
+  if (id === 'module') syncPrincipalFromModuleState();
 }
 
 function renderAllCheckbox(id) {
@@ -418,6 +490,48 @@ document.getElementById('filterResetBtn')?.addEventListener('click', () => {
   });
   if (typeof scheduleCountRefresh === 'function') scheduleCountRefresh();
 });
+
+// Principal filter interactions
+document.getElementById('principalClassCards')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-class]');
+  if (!btn) return;
+  const cls = btn.getAttribute('data-class');
+  principalState.activeClass = cls;
+  const ids = classModules(cls).map(m => String(m.id));
+  msState.module = new Set(ids);
+  renderOptions('module');
+  renderTrigger('module');
+  renderAllCheckbox('module');
+  syncNative('module');
+});
+
+document.getElementById('principalModuleChips')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-module-id]');
+  if (!btn) return;
+  const id = String(btn.getAttribute('data-module-id'));
+  if (msState.module.has(id)) msState.module.delete(id);
+  else msState.module.add(id);
+  renderOptions('module');
+  renderTrigger('module');
+  renderAllCheckbox('module');
+  syncNative('module');
+});
+
+const advancedBtn = document.getElementById('advancedToggleBtn');
+const advancedPanel = document.getElementById('filtersRow');
+advancedBtn?.addEventListener('click', () => {
+  const open = advancedPanel.classList.toggle('hidden');
+  advancedBtn.innerHTML = open
+    ? '<i class="bi bi-sliders"></i> Filtres avances'
+    : '<i class="bi bi-chevron-up"></i> Masquer filtres avances';
+});
+
+window.addEventListener('dashboard:modules-loaded', () => {
+  renderPrincipalClassCards();
+  renderPrincipalModuleChips();
+});
+renderPrincipalClassCards();
+renderPrincipalModuleChips();
 
 // Slider max label sync
 [['training_question_count','training_slider_max'],['exam_question_count','exam_slider_max']].forEach(([sid,mid])=>{

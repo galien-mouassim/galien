@@ -14,7 +14,42 @@ const authMiddleware = require('./middleware/authMiddleware');
 
 const app = express();
 app.set('trust proxy', 1);
-app.use(cors());
+
+function parseCsv(value) {
+    return String(value || '')
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean);
+}
+
+const corsOrigins = parseCsv(process.env.CORS_ORIGINS);
+const allowAllCors = corsOrigins.length === 0;
+
+const corsOptions = allowAllCors
+    ? undefined
+    : {
+        origin(origin, cb) {
+            // Allow server-to-server / curl requests without Origin.
+            if (!origin) return cb(null, true);
+            const originLc = String(origin).toLowerCase();
+            const ok = corsOrigins.some((allowed) => {
+                const a = allowed.toLowerCase();
+                if (a === originLc) return true;
+                if (a === '*.vercel.app') {
+                    try {
+                        const u = new URL(originLc);
+                        return u.hostname.endsWith('.vercel.app');
+                    } catch {
+                        return false;
+                    }
+                }
+                return false;
+            });
+            return cb(ok ? null : new Error('Not allowed by CORS'), ok);
+        }
+    };
+
+app.use(cors(corsOptions));
 app.use(express.json());
 const uploadsDir = process.env.UPLOADS_DIR
     ? path.resolve(process.env.UPLOADS_DIR)

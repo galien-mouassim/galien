@@ -41,3 +41,5 @@ Thumbs.db
 # Local backups / exports
 galien-backup-*/
 *_ids.csv
+*.dump
+galien.dump

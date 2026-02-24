@@ -111,6 +111,68 @@ if (process.env.NODE_ENV !== 'production') {
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
+
+let loginAlertTransport = null;
+
+function parseEmailList(value) {
+    return String(value || '')
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean);
+}
+
+function getLoginAlertRecipients() {
+    return parseEmailList(process.env.LOGIN_ALERT_TO || process.env.ALERT_EMAIL_TO);
+}
+
+function buildLoginAlertTransport() {
+    if (loginAlertTransport) return loginAlertTransport;
+    const host = process.env.SMTP_HOST;
+    const port = Number(process.env.SMTP_PORT || 587);
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    if (!host || !user || !pass) return null;
+    loginAlertTransport = nodemailer.createTransport({
+        host,
+        port: Number.isFinite(port) ? port : 587,
+        secure: Number(port) === 465,
+        auth: { user, pass }
+    });
+    return loginAlertTransport;
+}
+
+async function sendNonAdminLoginAlert({ user, req }) {
+    if (!user || user.role === 'admin') return;
+    const recipients = getLoginAlertRecipients();
+    if (!recipients.length) return;
+    const transporter = buildLoginAlertTransport();
+    if (!transporter) return;
+
+    const sender = process.env.SMTP_FROM || process.env.SMTP_USER;
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+    const ua = req.get('user-agent') || 'unknown';
+    const timestamp = new Date().toISOString();
+
+    try {
+        await transporter.sendMail({
+            from: sender,
+            to: recipients.join(','),
+            subject: '[Galien] Login non-admin detecte',
+            text: [
+                'Connexion non-admin detectee.',
+                `Email: ${user.email}`,
+                `Role: ${user.role}`,
+                `User ID: ${user.id}`,
+                `Date (UTC): ${timestamp}`,
+                `IP: ${ip}`,
+                `User-Agent: ${ua}`
+            ].join('\n')
+        });
+    } catch (e) {
+        console.error('Failed to send non-admin login alert:', e.message);
+    }
+}
 
 function requireAdmin(req, res, next) {
     if (req.user?.role !== 'admin') {
@@ -535,6 +597,11 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '1d' }
         );
+
+        // Fire-and-forget alert when a non-admin account logs in.
+        setImmediate(() => {
+            sendNonAdminLoginAlert({ user, req }).catch(() => {});
+        });
 
         res.json({
             token,

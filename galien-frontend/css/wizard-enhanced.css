@@ -364,20 +364,10 @@
 .wb-mod-head {
   display: flex;
   align-items: center;
-  gap: 7px;
 }
 
 .wb-mod-icon {
-  font-size: .85rem;
-  color: var(--accent);
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  background: var(--accent-light);
-  flex-shrink: 0;
+  display: none;
 }
 
 .wb-mod-name {
@@ -391,7 +381,6 @@
   font-size: .66rem;
   color: var(--ink-4);
   margin-top: 4px;
-  padding-left: 29px;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -765,6 +754,10 @@
   font-size: .83rem;
   font-weight: 700;
   color: var(--ink-2);
+}
+
+.wb-block-mod i {
+  display: none;
 }
 
 .wb-block-chips {

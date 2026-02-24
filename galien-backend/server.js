@@ -2633,21 +2633,38 @@ app.post('/api/questions/import', authMiddleware, requireAdmin, async (req, res)
 });
 
 
-const PORT = process.env.PORT || 5000;
-ensureCoreSchema()
-    .then(() => ensureModuleSourceBackfill())
-    .then(() => ensurePerformanceIndexes())
-    .then(() => ensureAuthSchema())
-    .then(() => ensureQuestionNotesSchema())
-    .then(() => ensureSessionResultsSchema())
-    .then(() => ensureUserPreferencesSchema())
-    .then(() => initAdmin())
-    .then(() => {
-        app.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
+let initPromise = null;
+
+function initApp() {
+    if (!initPromise) {
+        initPromise = ensureCoreSchema()
+            .then(() => ensureModuleSourceBackfill())
+            .then(() => ensurePerformanceIndexes())
+            .then(() => ensureAuthSchema())
+            .then(() => ensureQuestionNotesSchema())
+            .then(() => ensureSessionResultsSchema())
+            .then(() => ensureUserPreferencesSchema())
+            .then(() => initAdmin());
+    }
+    return initPromise;
+}
+
+if (require.main === module) {
+    const PORT = process.env.PORT || 5000;
+    initApp()
+        .then(() => {
+            app.listen(PORT, () => {
+                console.log(`Server running on port ${PORT}`);
+            });
+        })
+        .catch((err) => {
+            console.error('Failed to initialize schema:', err.message);
+            process.exit(1);
         });
-    })
-    .catch((err) => {
+} else {
+    initApp().catch((err) => {
         console.error('Failed to initialize schema:', err.message);
-        process.exit(1);
     });
+}
+
+module.exports = { app, initApp };

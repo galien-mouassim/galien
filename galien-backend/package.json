@@ -16,6 +16,7 @@
         "multer": "^2.0.2",
         "nodemailer": "^8.0.1",
         "pg": "^8.16.3",
+        "serverless-http": "^4.0.0",
         "sharp": "^0.34.5"
     },
     "keywords": [],

@@ -1,8 +1,18 @@
 if (!window.API_URL) {
-  const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-  window.API_URL = isLocal
-    ? 'http://localhost:5000/api'
-    : `${window.location.origin}/api`;
+  const host = String(window.location.hostname || '').toLowerCase();
+  const isFile = window.location.protocol === 'file:';
+  const isPrivateHost =
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '0.0.0.0' ||
+    /^192\.168\./.test(host) ||
+    /^10\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(host);
+  const forced = localStorage.getItem('api_url_override');
+  window.API_URL = forced
+    || (isFile || isPrivateHost
+      ? 'http://localhost:5000/api'
+      : `${window.location.origin}/api`);
 }
 
 (function enforceRouteAuth() {

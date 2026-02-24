@@ -21,7 +21,15 @@ if (!window.API_URL) {
 
 (function enforceRouteAuth() {
   const path = (window.location.pathname || '').toLowerCase();
-  const isPublic = path.endsWith('/index.html') || path.endsWith('/login.html') || path === '/' || path.endsWith('/galien-frontend/');
+  const isPublic =
+    path === '/' ||
+    path === '/index' ||
+    path.endsWith('/index.html') ||
+    path === '/login' ||
+    path.endsWith('/login.html') ||
+    path.endsWith('/galien-frontend/') ||
+    path.endsWith('/galien-frontend/login') ||
+    path.endsWith('/galien-frontend/index');
   const token = localStorage.getItem('token');
   if (!token && !isPublic) {
     const next = encodeURIComponent((window.location.pathname || '') + (window.location.search || ''));

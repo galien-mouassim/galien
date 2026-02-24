@@ -51,9 +51,12 @@ const corsOptions = allowAllCors
 
 app.use(cors(corsOptions));
 app.use(express.json());
+const isServerlessRuntime = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
 const uploadsDir = process.env.UPLOADS_DIR
     ? path.resolve(process.env.UPLOADS_DIR)
-    : (process.env.RENDER ? path.join('/tmp', 'galien-uploads') : path.join(__dirname, 'uploads'));
+    : ((process.env.RENDER || isServerlessRuntime)
+        ? path.join('/tmp', 'galien-uploads')
+        : path.join(__dirname, 'uploads'));
 const frontendDir = path.join(__dirname, '..', 'galien-frontend');
 const hasCloudinary = Boolean(
     process.env.CLOUDINARY_CLOUD_NAME &&

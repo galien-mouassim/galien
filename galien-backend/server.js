@@ -142,12 +142,28 @@ function buildLoginAlertTransport() {
     return loginAlertTransport;
 }
 
+function getLoginAlertConfigIssue() {
+    const recipients = getLoginAlertRecipients();
+    if (!recipients.length) return 'LOGIN_ALERT_TO is empty';
+    if (!process.env.SMTP_HOST) return 'SMTP_HOST missing';
+    if (!process.env.SMTP_USER) return 'SMTP_USER missing';
+    if (!process.env.SMTP_PASS) return 'SMTP_PASS missing';
+    return null;
+}
+
 async function sendNonAdminLoginAlert({ user, req }) {
     if (!user || user.role === 'admin') return;
     const recipients = getLoginAlertRecipients();
-    if (!recipients.length) return;
+    if (!recipients.length) {
+        console.warn('Login alert skipped: LOGIN_ALERT_TO is empty');
+        return;
+    }
     const transporter = buildLoginAlertTransport();
-    if (!transporter) return;
+    if (!transporter) {
+        const issue = getLoginAlertConfigIssue() || 'SMTP transport not configured';
+        console.warn(`Login alert skipped: ${issue}`);
+        return;
+    }
 
     const sender = process.env.SMTP_FROM || process.env.SMTP_USER;
     const ip = req.ip || req.socket?.remoteAddress || 'unknown';
@@ -169,6 +185,7 @@ async function sendNonAdminLoginAlert({ user, req }) {
                 `User-Agent: ${ua}`
             ].join('\n')
         });
+        console.info(`Login alert email sent for non-admin user ${user.email}`);
     } catch (e) {
         console.error('Failed to send non-admin login alert:', e.message);
     }
@@ -2198,6 +2215,33 @@ app.post('/api/admin/messages', authMiddleware, async (req, res) => {
         res.json(result.rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/admin/test-login-alert', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const issue = getLoginAlertConfigIssue();
+        if (issue) {
+            return res.status(400).json({ ok: false, message: issue });
+        }
+
+        const transporter = buildLoginAlertTransport();
+        if (!transporter) {
+            return res.status(500).json({ ok: false, message: 'SMTP transport init failed' });
+        }
+
+        const to = getLoginAlertRecipients();
+        const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+        await transporter.sendMail({
+            from,
+            to: to.join(','),
+            subject: '[Galien] Test login alert',
+            text: `Test email from Galien at ${new Date().toISOString()}`
+        });
+
+        return res.json({ ok: true, sent_to: to });
+    } catch (err) {
+        return res.status(500).json({ ok: false, message: err.message });
     }
 });
 

@@ -6,6 +6,7 @@ const path = require('path');
 const multer = require('multer');
 const crypto = require('crypto');
 const sharp = require('sharp');
+const { v2: cloudinary } = require('cloudinary');
 const pool = require('./config/database');
 const initAdmin = require('./config/initAdmin');
 const authMiddleware = require('./middleware/authMiddleware');
@@ -19,6 +20,20 @@ const uploadsDir = process.env.UPLOADS_DIR
     ? path.resolve(process.env.UPLOADS_DIR)
     : (process.env.RENDER ? path.join('/tmp', 'galien-uploads') : path.join(__dirname, 'uploads'));
 const frontendDir = path.join(__dirname, '..', 'galien-frontend');
+const hasCloudinary = Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET
+);
+
+if (hasCloudinary) {
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET
+    });
+}
+
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -27,20 +42,47 @@ if (fs.existsSync(frontendDir)) {
     app.use(express.static(frontendDir));
 }
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadsDir);
-    },
-    filename: (req, file, cb) => {
-        const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-        cb(null, `u${req.user.id}_${Date.now()}_${safeName}`);
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (!file.mimetype || !file.mimetype.startsWith('image/')) {
+            return cb(new Error('Only image files are allowed'));
+        }
+        cb(null, true);
     }
 });
 
-const upload = multer({
-    storage,
-    limits: { fileSize: 10 * 1024 * 1024 }
-});
+async function processProfilePhotoBuffer(inputBuffer) {
+    return sharp(inputBuffer)
+        .rotate()
+        .resize(320, 320, { fit: 'cover' })
+        .jpeg({ quality: 82, mozjpeg: true })
+        .toBuffer();
+}
+
+async function saveProfilePhoto(buffer, userId) {
+    const processed = await processProfilePhotoBuffer(buffer);
+
+    if (hasCloudinary) {
+        const folder = process.env.CLOUDINARY_FOLDER || 'galien/profile';
+        const uploadResult = await cloudinary.uploader.upload(
+            `data:image/jpeg;base64,${processed.toString('base64')}`,
+            {
+                folder,
+                public_id: `u${userId}_${Date.now()}`,
+                resource_type: 'image',
+                overwrite: false
+            }
+        );
+        return uploadResult.secure_url || uploadResult.url;
+    }
+
+    const fileName = `u${userId}_${Date.now()}.jpg`;
+    const outPath = path.join(uploadsDir, fileName);
+    fs.writeFileSync(outPath, processed);
+    return `/uploads/${fileName}`;
+}
 
 function createRateLimiter({ windowMs, max, keyFn }) {
     const hits = new Map();
@@ -1188,22 +1230,11 @@ app.put('/api/users/me', authMiddleware, async (req, res) => {
 
 app.post('/api/users/me/photo', authMiddleware, upload.single('photo'), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
-        const originalPath = path.join(uploadsDir, req.file.filename);
-        const compressedName = req.file.filename.replace(/\.[^.]+$/, '') + '.jpg';
-        const compressedPath = path.join(uploadsDir, compressedName);
-
-        await sharp(originalPath)
-            .rotate()
-            .resize(320, 320, { fit: 'cover' })
-            .jpeg({ quality: 82, mozjpeg: true })
-            .toFile(compressedPath);
-
-        if (compressedPath !== originalPath && fs.existsSync(originalPath)) {
-            fs.unlinkSync(originalPath);
+        if (!req.file || !req.file.buffer) {
+            return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        const photoUrl = `/uploads/${compressedName}`;
+        const photoUrl = await saveProfilePhoto(req.file.buffer, req.user.id);
         const result = await pool.query(
             'UPDATE users SET profile_photo = $1 WHERE id = $2 RETURNING profile_photo',
             [photoUrl, req.user.id]

@@ -79,6 +79,14 @@
     return API_URL.replace(/\/api\/?$/, '');
   }
 
+  function resolvePhotoUrl(value) {
+    const v = String(value || '').trim();
+    if (!v) return '';
+    if (/^https?:\/\//i.test(v) || v.startsWith('data:')) return v;
+    const base = getBaseUrl();
+    return base ? `${base}${v}` : v;
+  }
+
   const token = localStorage.getItem('token');
   if (!token) {
     addProfileMenu(fallback);
@@ -99,8 +107,7 @@
         addProfileMenu(fallback, unread);
         return;
       }
-      const base = getBaseUrl();
-      const url = base ? `${base}${me.profile_photo}` : me.profile_photo;
+      const url = resolvePhotoUrl(me.profile_photo);
       addProfileMenu(url, unread);
     })
     .catch(() => addProfileMenu(fallback));

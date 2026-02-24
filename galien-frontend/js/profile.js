@@ -312,6 +312,12 @@ async function loadUnreadCount() {
 }
 
 function getBaseUrl() { return API_URL.replace(/\/api\/?$/, ''); }
+function resolvePhotoUrl(value) {
+  const v = String(value || '').trim();
+  if (!v) return '';
+  if (/^https?:\/\//i.test(v) || v.startsWith('data:')) return v;
+  return `${getBaseUrl()}${v}`;
+}
 
 async function loadProfile() {
   if (!localStorage.getItem('token')) { window.location.href = 'login.html'; return; }
@@ -333,7 +339,7 @@ async function loadProfile() {
     document.getElementById('display_name').value = me.display_name || '';
 
     const fallback = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" fill="%23f1f5f9"/><circle cx="48" cy="36" r="16" fill="%23ccfbf1"/><path d="M16 86c6-16 20-24 32-24s26 8 32 24" fill="%23ccfbf1"/></svg>`;
-    const photoUrl = me.profile_photo ? `${getBaseUrl()}${me.profile_photo}` : fallback;
+    const photoUrl = me.profile_photo ? resolvePhotoUrl(me.profile_photo) : fallback;
     document.getElementById('profilePhoto').src = photoUrl;
     document.getElementById('sidebarPhoto').src = photoUrl;
     document.getElementById('sidebarDisplayName').textContent = me.display_name || me.email || 'Utilisateur';

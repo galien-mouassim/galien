@@ -429,14 +429,66 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .wb-mod-icon{font-size:.95rem;color:var(--accent);opacity:.9}
 .wb-mod-name { font-size:.8rem; font-weight:700; color:var(--ink); }
 .wb-mod-count { font-size:.67rem; color:var(--ink-4); margin-top:2px; }
-.wb-advanced-grid{
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:10px;
-}
-.wb-advanced-grid select{
-  min-height:140px;
-  border-radius:12px;
+/* ═══ FILTRE NON GUIDE (Libre) — custom dropdowns ═══ */
+.lib-grid{display:grid;grid-template-columns:1fr 1fr}
+.lib-grid-top{border-bottom:1px solid var(--border)}
+.lib-item{padding:12px 14px;border-right:1px solid var(--border);position:relative;overflow:visible}
+.lib-item:nth-child(even){border-right:none}
+.lib-item-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.lib-item-lbl{display:flex;align-items:center;gap:7px;font-size:.76rem;font-weight:700;color:var(--ink-2)}
+.lib-icon{width:24px;height:24px;border-radius:6px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--ink-3);border:1px solid var(--border)}
+.lib-badge{font-size:.64rem;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--surface-2);color:var(--ink-4);border:1px solid var(--border);white-space:nowrap;transition:var(--t)}
+.lib-badge.active{background:var(--accent-light);color:var(--accent-2);border-color:var(--accent)}
+.lib-select-wrap{position:relative}
+.lib-trig{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.8rem;color:var(--ink-2);cursor:pointer;transition:var(--t);font-family:inherit;text-align:left}
+.lib-trig:hover{border-color:var(--border-2);background:var(--surface)}
+.lib-trig.open{border-color:var(--accent);box-shadow:0 0 0 3px rgba(13,148,136,.1);background:var(--surface)}
+.lib-trig-txt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;display:flex;align-items:center}
+.lib-trig-txt.ph{color:var(--ink-4);font-style:italic}
+.lib-chev{font-size:.7rem;color:var(--ink-4);flex-shrink:0;transition:transform var(--t)}
+.lib-trig.open .lib-chev{transform:rotate(180deg)}
+.lib-tags{display:flex;align-items:center;gap:4px}
+.lib-tag{padding:1px 7px;background:var(--accent-light);color:var(--accent-2);border-radius:99px;font-size:.68rem;font-weight:700}
+.lib-tag-more{font-size:.68rem;color:var(--ink-4);font-weight:600}
+.lib-drop{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:300;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);min-width:200px}
+.lib-drop.hidden{display:none}
+.lib-search-wrap{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--ink-4)}
+.lib-search{flex:1;border:none;outline:none;background:transparent;font-size:.82rem;color:var(--ink);font-family:inherit}
+.lib-sel-all{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:.77rem;font-weight:600;color:var(--ink-3);transition:background var(--t)}
+.lib-sel-all:hover{background:var(--surface-2)}
+.lib-allbox{width:15px;height:15px;border-radius:4px;border:2px solid var(--border-2);background:var(--surface);flex-shrink:0;position:relative;transition:var(--t)}
+.lib-allbox.all{background:var(--accent);border-color:var(--accent)}
+.lib-allbox.all::after{content:'';position:absolute;left:2px;top:-1px;width:7px;height:5px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg)}
+.lib-allbox.partial{background:var(--accent-ghost);border-color:var(--accent)}
+.lib-allbox.partial::before{content:'';position:absolute;left:2px;top:5px;width:7px;height:2px;background:var(--accent);border-radius:1px}
+.lib-opts{max-height:200px;overflow-y:auto;padding:4px 0}
+.lib-opt{display:flex;align-items:center;gap:9px;padding:7px 10px;font-size:.82rem;color:var(--ink-2);cursor:pointer;transition:background var(--t)}
+.lib-opt:hover{background:var(--surface-2)}
+.lib-opt.lib-hidden{display:none}
+.lib-opt.selected .lib-cb{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 2px rgba(13,148,136,.15)}
+.lib-opt.selected .lib-cb::after{opacity:1}
+.lib-cb{width:15px;height:15px;border-radius:4px;border:2px solid var(--border-2);background:var(--surface);flex-shrink:0;position:relative;transition:var(--t)}
+.lib-cb::after{content:'';position:absolute;left:2px;top:-1px;width:7px;height:5px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg);opacity:0;transition:var(--t)}
+.lib-empty{padding:12px 10px;font-size:.78rem;color:var(--ink-4);text-align:center}
+/* fav rose variant */
+.lib-item--fav{background:linear-gradient(160deg,#fff5f7 0%,var(--surface) 100%)}
+[data-theme="dark"] .lib-item--fav{background:linear-gradient(160deg,rgba(244,63,94,.06) 0%,var(--surface) 100%)}
+.lib-icon--fav{background:#fff1f2;color:#f43f5e;border-color:#fecdd3}
+[data-theme="dark"] .lib-icon--fav{background:#3b0e18;color:#fb7185;border-color:#9f1239}
+.lib-badge--fav.active{background:#fff1f2;color:#e11d48;border-color:#f43f5e}
+[data-theme="dark"] .lib-badge--fav.active{background:#3b0e18;color:#fb7185;border-color:#f43f5e}
+.lib-trig--fav:hover{border-color:#fecdd3;background:#fff5f7}
+.lib-trig--fav.open{border-color:#f43f5e;box-shadow:0 0 0 3px rgba(244,63,94,.1)}
+.lib-trig--fav .lib-tag{background:#fff1f2;color:#e11d48}
+#lib_opts_favtag .lib-opt.selected .lib-cb{background:#f43f5e;border-color:#f43f5e}
+#lib_all_favtag .lib-allbox.all{background:#f43f5e;border-color:#f43f5e}
+#lib_all_favtag .lib-allbox.partial{background:#fff1f2;border-color:#f43f5e}
+#lib_all_favtag .lib-allbox.partial::before{background:#f43f5e}
+.lib-allbox--fav{border-color:#fecdd3}
+@media(max-width:520px){
+  .lib-grid{grid-template-columns:1fr}
+  .lib-item{border-right:none;border-bottom:1px solid var(--border)}
+  .lib-item:last-child{border-bottom:none}
 }
 
 /* Course chips */

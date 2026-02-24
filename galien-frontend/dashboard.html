@@ -65,25 +65,78 @@
           </div>
         </div>
         <div id="wb-advanced-mode" class="hidden">
-          <div class="wb-advanced-grid">
-            <label class="field" style="margin-bottom:0">
-              <span>Modules</span>
-              <select id="wb_adv_module" multiple size="6"></select>
-            </label>
-            <label class="field" style="margin-bottom:0">
-              <span>Cours</span>
-              <select id="wb_adv_course" multiple size="6"></select>
-            </label>
-            <label class="field" style="margin-bottom:0">
-              <span>Sources</span>
-              <select id="wb_adv_source" multiple size="6"></select>
-            </label>
-            <label class="field" style="margin-bottom:0">
-              <span>Tags favoris</span>
-              <select id="wb_adv_favtag" multiple size="6"></select>
-            </label>
+          <div class="lib-grid lib-grid-top">
+            <div class="lib-item">
+              <div class="lib-item-hd">
+                <div class="lib-item-lbl"><span class="lib-icon"><i class="bi bi-grid-3x3-gap"></i></span><span>Module</span></div>
+                <span class="lib-badge" id="lib_badge_module">Tous</span>
+              </div>
+              <div class="lib-select-wrap">
+                <button class="lib-trig" id="lib_trig_module" type="button">
+                  <span class="lib-trig-txt ph" id="lib_text_module">Tous les modules</span>
+                  <i class="bi bi-chevron-down lib-chev"></i>
+                </button>
+                <div class="lib-drop hidden" id="lib_drop_module">
+                  <div class="lib-search-wrap"><i class="bi bi-search"></i><input class="lib-search" placeholder="Rechercher..." id="lib_search_module"></div>
+                  <div class="lib-sel-all" id="lib_all_module"><div class="lib-allbox" id="lib_allbox_module"></div><span id="lib_alltext_module">Tout selectionner</span></div>
+                  <div class="lib-opts" id="lib_opts_module"></div>
+                </div>
+              </div>
+            </div>
+            <div class="lib-item">
+              <div class="lib-item-hd">
+                <div class="lib-item-lbl"><span class="lib-icon"><i class="bi bi-book"></i></span><span>Cours</span></div>
+                <span class="lib-badge" id="lib_badge_course">Tous</span>
+              </div>
+              <div class="lib-select-wrap">
+                <button class="lib-trig" id="lib_trig_course" type="button">
+                  <span class="lib-trig-txt ph" id="lib_text_course">Tous les cours</span>
+                  <i class="bi bi-chevron-down lib-chev"></i>
+                </button>
+                <div class="lib-drop hidden" id="lib_drop_course">
+                  <div class="lib-search-wrap"><i class="bi bi-search"></i><input class="lib-search" placeholder="Rechercher..." id="lib_search_course"></div>
+                  <div class="lib-sel-all" id="lib_all_course"><div class="lib-allbox" id="lib_allbox_course"></div><span id="lib_alltext_course">Tout selectionner</span></div>
+                  <div class="lib-opts" id="lib_opts_course"></div>
+                </div>
+              </div>
+            </div>
           </div>
-          <p class="muted" style="font-size:.75rem;margin-top:8px">Mode libre: maintenez Ctrl pour selection multiple.</p>
+          <div class="lib-grid lib-grid-bottom">
+            <div class="lib-item">
+              <div class="lib-item-hd">
+                <div class="lib-item-lbl"><span class="lib-icon"><i class="bi bi-file-earmark-text"></i></span><span>Source</span></div>
+                <span class="lib-badge" id="lib_badge_source">Tous</span>
+              </div>
+              <div class="lib-select-wrap">
+                <button class="lib-trig" id="lib_trig_source" type="button">
+                  <span class="lib-trig-txt ph" id="lib_text_source">Toutes les sources</span>
+                  <i class="bi bi-chevron-down lib-chev"></i>
+                </button>
+                <div class="lib-drop hidden" id="lib_drop_source">
+                  <div class="lib-search-wrap"><i class="bi bi-search"></i><input class="lib-search" placeholder="Rechercher..." id="lib_search_source"></div>
+                  <div class="lib-sel-all" id="lib_all_source"><div class="lib-allbox" id="lib_allbox_source"></div><span id="lib_alltext_source">Tout selectionner</span></div>
+                  <div class="lib-opts" id="lib_opts_source"></div>
+                </div>
+              </div>
+            </div>
+            <div class="lib-item lib-item--fav">
+              <div class="lib-item-hd">
+                <div class="lib-item-lbl"><span class="lib-icon lib-icon--fav"><i class="bi bi-heart-fill"></i></span><span>Tags favoris</span></div>
+                <span class="lib-badge lib-badge--fav" id="lib_badge_favtag">Tous</span>
+              </div>
+              <div class="lib-select-wrap">
+                <button class="lib-trig lib-trig--fav" id="lib_trig_favtag" type="button">
+                  <span class="lib-trig-txt ph" id="lib_text_favtag">Tous les tags</span>
+                  <i class="bi bi-chevron-down lib-chev"></i>
+                </button>
+                <div class="lib-drop hidden" id="lib_drop_favtag">
+                  <div class="lib-search-wrap"><i class="bi bi-search"></i><input class="lib-search" placeholder="Rechercher un tag..." id="lib_search_favtag"></div>
+                  <div class="lib-sel-all" id="lib_all_favtag"><div class="lib-allbox lib-allbox--fav" id="lib_allbox_favtag"></div><span id="lib_alltext_favtag">Tout selectionner</span></div>
+                  <div class="lib-opts" id="lib_opts_favtag"></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="filters-count-wrap" style="margin-top:12px">
           <div class="question-counter">
@@ -360,36 +413,7 @@ function wbApplyGuidedFilters() {
 }
 
 function wbApplyAdvancedFilters() {
-  const sm = document.getElementById('sel_module');
-  const sc = document.getElementById('sel_course');
-  const ss = document.getElementById('sel_source');
-  const sf = document.getElementById('sel_favtag');
-
-  const am = document.getElementById('wb_adv_module');
-  const ac = document.getElementById('wb_adv_course');
-  const as = document.getElementById('wb_adv_source');
-  const af = document.getElementById('wb_adv_favtag');
-  if (!sm || !sc || !ss || !sf || !am || !ac || !as || !af) return;
-
-  const selectedModules = Array.from(am.selectedOptions).map((o) => o.value);
-  const selectedCourses = Array.from(ac.selectedOptions).map((o) => o.value);
-  const selectedSources = Array.from(as.selectedOptions).map((o) => o.value);
-  const selectedFavTags = Array.from(af.selectedOptions).map((o) => o.value);
-
-  wbSetSelectedValues(sm, selectedModules);
-  const moduleSig = selectedModules.join(',');
-  const moduleChanged = moduleSig !== wbLastModuleSignature;
-  wbLastModuleSignature = moduleSig;
-  if (moduleChanged) sm.dispatchEvent(new Event('change'));
-
-  clearTimeout(wbSyncTimer);
-  wbSyncTimer = setTimeout(() => {
-    wbSetSelectedValues(sc, selectedCourses);
-    wbSetSelectedValues(ss, selectedSources);
-    wbSetSelectedValues(sf, selectedFavTags);
-    if (typeof scheduleCountRefresh === 'function') scheduleCountRefresh();
-    wbPopulateAdvancedFromNative();
-  }, moduleChanged ? 360 : 40);
+  // now delegates to libState — real implementation added below after lib setup
 }
 
 function wbApplyActiveFilters() {
@@ -719,8 +743,7 @@ function wbAttachWizardEvents() {
         if (i >= 0) { wbWizard.courseIds.splice(i, 1); chip.classList.remove('selected'); }
         else         { wbWizard.courseIds.push(cid);    chip.classList.add('selected'); }
         const sval = document.querySelector('#wb-wizard .wb-sval');
-        if (sval) sval.textContent = wbWizard.courseIds.length
-          ? `${wbWizard.courseIds.length} selectionne(s)` : 'Tous si vide';
+        if (sval) sval.textContent = wbWizard.courseIds.length ? wbWizard.courseIds.length + ' selectionne(s)' : 'Tous si vide';
         wbApplyActiveFilters();
       });
     });
@@ -753,8 +776,7 @@ function wbAttachWizardEvents() {
           }
         }
         const sval = document.querySelector('#wb-wizard .wb-sval');
-        if (sval) sval.textContent = wbWizard.sourceIds.length
-          ? `${wbWizard.sourceIds.length} selectionnee(s)` : 'Optionnel';
+        if (sval) sval.textContent = wbWizard.sourceIds.length ? wbWizard.sourceIds.length + ' selectionnee(s)' : 'Optionnel';
         wbApplyActiveFilters();
       });
     });
@@ -798,80 +820,173 @@ function wbAttachWizardEvents() {
   }
 }
 
-function wbPopulateAdvancedSelect(targetId, nativeId) {
-  const target = document.getElementById(targetId);
-  const native = document.getElementById(nativeId);
-  if (!target || !native) return;
+/* ── Advanced filters now use libState instead of wb_adv_ selects ── */
+function wbApplyAdvancedFilters() {
+  const sm = document.getElementById('sel_module');
+  const sc = document.getElementById('sel_course');
+  const ss = document.getElementById('sel_source');
+  const sf = document.getElementById('sel_favtag');
+  if (!sm) return;
+  const mods = [...libState.module];
+  const cors = [...libState.course];
+  const srcs = [...libState.source];
+  const favs = [...libState.favtag];
+  wbSetSelectedValues(sm, mods);
+  const sig = mods.join(',');
+  const changed = sig !== wbLastModuleSignature;
+  wbLastModuleSignature = sig;
+  if (changed) sm.dispatchEvent(new Event('change'));
+  clearTimeout(wbSyncTimer);
+  wbSyncTimer = setTimeout(() => {
+    wbSetSelectedValues(sc, cors);
+    wbSetSelectedValues(ss, srcs);
+    wbSetSelectedValues(sf, favs);
+    if (typeof scheduleCountRefresh === 'function') scheduleCountRefresh();
+    libRebuildFromNative('course');
+    libRebuildFromNative('source');
+    libRebuildFromNative('favtag');
+  }, changed ? 360 : 40);
+}
 
-  const previous = new Set(Array.from(target.selectedOptions).map((o) => o.value));
-  const nativeSelected = new Set(Array.from(native.selectedOptions).map((o) => o.value));
-  target.innerHTML = Array.from(native.options)
-    .map((o) => `<option value="${o.value}">${o.textContent}</option>`)
-    .join('');
+/* ── Libre dropdown helpers ── */
+const LIB_KEYS = ['module','course','source','favtag'];
+const LIB_PH = {module:'Tous les modules',course:'Tous les cours',source:'Toutes les sources',favtag:'Tous les tags'};
+const libState = {module:new Set(),course:new Set(),source:new Set(),favtag:new Set()};
 
-  Array.from(target.options).forEach((o) => {
-    o.selected = previous.size ? previous.has(o.value) : nativeSelected.has(o.value);
+function libGetOpts(key)  { return Array.from(document.querySelectorAll('#lib_opts_'+key+' .lib-opt')); }
+function libGetVis(key)   { return libGetOpts(key).filter(o=>!o.classList.contains('lib-hidden')); }
+
+function libRebuildFromNative(key) {
+  const nMap = {module:'sel_module',course:'sel_course',source:'sel_source',favtag:'sel_favtag'};
+  const native = document.getElementById(nMap[key]);
+  const container = document.getElementById('lib_opts_'+key);
+  if (!native||!container) return;
+  container.innerHTML = '';
+  Array.from(native.options).forEach(opt=>{
+    const d=document.createElement('div');
+    d.className='lib-opt'+(libState[key].has(opt.value)?' selected':'');
+    d.dataset.val=opt.value;
+    d.innerHTML='<div class="lib-cb"></div>'+opt.textContent;
+    container.appendChild(d);
   });
+  libRenderAllbox(key);
+  libRenderTrigger(key);
 }
 
 function wbPopulateAdvancedFromNative() {
-  wbPopulateAdvancedSelect('wb_adv_module', 'sel_module');
-  wbPopulateAdvancedSelect('wb_adv_course', 'sel_course');
-  wbPopulateAdvancedSelect('wb_adv_source', 'sel_source');
-  wbPopulateAdvancedSelect('wb_adv_favtag', 'sel_favtag');
+  LIB_KEYS.forEach(k=>libRebuildFromNative(k));
 }
 
+function libRenderTrigger(key) {
+  const vals=[...libState[key]];
+  const textEl=document.getElementById('lib_text_'+key);
+  const badge=document.getElementById('lib_badge_'+key);
+  if (!textEl||!badge) return;
+  if (!vals.length) {
+    textEl.textContent=LIB_PH[key]; textEl.className='lib-trig-txt ph';
+    badge.textContent='Tous'; badge.classList.remove('active');
+  } else {
+    const first=(document.querySelector('#lib_opts_'+key+' [data-val="'+CSS.escape(vals[0])+'"]')?.textContent||vals[0]).trim();
+    const short=first.length>17?first.slice(0,15)+'...':first;
+    const more=vals.length>1?'<span class="lib-tag-more">+'+( vals.length-1)+'</span>':'';
+    textEl.innerHTML='<span class="lib-tags"><span class="lib-tag">'+short+'</span>'+more+'</span>';
+    textEl.className='lib-trig-txt';
+    badge.textContent=vals.length+' sel.'; badge.classList.add('active');
+  }
+}
+
+function libRenderAllbox(key) {
+  const box=document.getElementById('lib_allbox_'+key);
+  const txt=document.getElementById('lib_alltext_'+key);
+  if (!box||!txt) return;
+  const vis=libGetVis(key);
+  const sel=vis.filter(o=>libState[key].has(o.dataset.val)).length;
+  box.className='lib-allbox'+(key==='favtag'?' lib-allbox--fav':'');
+  if (sel===0)            { txt.textContent='Tout selectionner'; }
+  else if (sel===vis.length){ box.classList.add('all'); txt.textContent='Tout deselectionner'; }
+  else                    { box.classList.add('partial'); txt.textContent=sel+' / '+vis.length; }
+}
+
+function libRenderOpts(key) { libGetOpts(key).forEach(o=>o.classList.toggle('selected',libState[key].has(o.dataset.val))); }
+
+function libSearch(key,q) {
+  q=(q||'').toLowerCase().trim();
+  libGetOpts(key).forEach(o=>o.classList.toggle('lib-hidden',!!q&&!o.textContent.toLowerCase().includes(q)));
+  const ctr=document.getElementById('lib_opts_'+key);
+  const empty=document.getElementById('lib_empty_'+key);
+  if (!libGetVis(key).length) {
+    if (!empty){const d=document.createElement('div');d.className='lib-empty';d.id='lib_empty_'+key;d.textContent='Aucun resultat';ctr.appendChild(d);}
+  } else empty?.remove();
+}
+
+function libCloseAll(except) {
+  LIB_KEYS.forEach(key=>{
+    if (key===except) return;
+    document.getElementById('lib_drop_'+key)?.classList.add('hidden');
+    document.getElementById('lib_trig_'+key)?.classList.remove('open');
+  });
+}
+
+LIB_KEYS.forEach(key=>{
+  const trig=document.getElementById('lib_trig_'+key);
+  const drop=document.getElementById('lib_drop_'+key);
+  const search=document.getElementById('lib_search_'+key);
+  const allRow=document.getElementById('lib_all_'+key);
+  const opts=document.getElementById('lib_opts_'+key);
+  if (!trig||!drop) return;
+  trig.addEventListener('click',e=>{
+    e.stopPropagation();
+    const isOpen=!drop.classList.contains('hidden');
+    libCloseAll(key);
+    drop.classList.toggle('hidden',isOpen);
+    trig.classList.toggle('open',!isOpen);
+    if (!isOpen&&search){search.value='';libSearch(key,'');setTimeout(()=>search.focus(),40);}
+  });
+  opts?.addEventListener('click',e=>{
+    const opt=e.target.closest('.lib-opt'); if (!opt) return;
+    const val=opt.dataset.val;
+    libState[key].has(val)?libState[key].delete(val):libState[key].add(val);
+    libRenderOpts(key);libRenderTrigger(key);libRenderAllbox(key);
+    wbApplyActiveFilters();
+  });
+  allRow?.addEventListener('click',()=>{
+    const vis=libGetVis(key).map(o=>o.dataset.val);
+    const allSel=vis.every(v=>libState[key].has(v));
+    allSel?vis.forEach(v=>libState[key].delete(v)):vis.forEach(v=>libState[key].add(v));
+    libRenderOpts(key);libRenderTrigger(key);libRenderAllbox(key);
+    wbApplyActiveFilters();
+  });
+  search?.addEventListener('input',()=>{libSearch(key,search.value);libRenderAllbox(key);});
+  search?.addEventListener('click',e=>e.stopPropagation());
+  drop?.addEventListener('click',e=>e.stopPropagation());
+});
+document.addEventListener('click',()=>libCloseAll(null));
+
+/* ── Mode switch ── */
 function wbSetMode(mode) {
-  wbMode = mode === 'advanced' ? 'advanced' : 'guided';
-  const guidedBtn = document.getElementById('wbGuidedBtn');
-  const advancedBtn = document.getElementById('wbAdvancedBtn');
-  const guidedWrap = document.getElementById('wb-guided-mode');
-  const advancedWrap = document.getElementById('wb-advanced-mode');
-
-  guidedBtn?.classList.toggle('active', wbMode === 'guided');
-  advancedBtn?.classList.toggle('active', wbMode === 'advanced');
-  guidedWrap?.classList.toggle('hidden', wbMode !== 'guided');
-  advancedWrap?.classList.toggle('hidden', wbMode !== 'advanced');
-
-  if (wbMode === 'guided' && !wbWizard && !wbBlocks.length) wbStartWizard();
-  if (wbMode === 'advanced') wbPopulateAdvancedFromNative();
+  wbMode = mode==='advanced'?'advanced':'guided';
+  document.getElementById('wbGuidedBtn')?.classList.toggle('active',wbMode==='guided');
+  document.getElementById('wbAdvancedBtn')?.classList.toggle('active',wbMode==='advanced');
+  document.getElementById('wb-guided-mode')?.classList.toggle('hidden',wbMode!=='guided');
+  document.getElementById('wb-advanced-mode')?.classList.toggle('hidden',wbMode!=='advanced');
+  if (wbMode==='guided'&&!wbWizard&&!wbBlocks.length) wbStartWizard();
+  if (wbMode==='advanced') wbPopulateAdvancedFromNative();
   wbApplyActiveFilters();
 }
 
+/* ── Wire events ── */
 function wbWireCommonEvents() {
-  document.getElementById('wb-add-btn')?.addEventListener('click', () => wbStartWizard());
-
-  document.getElementById('filterResetBtn')?.addEventListener('click', () => {
-    wbBlocks = [];
-    wbWizard = null;
-    wbEditingIndex = null;
-
-    ['wb_adv_module', 'wb_adv_course', 'wb_adv_source', 'wb_adv_favtag'].forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      Array.from(el.options).forEach((o) => {
-        o.selected = false;
-      });
-    });
-
-    wbRender();
-    wbApplyActiveFilters();
-    if (wbMode === 'guided') wbStartWizard();
+  document.getElementById('wb-add-btn')?.addEventListener('click',()=>wbStartWizard());
+  document.getElementById('filterResetBtn')?.addEventListener('click',()=>{
+    wbBlocks=[];wbWizard=null;wbEditingIndex=null;
+    LIB_KEYS.forEach(k=>{libState[k].clear();libRenderOpts(k);libRenderTrigger(k);libRenderAllbox(k);});
+    wbRender();wbApplyActiveFilters();
+    if (wbMode==='guided') wbStartWizard();
   });
-
-  document.getElementById('wbGuidedBtn')?.addEventListener('click', () => wbSetMode('guided'));
-  document.getElementById('wbAdvancedBtn')?.addEventListener('click', () => wbSetMode('advanced'));
-
-  ['wb_adv_module', 'wb_adv_course', 'wb_adv_source', 'wb_adv_favtag'].forEach((id) => {
-    document.getElementById(id)?.addEventListener('change', () => {
-      if (wbMode === 'advanced') wbApplyAdvancedFilters();
-    });
-  });
-
-  window.addEventListener('dashboard:modules-loaded', () => {
-    wbRender();
-    wbPopulateAdvancedFromNative();
-    wbApplyActiveFilters();
+  document.getElementById('wbGuidedBtn')?.addEventListener('click',()=>wbSetMode('guided'));
+  document.getElementById('wbAdvancedBtn')?.addEventListener('click',()=>wbSetMode('advanced'));
+  window.addEventListener('dashboard:modules-loaded',()=>{
+    wbRender();wbPopulateAdvancedFromNative();wbApplyActiveFilters();
   });
 }
 
@@ -879,13 +994,10 @@ wbWireCommonEvents();
 wbStartWizard();
 wbSetMode('guided');
 
-[['training_question_count', 'training_slider_max'], ['exam_question_count', 'exam_slider_max']].forEach(([sid, mid]) => {
-  const slider = document.getElementById(sid);
-  const maxLabel = document.getElementById(mid);
-  if (!slider || !maxLabel) return;
-  new MutationObserver(() => {
-    maxLabel.textContent = slider.max || '-';
-  }).observe(slider, { attributes: true, attributeFilter: ['max'] });
+[['training_question_count','training_slider_max'],['exam_question_count','exam_slider_max']].forEach(([sid,mid])=>{
+  const s=document.getElementById(sid),m=document.getElementById(mid);
+  if (!s||!m) return;
+  new MutationObserver(()=>{m.textContent=s.max||'-';}).observe(s,{attributes:true,attributeFilter:['max']});
 });
 </script>
 <script src="js/profile-link.js"></script>

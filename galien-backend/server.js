@@ -191,6 +191,50 @@ async function sendNonAdminLoginAlert({ user, req }) {
     }
 }
 
+async function notifyAdminsOfNonAdminLogin({ user, req }) {
+    if (!user || user.role === 'admin') return;
+    try {
+        const admins = await pool.query(
+            `SELECT id
+             FROM users
+             WHERE role = 'admin'`
+        );
+        if (!admins.rows.length) return;
+
+        const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+        const ua = req.get('user-agent') || 'unknown';
+        const body = [
+            'Connexion non-admin detectee.',
+            `Utilisateur: ${user.email}`,
+            `Role: ${user.role}`,
+            `Date (UTC): ${new Date().toISOString()}`,
+            `IP: ${ip}`,
+            `User-Agent: ${ua}`
+        ].join('\n');
+
+        const recipients = admins.rows
+            .map((r) => Number(r.id))
+            .filter((id) => Number.isInteger(id) && id > 0 && id !== Number(user.id));
+        if (!recipients.length) return;
+
+        const placeholders = [];
+        const params = [];
+        recipients.forEach((adminId, i) => {
+            const base = i * 3;
+            placeholders.push(`($${base + 1}, $${base + 2}, $${base + 3})`);
+            params.push(Number(user.id), adminId, body);
+        });
+
+        await pool.query(
+            `INSERT INTO user_messages (sender_id, recipient_id, body)
+             VALUES ${placeholders.join(', ')}`,
+            params
+        );
+    } catch (e) {
+        console.error('Failed to create admin login notification:', e.message);
+    }
+}
+
 function requireAdmin(req, res, next) {
     if (req.user?.role !== 'admin') {
         return res.status(403).json({ message: 'Forbidden' });
@@ -615,9 +659,9 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             { expiresIn: '1d' }
         );
 
-        // Fire-and-forget alert when a non-admin account logs in.
+        // Fire-and-forget admin notification when a non-admin account logs in.
         setImmediate(() => {
-            sendNonAdminLoginAlert({ user, req }).catch(() => {});
+            notifyAdminsOfNonAdminLogin({ user, req }).catch(() => {});
         });
 
         res.json({

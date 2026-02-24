@@ -946,6 +946,14 @@ body {
         </div>
       </div>
 
+      <div class="adm-card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+          <div class="adm-card-title" style="margin:0">Notifications de connexion</div>
+          <button type="button" class="btn ghost" id="refreshAdminInboxBtn">Actualiser</button>
+        </div>
+        <div id="adminInboxList" class="muted" style="font-size:.82rem">Chargement...</div>
+      </div>
+
       <div class="adm-card" style="max-width:560px">
         <div class="adm-card-title">Nouveau message</div>
         <label class="field">
@@ -1064,6 +1072,9 @@ function switchPanel(name) {
   const m = panelMeta[name] || {};
   document.getElementById('topbarTitle').textContent = m.title || '';
   document.getElementById('topbarSub').textContent = m.sub || '';
+  if (name === 'messages') {
+    loadAdminInbox();
+  }
 }
 
 document.querySelectorAll('.adm-nav-item[data-panel]').forEach(item => {
@@ -1376,6 +1387,52 @@ async function loadUsersForMessages() {
   });
 }
 
+async function loadAdminInbox() {
+  const list = document.getElementById('adminInboxList');
+  if(!list) return;
+  list.innerHTML = '<p class="muted" style="margin:0">Chargement...</p>';
+  try {
+    const res = await fetch(`${API_URL}/messages?page_size=30`, { headers: getAuthHeaders() });
+    if(!res.ok){
+      list.innerHTML = '<p class="muted" style="margin:0">Impossible de charger les notifications.</p>';
+      return;
+    }
+    const rows = await res.json();
+    if(!Array.isArray(rows) || !rows.length){
+      list.innerHTML = '<p class="muted" style="margin:0">Aucune notification.</p>';
+      return;
+    }
+
+    list.innerHTML = rows.map(m=>{
+      const sender = m.sender_name || m.sender_email || `Utilisateur #${m.sender_id || '?'}`;
+      const date = formatReportDate(m.created_at);
+      return `
+        <div class="report-item${m.read_at ? ' resolved' : ''}" style="margin-bottom:8px">
+          <div class="report-meta" style="margin-bottom:6px">
+            <strong>${esc(sender)}</strong>
+            <span>${esc(date)}</span>
+          </div>
+          <div class="report-reason" style="margin:0;white-space:pre-wrap">${esc(m.body || '')}</div>
+        </div>
+      `;
+    }).join('');
+
+    const unreadIds = rows
+      .filter(m => !m.read_at)
+      .map(m => Number(m.id))
+      .filter(n => Number.isInteger(n) && n > 0);
+    if(unreadIds.length){
+      fetch(`${API_URL}/messages/mark-read`,{
+        method:'POST',
+        headers:{ ...getAuthHeaders(), 'Content-Type':'application/json' },
+        body: JSON.stringify({ ids: unreadIds })
+      }).catch(()=>{});
+    }
+  } catch(_) {
+    list.innerHTML = '<p class="muted" style="margin:0">Erreur de chargement.</p>';
+  }
+}
+
 function renderUsersAdminList(rows){
   const wrap = document.getElementById('usersAdminList');
   if(!wrap) return;
@@ -1523,6 +1580,7 @@ document.getElementById('saveEditBtn').addEventListener('click',async()=>{
 loadQuestionsAdmin();
 loadReports();
 loadUsersForMessages();
+loadAdminInbox();
 loadUsersAdminManagement();
 
 async function loadModules() {
@@ -1648,6 +1706,8 @@ document.getElementById('sendMessageBtn').addEventListener('click',async()=>{
   if(res.ok){document.getElementById('message_body').value='';status.textContent='Message envoyé.';}
   else{status.textContent='Erreur lors de l\'envoi.';}
 });
+
+document.getElementById('refreshAdminInboxBtn')?.addEventListener('click', loadAdminInbox);
 
 document.getElementById('createUserBtn')?.addEventListener('click', async () => {
   const status = document.getElementById('userManageStatus');

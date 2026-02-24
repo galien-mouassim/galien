@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const { Pool } = require('pg');
 
 const hasUrl = !!process.env.DATABASE_URL;
@@ -17,6 +17,12 @@ const poolConfig = hasUrl
     };
 
 const pool = new Pool(poolConfig);
+
+// Some managed databases can default to an empty search_path.
+// Force the app to use the public schema for unqualified table names.
+pool.on('connect', (client) => {
+    client.query('SET search_path TO public').catch(() => {});
+});
 
 pool.connect()
     .then(() => console.log('✅ PostgreSQL connected successfully'))

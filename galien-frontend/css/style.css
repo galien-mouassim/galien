@@ -246,6 +246,33 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 /* Panel shell */
 .wb-panel { padding:16px 18px; }
 .wb-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.filter-mode-switch{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:4px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:var(--surface-2);
+}
+.mode-pill{
+  border:none;
+  background:transparent;
+  color:var(--ink-3);
+  padding:6px 12px;
+  border-radius:999px;
+  font-size:.74rem;
+  font-weight:700;
+  cursor:pointer;
+  transition:var(--t);
+  font-family:inherit;
+}
+.mode-pill.active{
+  background:var(--accent);
+  color:#fff;
+  box-shadow:0 8px 20px rgba(13,148,136,.22);
+}
+.mode-pill:not(.active):hover{color:var(--ink)}
 .filter-reset-btn {
   display:inline-flex; align-items:center; gap:5px;
   padding:4px 10px; border:1px solid var(--border); border-radius:99px;
@@ -267,6 +294,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   justify-content:center; color:#fff; font-size:.68rem; font-weight:800; flex-shrink:0; margin-top:2px;
 }
 .wb-block-info { flex:1; min-width:0; }
+.wb-block-actions{display:flex;align-items:center;gap:4px}
 .wb-block-title { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
 .wb-block-cls { font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
 .wb-block-mod { font-size:.82rem; font-weight:600; color:var(--ink-2); }
@@ -287,6 +315,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   border-radius:var(--radius-sm); cursor:pointer; transition:var(--t); flex-shrink:0;
   font-size:.85rem;
 }
+.wb-edit-btn{
+  background:none; border:none; color:var(--ink-4); padding:4px 6px;
+  border-radius:var(--radius-sm); cursor:pointer; transition:var(--t); flex-shrink:0;
+  font-size:.85rem;
+}
+.wb-edit-btn:hover{color:var(--accent);background:var(--accent-ghost)}
 .wb-del-btn:hover { color:var(--red); background:var(--red-light); }
 
 /* Add-another button */
@@ -315,8 +349,21 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   background:var(--surface); animation:wbBlockIn .2s ease;
 }
 .wb-meta { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.wb-meta-right{display:flex;align-items:center;gap:8px}
 .wb-bloc-label { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-4); }
 .wb-dots { display:flex; gap:5px; align-items:center; }
+.wb-cancel{
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--ink-3);
+  padding:4px 8px;
+  border-radius:8px;
+  font-size:.7rem;
+  font-weight:700;
+  cursor:pointer;
+  transition:var(--t);
+}
+.wb-cancel:hover{background:var(--surface-2);color:var(--ink)}
 .wb-dot {
   width:7px; height:7px; border-radius:50%; background:var(--border-2); transition:var(--t);
 }
@@ -378,8 +425,19 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 }
 .wb-mod-card:hover { border-color:var(--accent); background:var(--accent-ghost); transform:translateY(-1px); }
 .wb-mod-card.selected { border-color:var(--accent); background:var(--accent-ghost); box-shadow:0 0 0 3px rgba(13,148,136,.12); }
+.wb-mod-head{display:flex;align-items:center;gap:8px}
+.wb-mod-icon{font-size:.95rem;color:var(--accent);opacity:.9}
 .wb-mod-name { font-size:.8rem; font-weight:700; color:var(--ink); }
 .wb-mod-count { font-size:.67rem; color:var(--ink-4); margin-top:2px; }
+.wb-advanced-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+.wb-advanced-grid select{
+  min-height:140px;
+  border-radius:12px;
+}
 
 /* Course chips */
 .wb-chips-wrap { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
@@ -474,6 +532,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   .wb-class-grid { grid-template-columns:1fr; }
   .wb-mod-grid   { grid-template-columns:1fr 1fr; }
   .wb-src-grid   { grid-template-columns:1fr; }
+  .wb-advanced-grid{grid-template-columns:1fr}
 }
 
 .exam-extras{display:flex;flex-direction:column}

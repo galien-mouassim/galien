@@ -716,9 +716,11 @@ function wbAttachWizardEvents() {
       chip.addEventListener('click', () => {
         const cid = chip.dataset.cid;
         const i = wbWizard.courseIds.indexOf(cid);
-        if (i >= 0) wbWizard.courseIds.splice(i, 1);
-        else wbWizard.courseIds.push(cid);
-        wbRender();
+        if (i >= 0) { wbWizard.courseIds.splice(i, 1); chip.classList.remove('selected'); }
+        else         { wbWizard.courseIds.push(cid);    chip.classList.add('selected'); }
+        const sval = document.querySelector('#wb-wizard .wb-sval');
+        if (sval) sval.textContent = wbWizard.courseIds.length
+          ? `${wbWizard.courseIds.length} selectionne(s)` : 'Tous si vide';
         wbApplyActiveFilters();
       });
     });
@@ -737,9 +739,22 @@ function wbAttachWizardEvents() {
       pill.addEventListener('click', () => {
         const sid = pill.dataset.sid;
         const i = wbWizard.sourceIds.indexOf(sid);
-        if (i >= 0) wbWizard.sourceIds.splice(i, 1);
-        else wbWizard.sourceIds.push(sid);
-        wbRender();
+        if (i >= 0) {
+          wbWizard.sourceIds.splice(i, 1);
+          pill.classList.remove('selected');
+          pill.querySelector('.wb-src-check')?.remove();
+        } else {
+          wbWizard.sourceIds.push(sid);
+          pill.classList.add('selected');
+          if (!pill.querySelector('.wb-src-check')) {
+            const chk = document.createElement('i');
+            chk.className = 'bi bi-check wb-src-check';
+            pill.appendChild(chk);
+          }
+        }
+        const sval = document.querySelector('#wb-wizard .wb-sval');
+        if (sval) sval.textContent = wbWizard.sourceIds.length
+          ? `${wbWizard.sourceIds.length} selectionnee(s)` : 'Optionnel';
         wbApplyActiveFilters();
       });
     });
@@ -760,9 +775,8 @@ function wbAttachWizardEvents() {
       chip.addEventListener('click', () => {
         const tid = chip.dataset.tid;
         const i = wbWizard.favtags.indexOf(tid);
-        if (i >= 0) wbWizard.favtags.splice(i, 1);
-        else wbWizard.favtags.push(tid);
-        wbRender();
+        if (i >= 0) { wbWizard.favtags.splice(i, 1); chip.classList.remove('selected'); }
+        else         { wbWizard.favtags.push(tid);    chip.classList.add('selected'); }
         wbApplyActiveFilters();
       });
     });

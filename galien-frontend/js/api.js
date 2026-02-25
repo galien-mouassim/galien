@@ -1,5 +1,5 @@
 if (!window.API_URL) {
-  const PROD_BACKEND_URL = 'https://galien.onrender.com/api';
+  const PROD_BACKEND_URL = 'https://galien-6jtibe.vercel.app/api';
   const host = String(window.location.hostname || '').toLowerCase();
   const isFile = window.location.protocol === 'file:';
   const isPrivateHost =

@@ -2640,14 +2640,21 @@ let initPromise = null;
 
 function initApp() {
     if (!initPromise) {
-        initPromise = ensureCoreSchema()
-            .then(() => ensureModuleSourceBackfill())
-            .then(() => ensurePerformanceIndexes())
-            .then(() => ensureAuthSchema())
-            .then(() => ensureQuestionNotesSchema())
-            .then(() => ensureSessionResultsSchema())
-            .then(() => ensureUserPreferencesSchema())
-            .then(() => initAdmin());
+        const isVercelRuntime = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+        const shouldSkipSchemaInit =
+            process.env.SKIP_SCHEMA_INIT === 'true' ||
+            (isVercelRuntime && process.env.SKIP_SCHEMA_INIT !== 'false');
+
+        initPromise = shouldSkipSchemaInit
+            ? Promise.resolve()
+            : ensureCoreSchema()
+                .then(() => ensureModuleSourceBackfill())
+                .then(() => ensurePerformanceIndexes())
+                .then(() => ensureAuthSchema())
+                .then(() => ensureQuestionNotesSchema())
+                .then(() => ensureSessionResultsSchema())
+                .then(() => ensureUserPreferencesSchema())
+                .then(() => initAdmin());
     }
     return initPromise;
 }

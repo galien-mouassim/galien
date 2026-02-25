@@ -32,6 +32,21 @@ const corsOptions = allowAllCors
             // Allow server-to-server / curl requests without Origin.
             if (!origin) return cb(null, true);
             const originLc = String(origin).toLowerCase();
+            let parsed = null;
+            try { parsed = new URL(originLc); } catch {}
+
+            // Always allow localhost + Vercel frontend origins.
+            if (parsed) {
+                const host = parsed.hostname || '';
+                if (
+                    host === 'localhost' ||
+                    host === '127.0.0.1' ||
+                    host.endsWith('.vercel.app')
+                ) {
+                    return cb(null, true);
+                }
+            }
+
             const ok = corsOrigins.some((allowed) => {
                 const a = allowed.toLowerCase();
                 if (a === originLc) return true;

@@ -5,7 +5,9 @@ const hasUrl = !!process.env.DATABASE_URL;
 const poolConfig = hasUrl
     ? {
         connectionString: process.env.DATABASE_URL,
-        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
+        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false },
+        connectionTimeoutMillis: Number(process.env.DB_CONNECT_TIMEOUT_MS || 6000),
+        idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS || 10000)
     }
     : {
         user: process.env.DB_USER,
@@ -13,7 +15,9 @@ const poolConfig = hasUrl
         database: process.env.DB_DATABASE,
         password: process.env.DB_PASSWORD,
         port: Number(process.env.DB_PORT || 5432),
-        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+        connectionTimeoutMillis: Number(process.env.DB_CONNECT_TIMEOUT_MS || 6000),
+        idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS || 10000)
     };
 
 const pool = new Pool(poolConfig);
@@ -23,9 +27,5 @@ const pool = new Pool(poolConfig);
 pool.on('connect', (client) => {
     client.query('SET search_path TO public').catch(() => {});
 });
-
-pool.connect()
-    .then(() => console.log('✅ PostgreSQL connected successfully'))
-    .catch(err => console.error('❌ PostgreSQL connection failed', err));
 
 module.exports = pool;

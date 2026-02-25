@@ -1,5 +1,4 @@
 if (!window.API_URL) {
-  const PROD_BACKEND_URL = 'https://galien-6jtibe.vercel.app/api';
   const host = String(window.location.hostname || '').toLowerCase();
   const isFile = window.location.protocol === 'file:';
   const isPrivateHost =
@@ -9,14 +8,13 @@ if (!window.API_URL) {
     /^192\.168\./.test(host) ||
     /^10\./.test(host) ||
     /^172\.(1[6-9]|2\d|3[0-1])\./.test(host);
-  const isVercelHost = host.endsWith('.vercel.app');
   const forced = localStorage.getItem('api_url_override');
   const runtimeOverride = window.__API_BASE__;
   window.API_URL = forced
     || runtimeOverride
     || (isFile || isPrivateHost
       ? 'http://localhost:5000/api'
-      : (isVercelHost ? PROD_BACKEND_URL : `${window.location.origin}/api`));
+      : `${window.location.origin}/api`);
 }
 
 (function enforceRouteAuth() {

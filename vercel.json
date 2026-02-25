@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "galien-backend/api/index.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "galien-frontend/**/*",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "galien-backend/api/index.js"
+    },
+    {
+      "src": "/",
+      "dest": "/galien-frontend/index.html"
+    },
+    {
+      "src": "/([^/]+)\\.html",
+      "dest": "/galien-frontend/$1.html"
+    },
+    {
+      "src": "/([^/.]+)",
+      "dest": "/galien-frontend/$1.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/galien-frontend/$1"
+    }
+  ]
+}

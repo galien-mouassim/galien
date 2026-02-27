@@ -1,4 +1,8 @@
-﻿let currentMode = 'training';
+﻿if (localStorage.getItem('role') === 'worker') {
+  window.location.href = 'admin.html';
+}
+
+let currentMode = 'training';
 let isPopulatingFilters = false;
 
 const correctionHelpText = {
@@ -13,6 +17,8 @@ const trainingPanel = document.getElementById('trainingPanel');
 const examPanel = document.getElementById('examPanel');
 const questionsCountEls = Array.from(document.querySelectorAll('.js-questions-count'));
 const resumeBtn = document.getElementById('resumeBtn');
+const pausedSessionsPanel = document.getElementById('pausedSessionsPanel');
+const pausedSessionsList = document.getElementById('pausedSessionsList');
 
 const correctionSel = document.getElementById('correction_system');
 const trainingCorrectionSel = document.getElementById('training_correction_system');
@@ -29,6 +35,9 @@ const trainingQuestionCountValue = document.getElementById('training_question_co
 const examQuestionCountValue = document.getElementById('exam_question_count_value');
 const trainingSliderMax = document.getElementById('training_slider_max');
 const examSliderMax = document.getElementById('exam_slider_max');
+const reviewModeSel = document.getElementById('review_mode');
+const hideMetaToggle = document.getElementById('hideMetaToggle');
+const examWarningInput = document.getElementById('exam_warning_minutes');
 
 const selModule = document.getElementById('sel_module');
 const selCourse = document.getElementById('sel_course');
@@ -235,36 +244,41 @@ async function refreshQuestionCount() {
     if (isPopulatingFilters) return;
     setCountText('...');
 
-    if (!Array.isArray(questionsCache)) {
-      const res = await fetch(`${API_URL}/questions`, { headers: getAuthHeaders() });
-      if (!res.ok) {
-        setCountText('-');
-        return;
-      }
-      const data = await res.json();
-      questionsCache = data.questions || data || [];
-    }
-
     const moduleIds = getSelectedValues(selModule);
     const courseIds = getSelectedValues(selCourse);
     const sourceIds = getSelectedValues(selSource);
     const favoriteTags = getSelectedValues(selFavTag);
+    const reviewMode = reviewModeSel?.value || 'all';
+    const countParams = new URLSearchParams();
+    if (moduleIds.length) countParams.set('module', moduleIds.join(','));
+    if (courseIds.length) countParams.set('course', courseIds.join(','));
+    if (sourceIds.length) countParams.set('source', sourceIds.join(','));
+    if (reviewMode && reviewMode !== 'all') countParams.set('review_mode', reviewMode);
 
-    const filtered = questionsCache.filter(q => {
-      const qModule = String(q.module_id || '');
-      const qCourse = String(q.course_id || '');
-      const qSource = String(q.source_id || '');
-      const qId = String(q.id || '');
-      if (moduleIds.length && !moduleIds.includes(qModule)) return false;
-      if (courseIds.length && !courseIds.includes(qCourse)) return false;
-      if (sourceIds.length && !sourceIds.includes(qSource)) return false;
-      if (favoriteTags.length) {
-        const qTags = favoriteTagsByQuestion.get(qId) || [];
-        if (!favoriteTags.some((t) => qTags.includes(t))) return false;
+    let total = 0;
+    const countRes = await fetch(`${API_URL}/questions/count?${countParams.toString()}`, { headers: getAuthHeaders() });
+    if (!countRes.ok) {
+      setCountText('-');
+      return;
+    }
+    const countData = await countRes.json();
+    total = Number(countData.total || 0);
+
+    if (favoriteTags.length) {
+      const qRes = await fetch(`${API_URL}/questions?${countParams.toString()}&page=1&page_size=5000`, { headers: getAuthHeaders() });
+      if (!qRes.ok) {
+        setCountText('-');
+        return;
       }
-      return true;
-    });
-    const total = filtered.length;
+      const data = await qRes.json();
+      const rows = data.questions || data || [];
+      total = rows.filter((q) => {
+        const qId = String(q.id || '');
+        const qTags = favoriteTagsByQuestion.get(qId) || [];
+        return favoriteTags.some((t) => qTags.includes(t));
+      }).length;
+    }
+
     setCountText(Number(total).toLocaleString('fr-FR'));
     const maxQ = Math.max(1, total);
     syncQuestionSliders(maxQ);
@@ -288,6 +302,9 @@ async function loadPreferences() {
     const prefs = await res.json();
     if (prefs.default_exam_minutes) {
       document.getElementById('exam_minutes').value = prefs.default_exam_minutes;
+    }
+    if (prefs.exam_warning_minutes) {
+      if (examWarningInput) examWarningInput.value = prefs.exam_warning_minutes;
     }
     if (prefs.correction_system) {
       correctionSel.value = prefs.correction_system;
@@ -329,12 +346,71 @@ async function loadUser() {
 
 function setupResumeButton() {
   if (!resumeBtn) return;
-  const draftRaw = localStorage.getItem('qcm_session_draft');
-  if (!draftRaw) return;
+  const paused = loadPausedSessions();
+  if (!paused.length && !localStorage.getItem('qcm_session_draft')) return;
+
+  if (paused.length) {
+    renderPausedSessions(paused);
+    pausedSessionsPanel?.classList.remove('hidden');
+    resumeBtn.classList.add('hidden');
+    return;
+  }
+
   resumeBtn.classList.remove('hidden');
   resumeBtn.addEventListener('click', () => {
     localStorage.setItem('qcm_resume_requested', '1');
     window.location.href = 'qcm.html';
+  });
+}
+
+function loadPausedSessions() {
+  try {
+    const raw = localStorage.getItem('qcm_paused_sessions');
+    const rows = JSON.parse(raw || '[]');
+    return Array.isArray(rows) ? rows : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function savePausedSessions(rows) {
+  try {
+    localStorage.setItem('qcm_paused_sessions', JSON.stringify(rows || []));
+  } catch (_) {}
+}
+
+function renderPausedSessions(rows) {
+  if (!pausedSessionsList) return;
+  if (!rows.length) {
+    pausedSessionsList.innerHTML = '<div class="muted">Aucune session en pause.</div>';
+    return;
+  }
+  pausedSessionsList.innerHTML = rows.map((s) => {
+    const modeLabel = s.mode === 'exam' ? 'Examen' : 'Entrainement';
+    const name = s.name || `${modeLabel} - ${new Date(s.created_at || Date.now()).toLocaleString('fr-FR')}`;
+    return `<div class="mini-row"><div><strong>${name}</strong><div class="muted">${modeLabel}</div></div><div class="muted">Q${Number(s.index || 0) + 1}</div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn-inline" data-resume-paused="${s.id}"><i class="bi bi-play-fill"></i> Reprendre</button><button class="btn-inline" data-delete-paused="${s.id}" style="color:var(--red)"><i class="bi bi-trash"></i> Supprimer</button></div></div>`;
+  }).join('');
+
+  pausedSessionsList.querySelectorAll('[data-resume-paused]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-resume-paused');
+      const found = rows.find((r) => String(r.id) === String(id));
+      if (!found || !found.draft) return;
+      try {
+        localStorage.setItem('qcm_session_draft', JSON.stringify(found.draft));
+      } catch (_) {}
+      localStorage.setItem('qcm_resume_requested', '1');
+      window.location.href = 'qcm.html';
+    });
+  });
+  pausedSessionsList.querySelectorAll('[data-delete-paused]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-delete-paused');
+      const next = rows.filter((r) => String(r.id) !== String(id));
+      savePausedSessions(next);
+      renderPausedSessions(next);
+      if (!next.length) pausedSessionsPanel?.classList.add('hidden');
+    });
   });
 }
 
@@ -345,6 +421,7 @@ selModule.addEventListener('change', () => {
 selCourse.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
 selSource.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
 selFavTag?.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
+reviewModeSel?.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
 
 const startBtn = document.getElementById('startBtn');
 startBtn.addEventListener('click', () => {
@@ -356,6 +433,8 @@ startBtn.addEventListener('click', () => {
   localStorage.setItem('course_id', getSelectedValues(selCourse).join(','));
   localStorage.setItem('source_id', getSelectedValues(selSource).join(','));
   localStorage.setItem('favorite_tags', getSelectedValues(selFavTag).join(','));
+  localStorage.setItem('review_mode', reviewModeSel?.value || 'all');
+  localStorage.setItem('hide_question_meta', hideMetaToggle?.checked ? '1' : '0');
 
   const corrSystem = currentMode === 'exam' ? correctionSel.value : trainingCorrectionSel.value;
   localStorage.setItem('correction_system', corrSystem);
@@ -366,6 +445,9 @@ startBtn.addEventListener('click', () => {
   if (currentMode === 'exam') {
     const minutesStr = document.getElementById('exam_minutes').value || '';
     localStorage.setItem('exam_minutes', minutesStr);
+    const warningMins = parseInt((examWarningInput?.value || '').trim(), 10);
+    if (Number.isFinite(warningMins) && warningMins > 0) localStorage.setItem('exam_warning_minutes', String(warningMins));
+    else localStorage.removeItem('exam_warning_minutes');
     localStorage.removeItem('auto_advance');
     localStorage.removeItem('auto_advance_delay');
     localStorage.setItem('training_next_mode', 'manual');
@@ -397,6 +479,16 @@ startBtn.addEventListener('click', () => {
   });
 });
 
+if (reviewModeSel) {
+  reviewModeSel.value = localStorage.getItem('review_mode') || 'all';
+}
+if (hideMetaToggle) {
+  hideMetaToggle.checked = localStorage.getItem('hide_question_meta') === '1';
+}
+if (examWarningInput && localStorage.getItem('exam_warning_minutes')) {
+  examWarningInput.value = localStorage.getItem('exam_warning_minutes');
+}
+
 loadModules();
 loadSources();
 loadFavoriteTags();
@@ -404,5 +496,6 @@ loadPreferences();
 loadUser();
 setupResumeButton();
 scheduleCountRefresh();
+
 
 

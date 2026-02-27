@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -39,7 +39,7 @@
         </button>
       </div>
 
-      <!-- Hidden native selects Ã¢â‚¬â€ read by dashboard.js unchanged -->
+      <!-- Hidden native selects read by dashboard.js -->
       <select id="sel_module" class="multi-select" multiple style="display:none"></select>
       <select id="sel_course" class="multi-select" multiple style="display:none"></select>
       <select id="sel_source" class="multi-select" multiple style="display:none"></select>
@@ -51,7 +51,7 @@
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <div class="dash-panel-title" style="margin-bottom:0"><i class="bi bi-funnel"></i> Filtres de session</div>
             <div class="filter-mode-switch">
-              <button type="button" class="mode-pill active" id="wbGuidedBtn">Filtre guidÃ©</button>
+              <button type="button" class="mode-pill active" id="wbGuidedBtn">Filtre guidé</button>
               <button type="button" class="mode-pill" id="wbAdvancedBtn">Filtre libre</button>
             </div>
           </div>
@@ -142,6 +142,27 @@
             </div>
           </div>
         </div>
+        <div class="filters-row" style="margin-top:12px">
+          <div class="field" style="margin-bottom:0">
+            <span>Questions à réviser</span>
+            <select id="review_mode">
+              <option value="all">Toutes les questions</option>
+              <option value="wrong_ever">Questions ratées (au moins une fois)</option>
+              <option value="wrong_last">Questions ratées à la dernière tentative</option>
+              <option value="unanswered">Questions jamais répondues</option>
+            </select>
+          </div>
+          <div class="toggle-row" style="border-top:none;padding-top:0;margin:0">
+            <div class="toggle-label">
+              Masquer module/cours/source dans la carte QCM
+              <small>Affiche uniquement l'énoncé et les propositions</small>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="hideMetaToggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
         <div class="filters-count-wrap" style="margin-top:12px">
           <div class="question-counter">
             <span class="question-counter-num js-questions-count">...</span>
@@ -171,7 +192,7 @@
               <input type="range" id="training_question_count" min="1" value="1">
               <div class="slider-ends">
                 <span>1</span>
-                <span id="training_slider_max">Ã¢â‚¬â€</span>
+                <span id="training_slider_max">-</span>
               </div>
             </div>
           </div>
@@ -231,16 +252,24 @@
               <input type="range" id="exam_question_count" min="1" value="1">
               <div class="slider-ends">
                 <span>1</span>
-                <span id="exam_slider_max">Ã¢â‚¬â€</span>
+                <span id="exam_slider_max">-</span>
               </div>
             </div>
           </div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <span>Alerte temps restant (minutes)</span>
+          <input type="number" id="exam_warning_minutes" min="1" placeholder="Ex: 5 (laisser vide pour désactiver)">
         </div>
         <div class="help-text" id="correctionHelp">Vous devez cocher toutes les bonnes reponses et uniquement celles-ci.</div>
       </div>
 
       <button class="btn start-btn" id="startBtn" type="button"><i class="bi bi-play-fill"></i> Commencer</button>
       <button class="btn ghost hidden" id="resumeBtn" type="button" style="margin-top:8px"><i class="bi bi-arrow-counterclockwise"></i> Reprendre la session en cours</button>
+      <div class="dash-panel hidden" id="pausedSessionsPanel" style="margin-top:12px">
+        <div class="dash-panel-title"><i class="bi bi-pause-circle"></i> Sessions en pause</div>
+        <div id="pausedSessionsList" class="mini-table"></div>
+      </div>
     </div>
   </div>
 </div>

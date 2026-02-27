@@ -82,6 +82,24 @@ function renderResults(rows) {
   }).join('')}`;
 }
 
+function renderSavedSessions(rows) {
+  if (!rows.length) return '<p class="muted">Aucune session sauvegardee.</p>';
+  return `<div class="result-header"><div>Session</div><div>Score</div><div>Temps</div><div>Actions</div></div>${rows.map((r) => {
+    const pct = r.total ? Math.round((Number(r.score || 0) / Number(r.total || 1)) * 100) : 0;
+    const date = new Date(r.created_at).toLocaleString('fr-FR');
+    const name = r.session_name || `${r.mode === 'exam' ? 'Examen' : 'Entrainement'} ${date}`;
+    const qs = new URLSearchParams({
+      session_id: String(r.id),
+      score: String(Number(r.score || 0)),
+      total: String(Number(r.total || 0)),
+      elapsed_seconds: String(Number(r.elapsed_seconds || 0)),
+      mode: String(r.mode || 'training'),
+      correction_system: String(r.correction_system || 'tout_ou_rien')
+    });
+    return `<div class="result-row saved-row"><div><a href="result.html?${qs.toString()}" style="text-decoration:none;color:inherit"><strong>${escHtml(name)}</strong></a><div class="muted">${date}</div></div><div><strong>${Number(r.score || 0).toFixed(2)}</strong> / ${r.total} <span class="muted">(${pct}%)</span></div><div>${formatTime(r.elapsed_seconds)}</div><div class="saved-edit"><input type="text" value="${escHtml(name)}" data-save-name="${r.id}" maxlength="120"><button class="btn-inline" data-save-rename="${r.id}"><i class="bi bi-pencil"></i> Renommer</button></div></div>`;
+  }).join('')}`;
+}
+
 function renderFavoriteTags(tags) {
   if (!tags.length) return '';
   return `<div class="favorite-tags">${tags.map((t) => `<span class="tag">${t}</span>`).join('')}</div>`;
@@ -92,7 +110,31 @@ function renderFavoritesList(rows) {
   return rows.map((r) => {
     const tags = normalizeTags(r.tags);
     const date = r.created_at ? new Date(r.created_at).toLocaleDateString('fr-FR') : '';
-    return `<div class="favorite-item"><button type="button" class="favorite-title-btn" data-toggle-fav="${r.id}"><span class="favorite-title">${r.question}</span><i class="bi bi-chevron-down"></i></button><div class="favorite-preview hidden" id="fav_preview_${r.id}"><div class="favorite-preview-q">${r.question}</div></div>${renderFavoriteTags(tags)}<div class="favorite-actions"><span class="muted" style="font-size:.78rem;margin-right:auto">${date}</span><button class="btn-inline favorite-edit" data-id="${r.id}" data-tags="${r.tags || ''}"><i class="bi bi-tag"></i> Modifier tags</button><button class="btn-inline favorite-remove" data-id="${r.id}" style="color:var(--red)"><i class="bi bi-heart-slash"></i> Retirer</button></div></div>`;
+    return `
+      <article class="favorite-item modern" data-favorite-id="${r.id}">
+        <header class="favorite-head">
+          <button type="button" class="favorite-title-btn" data-toggle-fav="${r.id}">
+            <span class="favorite-title">${r.question}</span>
+            <span class="favorite-chevron"><i class="bi bi-chevron-down"></i></span>
+          </button>
+          <span class="favorite-date">${date}</span>
+        </header>
+        <div class="favorite-meta-line">
+          ${renderFavoriteTags(tags) || '<span class="muted">Aucun tag</span>'}
+        </div>
+        <div class="favorite-preview hidden" id="fav_preview_${r.id}">
+          <div class="favorite-preview-q">${r.question}</div>
+        </div>
+        <footer class="favorite-actions">
+          <button class="btn-inline favorite-edit" data-id="${r.id}" data-tags="${r.tags || ''}">
+            <i class="bi bi-tags"></i> Modifier tags
+          </button>
+          <button class="btn-inline favorite-remove" data-id="${r.id}" style="color:var(--red)">
+            <i class="bi bi-heartbreak"></i> Retirer
+          </button>
+        </footer>
+      </article>
+    `;
   }).join('');
 }
 
@@ -323,11 +365,12 @@ async function loadProfile() {
   if (!localStorage.getItem('token')) { window.location.href = 'login.html'; return; }
 
   try {
-    const [me, stats, prefs, results, favorites, flags, analytics] = await Promise.all([
+    const [me, stats, prefs, results, savedResults, favorites, flags, analytics] = await Promise.all([
       fetchJSON(`${API_URL}/users/me`),
       fetchJSON(`${API_URL}/users/stats`),
       fetchJSON(`${API_URL}/users/preferences`),
-      fetchJSON(`${API_URL}/users/results`),
+      fetchJSON(`${API_URL}/users/results?saved=0`),
+      fetchJSON(`${API_URL}/users/results?saved=1`),
       fetchJSON(`${API_URL}/users/flags?type=favorite`),
       fetchJSON(`${API_URL}/users/flags?type=flag`),
       fetchJSON(`${API_URL}/users/analytics`)
@@ -337,6 +380,10 @@ async function loadProfile() {
 
     document.getElementById('profileInfo').innerHTML = `<p><strong>Email</strong><br>${me.email}</p><p><strong>Role</strong><br><span style="text-transform:capitalize">${me.role}</span></p>`;
     document.getElementById('display_name').value = me.display_name || '';
+    const adminShortcutTab = document.getElementById('adminShortcutTab');
+    if (adminShortcutTab) {
+      adminShortcutTab.classList.toggle('hidden', me.role !== 'admin');
+    }
 
     const fallback = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" fill="%23f1f5f9"/><circle cx="48" cy="36" r="16" fill="%23ccfbf1"/><path d="M16 86c6-16 20-24 32-24s26 8 32 24" fill="%23ccfbf1"/></svg>`;
     const photoUrl = me.profile_photo ? resolvePhotoUrl(me.profile_photo) : fallback;
@@ -365,6 +412,7 @@ async function loadProfile() {
     if (window.__applyThemePreference) window.__applyThemePreference();
 
     document.getElementById('resultsTable').innerHTML = renderResults(results);
+    document.getElementById('savedSessionsTable').innerHTML = renderSavedSessions(savedResults);
 
     favoritesCache = favorites;
     fillFavoriteTagFilter(favoritesCache);
@@ -490,9 +538,11 @@ document.getElementById('favoritesList')?.addEventListener('click', async (e) =>
   if (toggleBtn) {
     const id = toggleBtn.getAttribute('data-toggle-fav');
     const panel = document.getElementById(`fav_preview_${id}`);
+    const card = e.target.closest('.favorite-item');
     if (!panel) return;
     const isHidden = panel.classList.contains('hidden');
     panel.classList.toggle('hidden');
+    card?.classList.toggle('expanded', isHidden);
     if (!isHidden) return;
     if (panel.dataset.loaded === '1') return;
     panel.innerHTML = '<div class="muted">Chargement...</div>';
@@ -545,9 +595,43 @@ document.getElementById('flagsList')?.addEventListener('click', async (e) => {
   }
 });
 
+document.getElementById('savedSessionsTable')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-save-rename]');
+  if (!btn) return;
+  const id = btn.getAttribute('data-save-rename');
+  const input = document.querySelector(`[data-save-name="${id}"]`);
+  if (!id || !input) return;
+  const name = (input.value || '').trim();
+  btn.textContent = '...';
+  try {
+    await fetchJSON(`${API_URL}/results/${id}/meta`, {
+      method: 'PATCH',
+      body: JSON.stringify({ session_name: name, is_saved: true })
+    });
+    btn.innerHTML = '<i class="bi bi-check2"></i> OK';
+    setTimeout(() => loadProfile(), 350);
+  } catch (_) {
+    btn.innerHTML = '<i class="bi bi-pencil"></i> Renommer';
+  }
+});
+
+document.getElementById('profilePhoto')?.addEventListener('click', () => {
+  const src = document.getElementById('profilePhoto')?.getAttribute('src') || '';
+  if (!src) return;
+  const img = document.getElementById('photoViewerImage');
+  if (img) img.src = src;
+  document.getElementById('photoViewerModal')?.classList.remove('hidden');
+});
+document.getElementById('photoViewerCloseBtn')?.addEventListener('click', () => {
+  document.getElementById('photoViewerModal')?.classList.add('hidden');
+});
+
 initProfileTabs();
 setActiveSection('profile');
 document.getElementById('sidebarLogoutBtn')?.addEventListener('click', logout);
+document.getElementById('adminShortcutTab')?.addEventListener('click', () => {
+  window.location.href = 'admin.html';
+});
 loadProfile();
 
 document.getElementById('moduleScoresWrap')?.addEventListener('click', (e) => {

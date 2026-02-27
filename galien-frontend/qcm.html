@@ -29,7 +29,9 @@
     <div class="tag-row">
       <div class="course-tag" id="moduleTag"></div>
       <div class="course-tag" id="courseTag"></div>
+      <div class="course-tag" id="sourceTag"></div>
     </div>
+    <div class="alert warning hidden" id="examTimeWarning" style="margin:10px 0 0"></div>
 
     <div id="options"></div>
     <div class="explanation" id="explanation"></div>
@@ -173,10 +175,23 @@
   </div>
 </div>
 
+<div id="pauseSessionModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Mettre en pause</h3>
+    <label class="field">
+      <span>Nom de la session</span>
+      <input type="text" id="pauseSessionNameInput" maxlength="120" placeholder="Ex: Revoir biochimie">
+    </label>
+    <div class="modal-actions">
+      <button type="button" id="confirmPauseSessionBtn">Sauvegarder</button>
+      <button type="button" id="cancelPauseSessionBtn">Annuler</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/api.js" defer></script>
 <script src="js/theme.js" defer></script>
 <script src="js/qcm.js" defer></script>
-<script src="js/profile-link.js" defer></script>
 </body>
 </html>
 

@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Lora:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="profile-page">
 <div class="profile-app container">
   <aside class="profile-sidebar">
     <a class="sidebar-back" href="dashboard.html" aria-label="Retour">
@@ -28,12 +28,14 @@
     <button type="button" class="profile-tab" data-section="stats">Statistiques</button>
     <button type="button" class="profile-tab" data-section="prefs">Pr&eacute;f&eacute;rences</button>
     <button type="button" class="profile-tab" data-section="history">Historique</button>
+    <button type="button" class="profile-tab" data-section="saved">Sessions sauvegardees</button>
     <button type="button" class="profile-tab tab-messages" data-section="messages">
       Messages
       <span id="messageBadge" class="badge hidden">0</span>
     </button>
     <button type="button" class="profile-tab" data-section="favorites">Favoris</button>
     <button type="button" class="profile-tab" data-section="flags">Signalements</button>
+    <button type="button" id="adminShortcutTab" class="profile-tab hidden">Admin panel</button>
     <button type="button" id="sidebarLogoutBtn" class="profile-tab profile-tab-logout">Deconnexion</button>
   </aside>
 
@@ -139,6 +141,15 @@
       </div>
     </section>
 
+    <section id="section-saved" class="profile-section hidden">
+      <div class="card">
+        <div class="card-title">
+          <h3>Sessions sauvegardees</h3>
+        </div>
+        <div id="savedSessionsTable"></div>
+      </div>
+    </section>
+
     <section id="section-messages" class="profile-section hidden">
       <div class="card">
         <div class="card-title between">
@@ -189,6 +200,16 @@
     <div class="modal-actions">
       <button type="button" class="btn" id="favoriteTagSaveBtn">Enregistrer</button>
       <button type="button" class="btn ghost" id="favoriteTagCancelBtn">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="photoViewerModal" class="modal hidden">
+  <div class="modal-content" style="max-width:520px">
+    <h3>Photo de profil</h3>
+    <img id="photoViewerImage" src="" alt="Photo de profil agrandie" style="width:100%;border-radius:14px;object-fit:cover;max-height:70vh">
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" id="photoViewerCloseBtn">Fermer</button>
     </div>
   </div>
 </div>

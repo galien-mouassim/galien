@@ -34,18 +34,31 @@
         <div class="result-meta-item"><div class="val" id="metaMode">-</div><div class="lbl">Mode</div></div>
         <div class="result-meta-item"><div class="val" id="metaCorrection">-</div><div class="lbl">Correction</div></div>
       </div>
+      <div class="field" style="margin-bottom:18px">
+        <span>Simuler un autre système de correction</span>
+        <select id="resultCorrectionMode">
+          <option value="tout_ou_rien">Tout ou rien</option>
+          <option value="partiel_positive">Partiel positif</option>
+          <option value="partiel_negative">Partiel negatif</option>
+        </select>
+      </div>
 
       <div id="timeoutBanner" class="alert error" style="display:none;margin-bottom:14px">
         <i class="bi bi-alarm"></i> Temps ecoule - la session s'est terminee automatiquement.
       </div>
 
       <div id="saveResultBox" class="result-save-box hidden">
+        <label class="field" style="margin:0 0 10px">
+          <span>Nom de la session</span>
+          <input type="text" id="saveSessionName" maxlength="120" placeholder="Ex: Examen Biochimie #1">
+        </label>
         <button class="btn" id="saveResultBtn" type="button"><i class="bi bi-cloud-arrow-up"></i> Enregistrer dans l'historique</button>
         <p class="muted" id="saveResultMsg"></p>
       </div>
 
       <div class="result-actions">
-        <a class="btn ghost" href="dashboard.html"><i class="bi bi-arrow-repeat"></i> Nouveau QCM</a>
+        <a class="btn ghost" href="dashboard.html"><i class="bi bi-grid"></i> Dashboard</a>
+        <a class="btn ghost" href="qcm.html"><i class="bi bi-arrow-repeat"></i> Refaire ce quiz</a>
         <a class="btn" href="profile.html"><i class="bi bi-graph-up"></i> Mes statistiques</a>
       </div>
     </div>
@@ -72,6 +85,8 @@ const timeout = localStorage.getItem('exam_timeout') === '1';
 const correctionSystem = urlParams.get('correction_system') || localStorage.getItem('correction_system') || 'tout_ou_rien';
 let sessionId = urlParams.get('session_id') || localStorage.getItem('last_session_id');
 const pendingPayloadRaw = localStorage.getItem('pending_result_payload');
+let currentCorrectionMode = correctionSystem;
+let reviewDataset = [];
 
 function formatTime(s) {
   const m = Math.floor(s / 60).toString().padStart(2, '0');
@@ -84,11 +99,10 @@ function formatCorrection(label) {
   return 'Tout ou rien';
 }
 
-const percent = rawTotal > 0 ? Math.round((score / rawTotal) * 100) : 0;
 const circumference = 2 * Math.PI * 70;
 
 document.getElementById('scoreRaw').textContent = `${parseFloat(score.toFixed(2))} / ${rawTotal}`;
-document.getElementById('resultTitle').textContent = percent >= 70 ? 'Bien joue !' : percent >= 50 ? 'Pas mal !' : 'Continuez !';
+document.getElementById('resultTitle').textContent = 'Resultat';
 document.getElementById('resultSubtitle').textContent = mode === 'exam' ? 'Resultat de votre examen' : 'Resultat de votre entrainement';
 document.getElementById('metaTime').textContent = formatTime(elapsed);
 document.getElementById('metaMode').textContent = mode === 'exam' ? 'Examen' : 'Entrainement';
@@ -97,27 +111,42 @@ if (timeout) document.getElementById('timeoutBanner').style.display = 'flex';
 
 const circleFill = document.getElementById('circleFill');
 const scorePct = document.getElementById('scorePct');
-const offset = circumference - (percent / 100) * circumference;
 circleFill.style.strokeDasharray = circumference;
 
-function animateScore() {
+function animateScore(percent) {
+  const offset = circumference - (percent / 100) * circumference;
   scorePct.textContent = `${percent}%`;
   circleFill.style.strokeDashoffset = offset;
 }
 
-if (percent >= 70) circleFill.style.stroke = 'var(--green)';
-else if (percent >= 50) circleFill.style.stroke = 'var(--amber)';
-else circleFill.style.stroke = 'var(--red)';
-animateScore();
+function updateScoreDisplay(totalScore, denominator) {
+  const safeDenominator = denominator > 0 ? denominator : 0;
+  const percent = safeDenominator > 0 ? Math.round((totalScore / safeDenominator) * 100) : 0;
+  document.getElementById('scoreRaw').textContent = `${parseFloat(totalScore.toFixed(2))} / ${safeDenominator}`;
+  document.getElementById('resultTitle').textContent = percent >= 70 ? 'Bien joue !' : percent >= 50 ? 'Pas mal !' : 'Continuez !';
+  document.getElementById('metaCorrection').textContent = formatCorrection(currentCorrectionMode);
+
+  if (percent >= 70) circleFill.style.stroke = 'var(--green)';
+  else if (percent >= 50) circleFill.style.stroke = 'var(--amber)';
+  else circleFill.style.stroke = 'var(--red)';
+  animateScore(percent);
+}
 
 async function saveResultIfRequested() {
   const box = document.getElementById('saveResultBox');
   const btn = document.getElementById('saveResultBtn');
   const msg = document.getElementById('saveResultMsg');
+  const sessionNameInput = document.getElementById('saveSessionName');
 
   if (sessionId || !pendingPayloadRaw) {
     box.classList.add('hidden');
     return;
+  }
+
+  if (sessionNameInput) {
+    const now = new Date();
+    const modeLabel = mode === 'exam' ? 'Examen' : 'Entrainement';
+    sessionNameInput.value = `${modeLabel} ${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
   }
 
   box.classList.remove('hidden');
@@ -127,6 +156,8 @@ async function saveResultIfRequested() {
     msg.textContent = '';
     try {
       const payload = JSON.parse(pendingPayloadRaw);
+      payload.is_saved = true;
+      payload.session_name = (sessionNameInput?.value || '').trim();
       const res = await fetch(`${API_URL}/results`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -166,6 +197,38 @@ function scoreLabel(s) {
   return `${rounded.toFixed(2)} pt`;
 }
 
+function parseLetters(raw) {
+  return String(raw || '')
+    .split(',')
+    .map(s => s.trim().toUpperCase())
+    .filter(Boolean);
+}
+
+function calculateQuestionScore(correctLetters, userLetters, mode, availableCount = 5) {
+  const correct = Array.from(new Set(correctLetters || []));
+  const selected = Array.from(new Set(userLetters || []));
+  const forcedMode = correct.length <= 1 ? 'tout_ou_rien' : mode;
+
+  const correctSet = new Set(correct);
+  const selectedCorrectCount = selected.filter((l) => correctSet.has(l)).length;
+  const selectedWrongCount = selected.length - selectedCorrectCount;
+
+  if (forcedMode === 'tout_ou_rien') {
+    if (selected.length !== correct.length) return 0;
+    return selected.every((l) => correctSet.has(l)) ? 1 : 0;
+  }
+
+  if (forcedMode === 'partiel_negative') {
+    if (selectedWrongCount > 0) return 0;
+    return selectedCorrectCount / correct.length;
+  }
+
+  const wrongPool = Math.max(1, availableCount - correct.length);
+  const plus = selectedCorrectCount / correct.length;
+  const minus = selectedWrongCount / wrongPool;
+  return Math.max(0, plus - minus);
+}
+
 function escHtml(str) {
   return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
@@ -192,9 +255,10 @@ function buildDetail(qr, userLetters, correctLetters, idx) {
 }
 
 function renderRow(qr, idx) {
-  const userLetters = qr.user_answer ? qr.user_answer.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean) : [];
-  const correctLetters = qr.correct_answer ? qr.correct_answer.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean) : [];
-  const sc = parseFloat(qr.score || 0);
+  const userLetters = parseLetters(qr.user_answer);
+  const correctLetters = parseLetters(qr.correct_answer);
+  const availableCount = OPTS.filter((l) => !!qr[`option_${l.toLowerCase()}`]).length || 5;
+  const sc = calculateQuestionScore(correctLetters, userLetters, currentCorrectionMode, availableCount);
   const sClass = scoreClass(sc, 1);
   const unanswered = !qr.user_answer || !qr.user_answer.trim();
 
@@ -202,13 +266,12 @@ function renderRow(qr, idx) {
     ? '<span class="rr-unanswered">Non repondu</span>'
     : userLetters.map(l => `<span class="rr-letter ${correctLetters.includes(l) ? 'correct' : 'wrong'}">${l}</span>`).join('');
 
-  const missedBadges = correctLetters.filter(l => !userLetters.includes(l)).map(l => `<span class="rr-letter missed">${l}</span>`).join('');
   const correctBadges = correctLetters.map(l => `<span class="rr-letter correct">${l}</span>`).join('');
 
   return `<div class="rr-row" data-idx="${idx}">
     <div class="rr-num">Q${qr.question_num}</div>
     <div class="rr-answers">
-      <div class="rr-answer-line"><span class="rr-label">Votre rep.</span><div class="rr-letters">${userBadges}${missedBadges ? ' ' + missedBadges : ''}</div></div>
+      <div class="rr-answer-line"><span class="rr-label">Votre rep.</span><div class="rr-letters">${userBadges}</div></div>
       <div class="rr-answer-line"><span class="rr-label">Correcte</span><div class="rr-letters">${correctBadges || '<span class="muted">-</span>'}</div></div>
     </div>
     <span class="rr-score ${sClass}">${scoreLabel(sc)}</span>
@@ -225,10 +288,10 @@ async function loadReview() {
     const local = JSON.parse(localStorage.getItem('result_review') || '[]');
     if (!local.length) {
       rrList.innerHTML = `<div class="rr-no-data"><i class="bi bi-info-circle" style="font-size:1.5rem"></i><p>Detail non disponible.</p></div>`;
+      updateScoreDisplay(score, rawTotal);
       return;
     }
-    reviewCount.textContent = `${local.length} questions`;
-    rrList.innerHTML = local.map((qr, i) => renderRow({
+    reviewDataset = local.map((qr, i) => ({
       question_num: i + 1,
       question_id: qr.question_id,
       question_text: qr.question,
@@ -241,7 +304,8 @@ async function loadReview() {
       option_d: qr.options?.D,
       option_e: qr.options?.E,
       explanation: qr.explanation || ''
-    }, i)).join('');
+    }));
+    renderReviewDataset(reviewDataset, rrList, reviewCount);
   } else {
     try {
       const res = await fetch(`${API_URL}/results/${sessionId}/questions`, { headers: getAuthHeaders() });
@@ -249,15 +313,32 @@ async function loadReview() {
       const data = await res.json();
       if (!data.length) {
         rrList.innerHTML = `<div class="rr-no-data"><i class="bi bi-info-circle" style="font-size:1.5rem"></i><p>Aucune question enregistree.</p></div>`;
+        updateScoreDisplay(score, rawTotal);
         return;
       }
-      reviewCount.textContent = `${data.length} question${data.length > 1 ? 's' : ''}`;
-      rrList.innerHTML = data.map((qr, i) => renderRow(qr, i)).join('');
+      reviewDataset = data;
+      renderReviewDataset(reviewDataset, rrList, reviewCount);
     } catch (_) {
       rrList.innerHTML = `<div class="rr-no-data"><i class="bi bi-exclamation-circle" style="color:var(--red);font-size:1.5rem"></i><p>Impossible de charger le detail.</p></div>`;
+      updateScoreDisplay(score, rawTotal);
       return;
     }
   }
+}
+
+function renderReviewDataset(data, rrList, reviewCount) {
+  if (!Array.isArray(data) || !data.length) return;
+  reviewCount.textContent = `${data.length} question${data.length > 1 ? 's' : ''}`;
+  rrList.innerHTML = data.map((qr, i) => renderRow(qr, i)).join('');
+
+  const totalScore = data.reduce((acc, qr) => {
+    const userLetters = parseLetters(qr.user_answer);
+    const correctLetters = parseLetters(qr.correct_answer);
+    const availableCount = OPTS.filter((l) => !!qr[`option_${l.toLowerCase()}`]).length || 5;
+    return acc + calculateQuestionScore(correctLetters, userLetters, currentCorrectionMode, availableCount);
+  }, 0);
+  const denominator = rawTotal > 0 ? rawTotal : data.length;
+  updateScoreDisplay(totalScore, denominator);
 
   rrList.querySelectorAll('.rr-row').forEach(row => {
     row.addEventListener('click', () => {
@@ -305,6 +386,19 @@ window.toggleAttemptHistory = async function(detailIndex, questionId) {
   } catch (_) {
     box.innerHTML = '<div class="muted">Impossible de charger les tentatives.</div>';
   }
+}
+
+const correctionModeSelect = document.getElementById('resultCorrectionMode');
+if (correctionModeSelect) {
+  correctionModeSelect.value = correctionSystem;
+  correctionModeSelect.addEventListener('change', () => {
+    currentCorrectionMode = correctionModeSelect.value;
+    const rrList = document.getElementById('rrList');
+    const reviewCount = document.getElementById('reviewCount');
+    if (reviewDataset.length && rrList && reviewCount) {
+      renderReviewDataset(reviewDataset, rrList, reviewCount);
+    }
+  });
 }
 
 saveResultIfRequested();

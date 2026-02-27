@@ -1,12 +1,17 @@
-﻿if (localStorage.getItem('role') !== 'admin') {
+﻿const currentRole = localStorage.getItem('role');
+const isAdmin = currentRole === 'admin';
+const isWorker = currentRole === 'worker';
+if (!isAdmin && !isWorker) {
   window.location.href = 'dashboard.html';
 }
 
 /* ══ Sidebar Navigation ══ */
 const panelMeta = {
   questions: { title: 'Questions',      sub: 'Gérez la base de questions' },
+  references:{ title: 'Référentiels',   sub: 'Modules, cours et sources' },
   import:    { title: 'Import CSV',     sub: 'Importez des questions en masse' },
   reports:   { title: 'Signalements',   sub: 'Questions signalées par les utilisateurs' },
+  'login-alerts': { title: 'Alertes login', sub: 'Notifications des connexions non-admin' },
   messages:  { title: 'Messages',       sub: 'Contactez vos utilisateurs' },
   users:     { title: 'Utilisateurs',   sub: 'Créez et gérez les comptes' },
 };
@@ -22,6 +27,10 @@ function switchPanel(name) {
   if (name === 'messages') {
     loadAdminInbox();
   }
+  if (name === 'login-alerts') {
+    loadAdminInbox();
+    loadLoginAlertSettings();
+  }
 }
 
 document.querySelectorAll('.adm-nav-item[data-panel]').forEach(item => {
@@ -32,6 +41,22 @@ document.querySelectorAll('.adm-nav-item[data-panel]').forEach(item => {
     document.getElementById('sidebarOverlay').classList.remove('open');
   });
 });
+
+if (isWorker) {
+  document.querySelectorAll('.adm-nav-item[data-panel]').forEach((item) => {
+    if (item.dataset.panel !== 'questions') item.style.display = 'none';
+  });
+  document.getElementById('pendingWorkersCard')?.classList.add('hidden');
+  document.getElementById('exportCsvCard')?.classList.add('hidden');
+  document.getElementById('panel-references')?.classList.add('hidden');
+  document.getElementById('panel-import')?.classList.add('hidden');
+  document.getElementById('panel-reports')?.classList.add('hidden');
+  document.getElementById('panel-login-alerts')?.classList.add('hidden');
+  document.getElementById('panel-messages')?.classList.add('hidden');
+  document.getElementById('panel-users')?.classList.add('hidden');
+  const topbarSub = document.getElementById('topbarSub');
+  if (topbarSub) topbarSub.textContent = 'Ajoutez des questions (validation admin requise)';
+}
 
 // Mobile sidebar
 document.getElementById('menuToggle').addEventListener('click', () => {
@@ -65,9 +90,13 @@ function setActiveTab(btn) {
 /* ══ All original JS below — no IDs changed ══ */
 
 let allQuestions = [];
+let allQuestionsForSimilarity = [];
 let reportQuestionIds = new Set();
 let similarityTimer = null;
 let latestSimilarity = { maxPercent: 0, matches: [] };
+let questionsPage = 1;
+const questionsPageSize = 25;
+let questionsTotal = 0;
 const moduleNameById = new Map();
 const courseNameById = new Map();
 const sourceNameById = new Map();
@@ -185,6 +214,9 @@ function renderSimilarityUI(maxPercent, matches) {
       <div class="sim-head"><strong>${m.percent}%</strong><span class="muted">#${m.id}</span></div>
       <div class="sim-text">${sourceDiffTag}${m.question||''}</div>
       <div class="muted sim-meta">Module: ${m.module_name||'-'} | Cours: ${m.course_name||'-'} | Source: ${m.source_name||'-'}</div>
+      <div style="margin-top:6px">
+        <button type="button" class="btn-inline btn-sm" onclick="openSimilarityDetail(${m.id})">Voir détail</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -192,7 +224,8 @@ function setSimilarityLoading(b) { document.getElementById('similarityLoading')?
 function calculateSimilarityNow() {
   const formData = getCurrentFormData();
   if (!normalizeText(formData.question)) { latestSimilarity={maxPercent:0,matches:[]}; renderSimilarityUI(0,[]); return; }
-  const scored = allQuestions.map(q => {
+  const sourcePool = allQuestionsForSimilarity.length ? allQuestionsForSimilarity : allQuestions;
+  const scored = sourcePool.map(q => {
     const qScore = jaccardSimilarity(formData.question, q.question||'');
     const pScore = propositionSimilarity(formData.options, getQuestionOptions(q));
     const cScore = correctionSimilarity(formData.correction, q.correct_option||q.correct_options||'');
@@ -218,17 +251,61 @@ function scheduleSimilarityCalculation() {
 
 async function loadQuestionsAdmin() {
   const token = localStorage.getItem('token');
-  const res = await fetch(`${API_URL}/questions`,{headers:{'Authorization':'Bearer '+token}});
+  const moduleId = document.getElementById('filter_module_id')?.value || '';
+  const courseId = document.getElementById('filter_course_id')?.value || '';
+  const sourceId = document.getElementById('filter_source_id')?.value || '';
+  const search = (document.getElementById('filter_search')?.value || '').trim();
+  const onlyReported = !!document.getElementById('filter_reported')?.checked;
+  const params = new URLSearchParams();
+  params.set('page', String(questionsPage));
+  params.set('page_size', String(questionsPageSize));
+  if (moduleId) params.set('module', moduleId);
+  if (courseId) params.set('course', courseId);
+  if (sourceId) params.set('source', sourceId);
+  const res = await fetch(`${API_URL}/questions?${params.toString()}`,{headers:{'Authorization':'Bearer '+token}});
   const data = await res.json();
-  allQuestions = data.questions||[];
-  applyQuestionFilters();
+  const baseRows = data.questions||[];
+  const localFiltered = baseRows.filter(q => {
+    if (search && !(q.question || '').toLowerCase().includes(search.toLowerCase())) return false;
+    if (onlyReported && !reportQuestionIds.has(q.id)) return false;
+    return true;
+  });
+  allQuestions = localFiltered;
+  questionsTotal = Number(data.pagination?.total || 0);
+  renderQuestions(localFiltered);
+  renderQuestionsPagination();
   scheduleSimilarityCalculation();
+}
+
+async function loadSimilarityQuestionsPool() {
+  const token = localStorage.getItem('token');
+  try {
+    const res = await fetch(`${API_URL}/questions?page=1&page_size=5000`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const data = await res.json();
+    allQuestionsForSimilarity = data.questions || [];
+  } catch (_) {
+    allQuestionsForSimilarity = [];
+  }
+}
+
+function renderQuestionsPagination() {
+  const info = document.getElementById('questionsPageInfo');
+  const prev = document.getElementById('prevQuestionsPageBtn');
+  const next = document.getElementById('nextQuestionsPageBtn');
+  if (!info || !prev || !next) return;
+  const totalPages = Math.max(1, Math.ceil(questionsTotal / questionsPageSize));
+  if (questionsPage > totalPages) questionsPage = totalPages;
+  info.textContent = `Page ${questionsPage} / ${totalPages} (${questionsTotal} questions)`;
+  prev.disabled = questionsPage <= 1;
+  next.disabled = questionsPage >= totalPages;
 }
 
 function renderQuestions(listData) {
   const list = document.getElementById('questionsList');
   if (!listData.length) {
-    list.innerHTML = '<div class="adm-empty"><div class="adm-empty-icon">🔍</div><p>Aucune question trouvée.</p></div>';
+    list.innerHTML = '<div class="adm-empty"><div class="adm-empty-icon"><i class="bi bi-search"></i></div><p>Aucune question trouvée.</p></div>';
     return;
   }
   list.innerHTML = listData.map(q => `
@@ -238,30 +315,18 @@ function renderQuestions(listData) {
         ${q.module_name?`<span class="question-item-tag">${q.module_name}</span>`:''}
         ${q.course_name?`<span class="question-item-tag">${q.course_name}</span>`:''}
         ${q.source_name?`<span class="question-item-tag">${q.source_name}</span>`:''}
-        <span class="question-item-correct">✓ ${q.correct_option}</span>
+        <span class="question-item-correct"><i class="bi bi-check2-circle"></i> ${q.correct_option}</span>
       </div>
-      <div class="question-item-actions">
-        <button class="btn-inline btn-sm" onclick="editQuestion(${q.id})">✏️ Modifier</button>
-        <button class="btn-inline btn-sm" style="color:var(--red)" onclick="deleteQuestion(${q.id})">🗑 Supprimer</button>
-      </div>
+      ${isWorker ? '' : `<div class="question-item-actions">
+        <button class="btn-inline btn-sm" onclick="editQuestion(${q.id})"><i class="bi bi-pencil"></i> Modifier</button>
+        <button class="btn-inline btn-sm" style="color:var(--red)" onclick="deleteQuestion(${q.id})"><i class="bi bi-trash"></i> Supprimer</button>
+      </div>`}
     </div>`).join('');
 }
 
 function applyQuestionFilters() {
-  const moduleId = document.getElementById('filter_module_id').value;
-  const courseId = document.getElementById('filter_course_id').value;
-  const sourceId = document.getElementById('filter_source_id').value;
-  const search = document.getElementById('filter_search').value.trim().toLowerCase();
-  const onlyReported = document.getElementById('filter_reported').checked;
-  const filtered = allQuestions.filter(q => {
-    if (moduleId && String(q.module_id)!==String(moduleId)) return false;
-    if (courseId && String(q.course_id)!==String(courseId)) return false;
-    if (sourceId && String(q.source_id)!==String(sourceId)) return false;
-    if (search && !(q.question||'').toLowerCase().includes(search)) return false;
-    if (onlyReported && !reportQuestionIds.has(q.id)) return false;
-    return true;
-  });
-  renderQuestions(filtered);
+  questionsPage = 1;
+  loadQuestionsAdmin();
 }
 
 function formatReportDate(v) { try { return new Date(v).toLocaleString('fr-FR'); } catch(e){return v;} }
@@ -276,7 +341,7 @@ async function loadReports() {
     const data = await res.json();
     list.innerHTML = '';
     if (!data.length) {
-      list.innerHTML = `<div class="adm-empty"><div class="adm-empty-icon">${showResolvedReports?'✅':'📭'}</div><p>${showResolvedReports?'Aucun signalement résolu.':'Aucun signalement en attente. Tout va bien !'}</p></div>`;
+      list.innerHTML = `<div class="adm-empty"><div class="adm-empty-icon"><i class="bi ${showResolvedReports?'bi-check2-circle':'bi-inbox'}"></i></div><p>${showResolvedReports?'Aucun signalement résolu.':'Aucun signalement en attente. Tout va bien !'}</p></div>`;
       reportQuestionIds = new Set(); applyQuestionFilters(); return;
     }
     reportQuestionIds = new Set(data.map(r=>r.question_id));
@@ -294,15 +359,15 @@ async function loadReports() {
         <div class="report-meta">
           <strong>${r.user_email||'Utilisateur'}</strong>
           <span>${date}</span>
-          ${r.resolved?`<span class="flag-status resolved">✓ Résolu par ${r.resolved_by_email||'admin'}</span>`:'<span class="flag-status pending">⏳ En attente</span>'}
+          ${r.resolved?`<span class="flag-status resolved"><i class="bi bi-check2-circle"></i> Résolu par ${r.resolved_by_email||'admin'}</span>`:'<span class="flag-status pending"><i class="bi bi-hourglass-split"></i> En attente</span>'}
         </div>
         <div class="report-question">${r.question||'Question #'+r.question_id}</div>
         ${r.reason?`<div class="report-reason">${r.reason}</div>`:''}
         <div class="report-actions">
-          <button class="btn-inline btn-sm" onclick="editQuestion(${r.question_id})">✏️ Modifier la question</button>
+          <button class="btn-inline btn-sm" onclick="editQuestion(${r.question_id})"><i class="bi bi-pencil"></i> Modifier la question</button>
           ${!r.resolved
-            ? `<button class="btn-inline btn-sm resolve-btn" data-id="${r.id}" style="color:var(--green)">✓ Marquer résolu</button>`
-            : `<button class="btn-inline btn-sm resolve-btn" data-id="${r.id}" data-unresolve="1">↩ Rouvrir</button>`}
+            ? `<button class="btn-inline btn-sm resolve-btn" data-id="${r.id}" style="color:var(--green)"><i class="bi bi-check2"></i> Marquer résolu</button>`
+            : `<button class="btn-inline btn-sm resolve-btn" data-id="${r.id}" data-unresolve="1"><i class="bi bi-arrow-counterclockwise"></i> Rouvrir</button>`}
         </div>`;
       list.appendChild(item);
     });
@@ -311,7 +376,7 @@ async function loadReports() {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id');
         const unresolve = btn.getAttribute('data-unresolve')==='1';
-        btn.textContent='…';
+        btn.textContent='...';
         try {
           await fetch(`${API_URL}/admin/reports/${id}/resolve`,{method:'PUT',headers:{...getAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({resolved:!unresolve})});
           loadReports();
@@ -399,6 +464,7 @@ function renderUsersAdminList(rows){
           <span>Rôle</span>
           <select data-user-role="${u.id}">
             <option value="user" ${u.role==='user'?'selected':''}>user</option>
+            <option value="worker" ${u.role==='worker'?'selected':''}>worker</option>
             <option value="admin" ${u.role==='admin'?'selected':''}>admin</option>
           </select>
         </label>
@@ -409,7 +475,7 @@ function renderUsersAdminList(rows){
       </div>
       <div class="question-item-actions">
         <button class="btn-inline btn-sm" data-user-save="${u.id}">💾 Enregistrer</button>
-        <button class="btn-inline btn-sm" style="color:var(--red)" data-user-delete="${u.id}">🗑 Supprimer</button>
+        <button class="btn-inline btn-sm" style="color:var(--red)" data-user-delete="${u.id}"><i class="bi bi-trash"></i> Supprimer</button>
       </div>
     </div>
   `).join('');
@@ -426,6 +492,135 @@ async function loadUsersAdminManagement(){
     if(status) status.textContent = '';
   }catch(_){
     if(status) status.textContent = 'Impossible de charger les utilisateurs.';
+  }
+}
+
+async function loadPendingQuestions() {
+  const wrap = document.getElementById('pendingQuestionsList');
+  if (!wrap || isWorker) return;
+  wrap.textContent = 'Chargement...';
+  try {
+    const res = await fetch(`${API_URL}/admin/pending-questions?status=pending&page=1&page_size=20`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('load failed');
+    const data = await res.json();
+    const rows = data.data || [];
+    if (!rows.length) {
+      wrap.innerHTML = '<div class="muted">Aucune question en attente.</div>';
+      return;
+    }
+    wrap.innerHTML = rows.map((r) => `
+      <div class="question-item">
+        <div class="question-item-text">${esc(r.question)}</div>
+        <div class="question-item-meta">
+          <span class="question-item-tag">Worker: ${esc(r.submitted_by_email || r.submitted_by)}</span>
+          ${r.module_name ? `<span class="question-item-tag">${esc(r.module_name)}</span>` : ''}
+          ${r.course_name ? `<span class="question-item-tag">${esc(r.course_name)}</span>` : ''}
+          ${r.source_name ? `<span class="question-item-tag">${esc(r.source_name)}</span>` : ''}
+        </div>
+        <div class="question-item-actions">
+          <button class="btn-inline btn-sm" onclick="showPendingQuestionDetail(${r.id})">Voir</button>
+          <button class="btn-inline btn-sm" onclick="approvePendingQuestion(${r.id})">Approuver</button>
+          <button class="btn-inline btn-sm" style="color:var(--red)" onclick="rejectPendingQuestion(${r.id})">Rejeter</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (_) {
+    wrap.innerHTML = '<div class="muted">Erreur de chargement.</div>';
+  }
+}
+
+async function showPendingQuestionDetail(id) {
+  const res = await fetch(`${API_URL}/admin/pending-questions?status=pending&page=1&page_size=100`, { headers: getAuthHeaders() });
+  const data = await res.json();
+  const q = (data.data || []).find(x => Number(x.id) === Number(id));
+  if (!q) return;
+  const body = [
+    `Question: ${q.question}`,
+    `Module: ${q.module_name || '-'}`,
+    `Cours: ${q.course_name || '-'}`,
+    `Source: ${q.source_name || '-'}`,
+    `Correction: ${q.correct_options || '-'}`,
+    '',
+    `A. ${q.option_a || ''}`,
+    `B. ${q.option_b || ''}`,
+    `C. ${q.option_c || ''}`,
+    `D. ${q.option_d || ''}`,
+    `E. ${q.option_e || ''}`,
+    '',
+    `Explication: ${q.explanation || '-'}`
+  ].join('\n');
+  document.getElementById('similarityDetailBody').textContent = body;
+  document.getElementById('similarityDetailModal').classList.remove('hidden');
+}
+window.showPendingQuestionDetail = showPendingQuestionDetail;
+
+function closeSimilarityDetailModal() {
+  document.getElementById('similarityDetailModal')?.classList.add('hidden');
+}
+window.closeSimilarityDetailModal = closeSimilarityDetailModal;
+
+function openSimilarityDetail(questionId) {
+  const q = (allQuestionsForSimilarity.length ? allQuestionsForSimilarity : allQuestions)
+    .find((x) => Number(x.id) === Number(questionId));
+  if (!q) return;
+  const body = [
+    `Question: ${q.question || '-'}`,
+    `Module: ${q.module_name || '-'}`,
+    `Cours: ${q.course_name || '-'}`,
+    `Source: ${q.source_name || '-'}`,
+    `Correction: ${q.correct_option || q.correct_options || '-'}`,
+    '',
+    `A. ${q.option_a || ''}`,
+    `B. ${q.option_b || ''}`,
+    `C. ${q.option_c || ''}`,
+    `D. ${q.option_d || ''}`,
+    `E. ${q.option_e || ''}`,
+    '',
+    `Explication: ${q.explanation || '-'}`
+  ].join('\n');
+  document.getElementById('similarityDetailBody').textContent = body;
+  document.getElementById('similarityDetailModal').classList.remove('hidden');
+}
+window.openSimilarityDetail = openSimilarityDetail;
+
+async function approvePendingQuestion(id) {
+  if (!confirm('Approuver cette question ?')) return;
+  const res = await fetch(`${API_URL}/admin/pending-questions/${id}/approve`, {
+    method: 'POST',
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) return alert('Erreur lors de l’approbation.');
+  await loadPendingQuestions();
+  await loadQuestionsAdmin();
+  await loadSimilarityQuestionsPool();
+}
+window.approvePendingQuestion = approvePendingQuestion;
+
+async function rejectPendingQuestion(id) {
+  if (!confirm('Rejeter cette question ?')) return;
+  const res = await fetch(`${API_URL}/admin/pending-questions/${id}/reject`, {
+    method: 'POST',
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) return alert('Erreur lors du rejet.');
+  await loadPendingQuestions();
+}
+window.rejectPendingQuestion = rejectPendingQuestion;
+
+async function loadLoginAlertSettings() {
+  const toggle = document.getElementById('loginAlertsEnabledToggle');
+  const status = document.getElementById('loginAlertStatus');
+  if (!toggle || !status) return;
+  try {
+    const res = await fetch(`${API_URL}/admin/login-alert-settings`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('load failed');
+    const data = await res.json();
+    toggle.checked = !!data.enabled;
+    status.textContent = data.enabled ? 'Alertes activées.' : 'Alertes désactivées.';
+  } catch (_) {
+    status.textContent = 'Impossible de charger le paramètre.';
   }
 }
 
@@ -449,7 +644,17 @@ form.addEventListener('submit', async e => {
     explanation: document.getElementById('explanation').value||null
   };
   const res = await fetch(`${API_URL}/questions`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(questionData)});
-  if(res.ok){form.reset();latestSimilarity={maxPercent:0,matches:[]};renderSimilarityUI(0,[]);loadQuestionsAdmin();}
+  if(res.ok){
+    ['question','option_a','option_b','option_c','option_d','option_e','correct_option','explanation']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    latestSimilarity={maxPercent:0,matches:[]};
+    renderSimilarityUI(0,[]);
+    loadQuestionsAdmin();
+    loadPendingQuestions();
+    if (res.status === 202) {
+      alert('Question envoyée pour validation admin.');
+    }
+  }
   else if(res.status===409){const d=await res.json().catch(()=>({}));alert(d.message||'Question déjà existante.');}
   else{alert('Erreur lors de l\'ajout de la question');}
 });
@@ -471,6 +676,7 @@ function bindSimilarityInputs() {
 bindSimilarityInputs();
 
 async function deleteQuestion(id) {
+  if (isWorker) return;
   if(!confirm('Voulez-vous vraiment supprimer cette question ?'))return;
   const token = localStorage.getItem('token');
   await fetch(`${API_URL}/questions/${id}`,{method:'DELETE',headers:{'Authorization':'Bearer '+token}});
@@ -478,6 +684,7 @@ async function deleteQuestion(id) {
 }
 
 async function editQuestion(id) {
+  if (isWorker) return;
   const token = localStorage.getItem('token');
   const res = await fetch(`${API_URL}/questions`,{headers:{'Authorization':'Bearer '+token}});
   const data = await res.json();
@@ -525,10 +732,15 @@ document.getElementById('saveEditBtn').addEventListener('click',async()=>{
 
 // Load on init
 loadQuestionsAdmin();
-loadReports();
-loadUsersForMessages();
-loadAdminInbox();
-loadUsersAdminManagement();
+loadSimilarityQuestionsPool();
+if (isAdmin) {
+  loadReports();
+  loadUsersForMessages();
+  loadAdminInbox();
+  loadUsersAdminManagement();
+  loadPendingQuestions();
+  loadLoginAlertSettings();
+}
 
 async function loadModules() {
   const res=await fetch(`${API_URL}/modules`);
@@ -641,6 +853,17 @@ document.getElementById('resetFiltersBtn').addEventListener('click',()=>{
   loadFilterCourses().then(()=>applyQuestionFilters());
   loadFilterSources();
 });
+document.getElementById('prevQuestionsPageBtn')?.addEventListener('click', () => {
+  if (questionsPage <= 1) return;
+  questionsPage -= 1;
+  loadQuestionsAdmin();
+});
+document.getElementById('nextQuestionsPageBtn')?.addEventListener('click', () => {
+  const totalPages = Math.max(1, Math.ceil(questionsTotal / questionsPageSize));
+  if (questionsPage >= totalPages) return;
+  questionsPage += 1;
+  loadQuestionsAdmin();
+});
 
 document.getElementById('sendMessageBtn').addEventListener('click',async()=>{
   const token=localStorage.getItem('token');
@@ -655,6 +878,47 @@ document.getElementById('sendMessageBtn').addEventListener('click',async()=>{
 });
 
 document.getElementById('refreshAdminInboxBtn')?.addEventListener('click', loadAdminInbox);
+document.getElementById('refreshPendingBtn')?.addEventListener('click', loadPendingQuestions);
+document.getElementById('loginAlertsEnabledToggle')?.addEventListener('change', async (e) => {
+  const status = document.getElementById('loginAlertStatus');
+  try {
+    const res = await fetch(`${API_URL}/admin/login-alert-settings`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ enabled: !!e.target.checked })
+    });
+    if (!res.ok) throw new Error('save failed');
+    status.textContent = e.target.checked ? 'Alertes activées.' : 'Alertes désactivées.';
+  } catch (_) {
+    status.textContent = 'Échec de sauvegarde.';
+  }
+});
+document.getElementById('exportCsvBtn')?.addEventListener('click', async () => {
+  const pass = (document.getElementById('exportPass')?.value || '').trim();
+  const status = document.getElementById('exportCsvStatus');
+  if (!pass) {
+    status.textContent = 'Entrez le mot de passe export.';
+    return;
+  }
+  status.textContent = 'Préparation export...';
+  const res = await fetch(`${API_URL}/admin/questions/export-csv?pass=${encodeURIComponent(pass)}`, {
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) {
+    status.textContent = 'Export refusé ou erreur serveur.';
+    return;
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'questions_export.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  status.textContent = 'Export CSV téléchargé.';
+});
 
 document.getElementById('createUserBtn')?.addEventListener('click', async () => {
   const status = document.getElementById('userManageStatus');
@@ -1057,4 +1321,6 @@ document.getElementById('importSelectedBtn')?.addEventListener('click',()=>runIm
 document.getElementById('importAllBtn')?.addEventListener('click',()=>{analyzedImportRows.forEach(r=>{r.include=!r.validationError;});runImport(analyzedImportRows.filter(r=>!r.validationError));});
 document.getElementById('prevImportPageBtn')?.addEventListener('click',()=>{if(importPage>1){importPage--;renderImportPreviewPage();}});
 document.getElementById('nextImportPageBtn')?.addEventListener('click',()=>{const t=Math.max(1,Math.ceil(analyzedImportRows.length/importPageSize));if(importPage<t){importPage++;renderImportPreviewPage();}});
+
+
 

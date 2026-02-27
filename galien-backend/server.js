@@ -295,6 +295,20 @@ function getLoginAlertConfigIssue() {
     return null;
 }
 
+async function getAppSettingBoolean(key, fallback = false) {
+    try {
+        const res = await pool.query(
+            'SELECT value FROM app_settings WHERE key = $1',
+            [key]
+        );
+        if (!res.rows.length) return fallback;
+        const raw = String(res.rows[0].value || '').trim().toLowerCase();
+        return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+    } catch (_) {
+        return fallback;
+    }
+}
+
 async function sendNonAdminLoginAlert({ user, req }) {
     if (!user || user.role === 'admin') return;
     const recipients = getLoginAlertRecipients();
@@ -337,6 +351,8 @@ async function sendNonAdminLoginAlert({ user, req }) {
 
 async function notifyAdminsOfNonAdminLogin({ user, req }) {
     if (!user || user.role === 'admin') return;
+    const enabled = await getAppSettingBoolean('non_admin_login_alert_enabled', true);
+    if (!enabled) return;
     try {
         const admins = await pool.query(
             `SELECT id
@@ -386,6 +402,14 @@ function requireAdmin(req, res, next) {
     return next();
 }
 
+function requireAdminOrWorker(req, res, next) {
+    const role = req.user?.role;
+    if (role !== 'admin' && role !== 'worker') {
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+    return next();
+}
+
 async function ensureAuthSchema() {
     await pool.query(`
         ALTER TABLE users
@@ -404,6 +428,17 @@ async function ensureCoreSchema() {
             profile_photo TEXT,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
+    `);
+
+    await pool.query(`
+        ALTER TABLE users
+        DROP CONSTRAINT IF EXISTS users_role_check
+    `);
+
+    await pool.query(`
+        ALTER TABLE users
+        ADD CONSTRAINT users_role_check
+        CHECK (role IN ('admin', 'user', 'worker'))
     `);
 
     await pool.query(`
@@ -463,6 +498,52 @@ async function ensureCoreSchema() {
     `);
 
     await pool.query(`
+        CREATE TABLE IF NOT EXISTS pending_questions (
+            id SERIAL PRIMARY KEY,
+            question TEXT NOT NULL,
+            option_a TEXT NOT NULL,
+            option_b TEXT NOT NULL,
+            option_c TEXT NOT NULL,
+            option_d TEXT NOT NULL,
+            option_e TEXT NOT NULL,
+            correct_options TEXT NOT NULL,
+            module_id INTEGER REFERENCES modules(id) ON DELETE SET NULL,
+            course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+            source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
+            explanation TEXT,
+            submitted_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            status TEXT NOT NULL DEFAULT 'pending',
+            admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            reviewed_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `);
+
+    await pool.query(`
+        ALTER TABLE pending_questions
+        DROP CONSTRAINT IF EXISTS pending_questions_status_check
+    `);
+
+    await pool.query(`
+        ALTER TABLE pending_questions
+        ADD CONSTRAINT pending_questions_status_check
+        CHECK (status IN ('pending', 'approved', 'rejected'))
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    `);
+
+    await pool.query(`
+        INSERT INTO app_settings (key, value)
+        VALUES ('non_admin_login_alert_enabled', 'true')
+        ON CONFLICT (key) DO NOTHING
+    `);
+
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS results (
             id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -472,8 +553,18 @@ async function ensureCoreSchema() {
             elapsed_seconds INTEGER NOT NULL DEFAULT 0,
             correction_system TEXT NOT NULL DEFAULT 'tout_ou_rien',
             time_limit_seconds INTEGER,
+            is_saved BOOLEAN NOT NULL DEFAULT FALSE,
+            session_name TEXT,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
+    `);
+    await pool.query(`
+        ALTER TABLE results
+        ADD COLUMN IF NOT EXISTS is_saved BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    await pool.query(`
+        ALTER TABLE results
+        ADD COLUMN IF NOT EXISTS session_name TEXT
     `);
 
     await pool.query(`
@@ -570,6 +661,7 @@ async function ensurePerformanceIndexes() {
         'CREATE INDEX IF NOT EXISTS idx_question_notes_user_updated ON question_notes(user_id, updated_at DESC)',
         'CREATE INDEX IF NOT EXISTS idx_results_user_created ON results(user_id, created_at DESC)',
         'CREATE INDEX IF NOT EXISTS idx_results_user_mode_created ON results(user_id, mode, created_at DESC)',
+        'CREATE INDEX IF NOT EXISTS idx_results_user_saved_created ON results(user_id, is_saved, created_at DESC)',
         'CREATE INDEX IF NOT EXISTS idx_sqr_session_qnum ON session_question_results(session_id, question_num)',
         'CREATE INDEX IF NOT EXISTS idx_sqr_question_session ON session_question_results(question_id, session_id)',
         'CREATE INDEX IF NOT EXISTS idx_sqr_session_question ON session_question_results(session_id, question_id)',
@@ -833,6 +925,7 @@ app.get('/api/questions', authMiddleware, async (req, res) => {
         const moduleIds = parseIntList(req.query.module);
         const sourceIds = parseIntList(req.query.source);
         const courseIds = parseIntList(req.query.course);
+        const reviewMode = String(req.query.review_mode || '').trim();
         const shouldPaginate = req.query.page !== undefined || req.query.page_size !== undefined || req.query.limit !== undefined;
         const { page, pageSize, offset } = getPagination(req, { page: 1, pageSize: 100, maxPageSize: 300 });
 
@@ -862,6 +955,49 @@ app.get('/api/questions', authMiddleware, async (req, res) => {
             filters.push(`q.course_id = ANY($${params.length + 1}::int[])`);
             params.push(courseIds);
         }
+        if (reviewMode === 'wrong_ever') {
+            filters.push(`
+                EXISTS (
+                    SELECT 1
+                    FROM session_question_results sqr
+                    JOIN results r ON r.id = sqr.session_id
+                    WHERE r.user_id = $${params.length + 1}
+                      AND sqr.question_id = q.id
+                      AND sqr.score < 1
+                )
+            `);
+            params.push(req.user.id);
+        } else if (reviewMode === 'wrong_last') {
+            filters.push(`
+                EXISTS (
+                    SELECT 1
+                    FROM (
+                        SELECT DISTINCT ON (sqr.question_id)
+                            sqr.question_id,
+                            sqr.score
+                        FROM session_question_results sqr
+                        JOIN results r ON r.id = sqr.session_id
+                        WHERE r.user_id = $${params.length + 1}
+                        ORDER BY sqr.question_id, r.created_at DESC, sqr.id DESC
+                    ) last_q
+                    WHERE last_q.question_id = q.id
+                      AND last_q.score < 1
+                )
+            `);
+            params.push(req.user.id);
+        } else if (reviewMode === 'unanswered') {
+            filters.push(`
+                NOT EXISTS (
+                    SELECT 1
+                    FROM session_question_results sqr
+                    JOIN results r ON r.id = sqr.session_id
+                    WHERE r.user_id = $${params.length + 1}
+                      AND sqr.question_id = q.id
+                      AND COALESCE(NULLIF(BTRIM(sqr.user_answer), ''), '') <> ''
+                )
+            `);
+            params.push(req.user.id);
+        }
         if (filters.length) {
             query += ' WHERE ' + filters.join(' AND ');
         }
@@ -885,6 +1021,49 @@ app.get('/api/questions', authMiddleware, async (req, res) => {
         if (courseIds.length) {
             countFilters.push(`q.course_id = ANY($${countParams.length + 1}::int[])`);
             countParams.push(courseIds);
+        }
+        if (reviewMode === 'wrong_ever') {
+            countFilters.push(`
+                EXISTS (
+                    SELECT 1
+                    FROM session_question_results sqr
+                    JOIN results r ON r.id = sqr.session_id
+                    WHERE r.user_id = $${countParams.length + 1}
+                      AND sqr.question_id = q.id
+                      AND sqr.score < 1
+                )
+            `);
+            countParams.push(req.user.id);
+        } else if (reviewMode === 'wrong_last') {
+            countFilters.push(`
+                EXISTS (
+                    SELECT 1
+                    FROM (
+                        SELECT DISTINCT ON (sqr.question_id)
+                            sqr.question_id,
+                            sqr.score
+                        FROM session_question_results sqr
+                        JOIN results r ON r.id = sqr.session_id
+                        WHERE r.user_id = $${countParams.length + 1}
+                        ORDER BY sqr.question_id, r.created_at DESC, sqr.id DESC
+                    ) last_q
+                    WHERE last_q.question_id = q.id
+                      AND last_q.score < 1
+                )
+            `);
+            countParams.push(req.user.id);
+        } else if (reviewMode === 'unanswered') {
+            countFilters.push(`
+                NOT EXISTS (
+                    SELECT 1
+                    FROM session_question_results sqr
+                    JOIN results r ON r.id = sqr.session_id
+                    WHERE r.user_id = $${countParams.length + 1}
+                      AND sqr.question_id = q.id
+                      AND COALESCE(NULLIF(BTRIM(sqr.user_answer), ''), '') <> ''
+                )
+            `);
+            countParams.push(req.user.id);
         }
         if (countFilters.length) {
             countQuery += ' WHERE ' + countFilters.join(' AND ');
@@ -943,6 +1122,7 @@ app.get('/api/questions/count', authMiddleware, async (req, res) => {
         const moduleIds = parseIntList(req.query.module);
         const sourceIds = parseIntList(req.query.source);
         const courseIds = parseIntList(req.query.course);
+        const reviewMode = String(req.query.review_mode || '').trim();
 
         let query = 'SELECT COUNT(*)::int AS total FROM questions q';
         const params = [];
@@ -959,6 +1139,49 @@ app.get('/api/questions/count', authMiddleware, async (req, res) => {
         if (courseIds.length) {
             filters.push(`q.course_id = ANY($${params.length + 1}::int[])`);
             params.push(courseIds);
+        }
+        if (reviewMode === 'wrong_ever') {
+            filters.push(`
+                EXISTS (
+                    SELECT 1
+                    FROM session_question_results sqr
+                    JOIN results r ON r.id = sqr.session_id
+                    WHERE r.user_id = $${params.length + 1}
+                      AND sqr.question_id = q.id
+                      AND sqr.score < 1
+                )
+            `);
+            params.push(req.user.id);
+        } else if (reviewMode === 'wrong_last') {
+            filters.push(`
+                EXISTS (
+                    SELECT 1
+                    FROM (
+                        SELECT DISTINCT ON (sqr.question_id)
+                            sqr.question_id,
+                            sqr.score
+                        FROM session_question_results sqr
+                        JOIN results r ON r.id = sqr.session_id
+                        WHERE r.user_id = $${params.length + 1}
+                        ORDER BY sqr.question_id, r.created_at DESC, sqr.id DESC
+                    ) last_q
+                    WHERE last_q.question_id = q.id
+                      AND last_q.score < 1
+                )
+            `);
+            params.push(req.user.id);
+        } else if (reviewMode === 'unanswered') {
+            filters.push(`
+                NOT EXISTS (
+                    SELECT 1
+                    FROM session_question_results sqr
+                    JOIN results r ON r.id = sqr.session_id
+                    WHERE r.user_id = $${params.length + 1}
+                      AND sqr.question_id = q.id
+                      AND COALESCE(NULLIF(BTRIM(sqr.user_answer), ''), '') <> ''
+                )
+            `);
+            params.push(req.user.id);
         }
         if (filters.length) {
             query += ' WHERE ' + filters.join(' AND ');
@@ -1021,7 +1244,7 @@ app.post('/api/questions/submit', async (req, res) => {
 // ----------------------
 // ADMIN: Add question
 // ----------------------
-app.post('/api/questions', authMiddleware, requireAdmin, async (req, res) => {
+app.post('/api/questions', authMiddleware, requireAdminOrWorker, async (req, res) => {
     try {
         const {
             question,
@@ -1062,34 +1285,60 @@ app.post('/api/questions', authMiddleware, requireAdmin, async (req, res) => {
             });
         }
 
-        const query = `
-            INSERT INTO questions
-            (question, option_a, option_b, option_c, option_d, option_e, correct_options, module_id, course_id, source_id, explanation)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-            RETURNING *;
-        `;
+        const normalizedSourceId = toIntOrNull(source_id);
 
-        const values = [
-            question,
-            option_a,
-            option_b,
-            option_c,
-            option_d,
-            option_e,
-            correct_option,
-            normalizedModuleId,
-            normalizedCourseId,
-            toIntOrNull(source_id),
-            explanation
-        ];
+        if (req.user.role === 'worker') {
+            const pending = await pool.query(
+                `INSERT INTO pending_questions
+                 (question, option_a, option_b, option_c, option_d, option_e, correct_options, module_id, course_id, source_id, explanation, submitted_by)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+                 RETURNING id, status, created_at`,
+                [
+                    question,
+                    option_a,
+                    option_b,
+                    option_c,
+                    option_d,
+                    option_e,
+                    correct_option,
+                    normalizedModuleId,
+                    normalizedCourseId,
+                    normalizedSourceId,
+                    explanation,
+                    req.user.id
+                ]
+            );
+            return res.status(202).json({
+                message: 'Question envoyée pour validation admin',
+                pending_question: pending.rows[0]
+            });
+        }
 
-        const result = await pool.query(query, values);
-        if (normalizedModuleId && toIntOrNull(source_id)) {
+        const result = await pool.query(
+            `INSERT INTO questions
+             (question, option_a, option_b, option_c, option_d, option_e, correct_options, module_id, course_id, source_id, explanation)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+             RETURNING *;`,
+            [
+                question,
+                option_a,
+                option_b,
+                option_c,
+                option_d,
+                option_e,
+                correct_option,
+                normalizedModuleId,
+                normalizedCourseId,
+                normalizedSourceId,
+                explanation
+            ]
+        );
+        if (normalizedModuleId && normalizedSourceId) {
             await pool.query(
                 `INSERT INTO module_sources (module_id, source_id)
                  VALUES ($1, $2)
                  ON CONFLICT (module_id, source_id) DO NOTHING`,
-                [normalizedModuleId, toIntOrNull(source_id)]
+                [normalizedModuleId, normalizedSourceId]
             );
         }
         invalidateMetadataCache();
@@ -1492,13 +1741,23 @@ app.put('/api/users/preferences', authMiddleware, async (req, res) => {
 app.post('/api/results', authMiddleware, async (req, res) => {
     const client = await pool.connect();
     try {
-        const { score, total, mode, elapsed_seconds, correction_system, time_limit_seconds, question_results } = req.body;
+        const { score, total, mode, elapsed_seconds, correction_system, time_limit_seconds, question_results, is_saved, session_name } = req.body;
         await client.query('BEGIN');
         const sessionRes = await client.query(
-            `INSERT INTO results (user_id, score, total, mode, elapsed_seconds, correction_system, time_limit_seconds)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `INSERT INTO results (user_id, score, total, mode, elapsed_seconds, correction_system, time_limit_seconds, is_saved, session_name)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING *`,
-            [req.user.id, score, total, mode, elapsed_seconds || null, correction_system || null, time_limit_seconds || null]
+            [
+                req.user.id,
+                score,
+                total,
+                mode,
+                elapsed_seconds || null,
+                correction_system || null,
+                time_limit_seconds || null,
+                !!is_saved,
+                (session_name || '').toString().trim() || null
+            ]
         );
         const session = sessionRes.rows[0];
 
@@ -1604,15 +1863,60 @@ app.get('/api/questions/:id/attempt-history', authMiddleware, async (req, res) =
 app.get('/api/users/results', authMiddleware, async (req, res) => {
     try {
         const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 20, maxPageSize: 100 });
+        const savedFilter = String(req.query.saved || 'all').trim();
+        const where = ['user_id = $1'];
+        const params = [req.user.id];
+        if (savedFilter === '1') {
+            where.push(`is_saved = TRUE`);
+        } else if (savedFilter === '0') {
+            where.push(`COALESCE(is_saved, FALSE) = FALSE`);
+        }
+        params.push(pageSize, offset);
         const result = await pool.query(
-            `SELECT id, score, total, mode, elapsed_seconds, correction_system, time_limit_seconds, created_at
+            `SELECT id, score, total, mode, elapsed_seconds, correction_system, time_limit_seconds, is_saved, session_name, created_at
              FROM results
-             WHERE user_id = $1
+             WHERE ${where.join(' AND ')}
              ORDER BY created_at DESC
              LIMIT $2 OFFSET $3`,
-            [req.user.id, pageSize, offset]
+            params
         );
         res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/results/:id/meta', authMiddleware, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'invalid id' });
+        const sessionName = (req.body?.session_name || '').toString().trim();
+        const isSaved = req.body?.is_saved;
+        const updates = [];
+        const params = [];
+
+        if (sessionName.length) {
+            updates.push(`session_name = $${params.length + 1}`);
+            params.push(sessionName.slice(0, 120));
+        } else if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'session_name')) {
+            updates.push(`session_name = NULL`);
+        }
+        if (typeof isSaved === 'boolean') {
+            updates.push(`is_saved = $${params.length + 1}`);
+            params.push(isSaved);
+        }
+        if (!updates.length) return res.status(400).json({ message: 'no updates provided' });
+
+        params.push(id, req.user.id);
+        const result = await pool.query(
+            `UPDATE results
+             SET ${updates.join(', ')}
+             WHERE id = $${params.length - 1} AND user_id = $${params.length}
+             RETURNING id, is_saved, session_name`,
+            params
+        );
+        if (!result.rows.length) return res.status(404).json({ message: 'session not found' });
+        res.json(result.rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -2352,7 +2656,7 @@ app.post('/api/admin/users', authMiddleware, requireAdmin, async (req, res) => {
         const password = String(req.body?.password || '');
         const displayName = String(req.body?.display_name || '').trim() || null;
         const roleRaw = String(req.body?.role || 'user').trim().toLowerCase();
-        const role = roleRaw === 'admin' ? 'admin' : 'user';
+        const role = ['admin', 'worker', 'user'].includes(roleRaw) ? roleRaw : 'user';
 
         if (!email || !password) {
             return res.status(400).json({ message: 'email and password are required' });
@@ -2402,7 +2706,7 @@ app.put('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res) =
 
         if (req.body.role !== undefined) {
             const requestedRole = String(req.body.role || '').trim().toLowerCase();
-            const role = requestedRole === 'admin' ? 'admin' : 'user';
+            const role = ['admin', 'worker', 'user'].includes(requestedRole) ? requestedRole : 'user';
             if (req.user.id === targetId && role !== 'admin') {
                 return res.status(400).json({ message: 'you cannot remove your own admin role' });
             }
@@ -2507,6 +2811,188 @@ app.post('/api/admin/test-login-alert', authMiddleware, requireAdmin, async (req
         return res.json({ ok: true, sent_to: to });
     } catch (err) {
         return res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+app.get('/api/admin/login-alert-settings', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const enabled = await getAppSettingBoolean('non_admin_login_alert_enabled', true);
+        res.json({ enabled });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/admin/login-alert-settings', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const enabled = !!req.body?.enabled;
+        await pool.query(
+            `INSERT INTO app_settings (key, value)
+             VALUES ('non_admin_login_alert_enabled', $1)
+             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+            [enabled ? 'true' : 'false']
+        );
+        res.json({ enabled });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/admin/pending-questions', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const status = String(req.query.status || 'pending').trim().toLowerCase();
+        const pageCfg = getPagination(req, { page: 1, pageSize: 25, maxPageSize: 100 });
+        const validStatus = ['pending', 'approved', 'rejected'].includes(status) ? status : 'pending';
+
+        const [rowsRes, countRes] = await Promise.all([
+            pool.query(
+                `SELECT pq.*,
+                        m.name AS module_name,
+                        c.name AS course_name,
+                        s.name AS source_name,
+                        u.email AS submitted_by_email
+                 FROM pending_questions pq
+                 LEFT JOIN modules m ON m.id = pq.module_id
+                 LEFT JOIN courses c ON c.id = pq.course_id
+                 LEFT JOIN sources s ON s.id = pq.source_id
+                 LEFT JOIN users u ON u.id = pq.submitted_by
+                 WHERE pq.status = $1
+                 ORDER BY pq.created_at DESC
+                 LIMIT $2 OFFSET $3`,
+                [validStatus, pageCfg.pageSize, pageCfg.offset]
+            ),
+            pool.query(
+                'SELECT COUNT(*)::int AS total FROM pending_questions WHERE status = $1',
+                [validStatus]
+            )
+        ]);
+
+        res.json({
+            data: rowsRes.rows,
+            pagination: {
+                page: pageCfg.page,
+                page_size: pageCfg.pageSize,
+                total: Number(countRes.rows[0]?.total || 0)
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/admin/pending-questions/:id/approve', authMiddleware, requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid id' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const qRes = await client.query(
+            'SELECT * FROM pending_questions WHERE id = $1 AND status = $2 FOR UPDATE',
+            [id, 'pending']
+        );
+        if (!qRes.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Pending question not found' });
+        }
+        const pq = qRes.rows[0];
+        const inserted = await client.query(
+            `INSERT INTO questions
+             (question, option_a, option_b, option_c, option_d, option_e, correct_options, module_id, course_id, source_id, explanation)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+             RETURNING *`,
+            [pq.question, pq.option_a, pq.option_b, pq.option_c, pq.option_d, pq.option_e, pq.correct_options, pq.module_id, pq.course_id, pq.source_id, pq.explanation]
+        );
+
+        if (pq.module_id && pq.source_id) {
+            await client.query(
+                `INSERT INTO module_sources (module_id, source_id)
+                 VALUES ($1, $2)
+                 ON CONFLICT (module_id, source_id) DO NOTHING`,
+                [pq.module_id, pq.source_id]
+            );
+        }
+
+        await client.query(
+            `UPDATE pending_questions
+             SET status = 'approved', admin_id = $1, reviewed_at = NOW()
+             WHERE id = $2`,
+            [req.user.id, id]
+        );
+        await client.query('COMMIT');
+        invalidateMetadataCache();
+        res.json({ message: 'Question approuvée', question: inserted.rows[0] });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+app.post('/api/admin/pending-questions/:id/reject', authMiddleware, requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid id' });
+    try {
+        const result = await pool.query(
+            `UPDATE pending_questions
+             SET status = 'rejected', admin_id = $1, reviewed_at = NOW()
+             WHERE id = $2 AND status = 'pending'
+             RETURNING id`,
+            [req.user.id, id]
+        );
+        if (!result.rows.length) return res.status(404).json({ message: 'Pending question not found' });
+        res.json({ message: 'Question rejetée' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/admin/questions/export-csv', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const providedPass = String(req.query.pass || '');
+        const expectedPass = process.env.ADMIN_EXPORT_PASS || 'madamadaO1';
+        if (providedPass !== expectedPass) {
+            return res.status(403).json({ message: 'Mot de passe export invalide' });
+        }
+
+        const result = await pool.query(
+            `SELECT q.id, q.question, q.option_a, q.option_b, q.option_c, q.option_d, q.option_e,
+                    q.correct_options, q.module_id, q.course_id, q.source_id, q.explanation,
+                    m.name AS module_name, c.name AS course_name, s.name AS source_name
+             FROM questions q
+             LEFT JOIN modules m ON m.id = q.module_id
+             LEFT JOIN courses c ON c.id = q.course_id
+             LEFT JOIN sources s ON s.id = q.source_id
+             ORDER BY q.id ASC`
+        );
+
+        const escape = (v) => {
+            const raw = v === null || v === undefined ? '' : String(v);
+            return `"${raw.replace(/"/g, '""')}"`;
+        };
+
+        const header = [
+            'id', 'question', 'option_a', 'option_b', 'option_c', 'option_d', 'option_e',
+            'correct_option', 'module_id', 'module_name', 'course_id', 'course_name',
+            'source_id', 'source_name', 'explanation'
+        ];
+
+        const lines = [header.join(',')];
+        result.rows.forEach((r) => {
+            lines.push([
+                r.id, r.question, r.option_a, r.option_b, r.option_c, r.option_d, r.option_e,
+                r.correct_options, r.module_id, r.module_name, r.course_id, r.course_name,
+                r.source_id, r.source_name, r.explanation
+            ].map(escape).join(','));
+        });
+
+        const csv = '\uFEFF' + lines.join('\n');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="questions_export.csv"');
+        return res.send(csv);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -2804,6 +3290,48 @@ app.post('/api/questions/import', authMiddleware, requireAdmin, async (req, res)
     }
 });
 
+async function ensureRequestedCourses() {
+    const moduleRes = await pool.query('SELECT id, name FROM modules');
+    const moduleByNormalizedName = new Map(
+        moduleRes.rows.map((m) => [normalizeQuestionText(m.name), m.id])
+    );
+
+    const extras = [
+        ['Biochimie', 'métabolisme du glycogène (Métabolisme des glucides)'],
+        ['Biochimie', 'glyolyse (Métabolisme des glucides)'],
+        ['Biochimie', 'cycle de krebs (Métabolisme des glucides)'],
+        ['Biochimie', 'cycle de pentose phosphate (Métabolisme des glucides)'],
+        ['Hémobiologie', 'Les anémies hémolytiques héréditaires par anomalie de l’hémoglobine'],
+        ['Hémobiologie', 'Effets indésirables de la transfusion'],
+        ['Biophysique', 'Osmose'],
+        ['Pharmacie galénique', 'Dessiccation – Lyophilisation'],
+        ['Pharmacie galénique', 'Mélange des poudres'],
+        ['Pharmacie galénique', 'Granulation des poudres'],
+        ['Pharmacie galénique', 'Formes pharmaceutiques destinées aux autres voies d’administration (nasale, auriculaire et vaginale)'],
+        ['Pharmacie galénique', 'Stabilité'],
+        ['Pharmacie galénique', 'Pommades, crèmes et gels'],
+        ['Pharmacie galénique', 'Dispositifs médicaux : Articles de pansement'],
+        ['Toxicologie', 'Substances dopantes'],
+        ['Toxicologie', 'Cyanure'],
+        ['Toxicologie', 'Ethers de glycol'],
+        ['Toxicologie', 'Pesticides pyréthrinoïdes'],
+        ['Toxicologie', 'Contaminants alimentaires']
+    ];
+
+    for (const [moduleName, courseName] of extras) {
+        const moduleId = moduleByNormalizedName.get(normalizeQuestionText(moduleName));
+        if (!moduleId) continue;
+        await pool.query(
+            `INSERT INTO courses (name, module_id)
+             SELECT $1, $2
+             WHERE NOT EXISTS (
+               SELECT 1 FROM courses WHERE module_id = $2 AND lower(name) = lower($1)
+             )`,
+            [courseName, moduleId]
+        );
+    }
+}
+
 
 let initPromise = null;
 
@@ -2823,6 +3351,7 @@ function initApp() {
                 .then(() => ensureQuestionNotesSchema())
                 .then(() => ensureSessionResultsSchema())
                 .then(() => ensureUserPreferencesSchema())
+                .then(() => ensureRequestedCourses())
                 .then(() => initAdmin());
     }
     return initPromise;

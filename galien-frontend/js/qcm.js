@@ -1,3 +1,7 @@
+﻿if (localStorage.getItem('role') === 'worker') {
+  window.location.href = 'admin.html';
+}
+
 let questions = [];
 let index = 0;
 let score = 0;
@@ -38,12 +42,18 @@ const moduleIds = parseIdList(localStorage.getItem('module_id'));
 const courseIds = parseIdList(localStorage.getItem('course_id'));
 const sourceIds = parseIdList(localStorage.getItem('source_id'));
 const favoriteTagFilters = parseIdList(localStorage.getItem('favorite_tags'));
+const reviewMode = String(localStorage.getItem('review_mode') || 'all');
+const hideQuestionMeta = localStorage.getItem('hide_question_meta') === '1';
+const examWarningMinutesRaw = parseInt(localStorage.getItem('exam_warning_minutes') || '', 10);
+const examWarningSeconds = Number.isFinite(examWarningMinutesRaw) && examWarningMinutesRaw > 0 ? examWarningMinutesRaw * 60 : null;
+let examWarningShown = false;
 const questionLimitRaw = parseInt(localStorage.getItem('question_limit') || '', 10);
 const questionLimit = Number.isFinite(questionLimitRaw) && questionLimitRaw > 0 ? questionLimitRaw : null;
 const queryParams = new URLSearchParams();
 if (moduleIds.length) queryParams.set('module', moduleIds.join(','));
 if (courseIds.length) queryParams.set('course', courseIds.join(','));
 if (sourceIds.length) queryParams.set('source', sourceIds.join(','));
+if (reviewMode && reviewMode !== 'all') queryParams.set('review_mode', reviewMode);
 const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
 
 fetch(`${API_URL}/questions${query}`, {
@@ -166,6 +176,14 @@ function startTimer() {
 
       timerInterval = setInterval(() => {
         remainingSec -= 1;
+        if (examWarningSeconds && !examWarningShown && remainingSec > 0 && remainingSec <= examWarningSeconds) {
+          const warningEl = document.getElementById('examTimeWarning');
+          if (warningEl) {
+            warningEl.textContent = `Attention: il reste ${formatTime(remainingSec)}.`;
+            warningEl.classList.remove('hidden');
+          }
+          examWarningShown = true;
+        }
         if (remainingSec <= 0) {
           timerEl.textContent = 'Temps restant: 00:00';
           finishExam(true);
@@ -292,10 +310,19 @@ function show() {
 
   const moduleTag = document.getElementById('moduleTag');
   const courseTag = document.getElementById('courseTag');
+  const sourceTag = document.getElementById('sourceTag');
+  const tagRow = document.querySelector('.tag-row');
   const moduleName = q.module_name ? q.module_name : '';
   const courseName = q.course_name ? q.course_name : '';
+  const sourceName = q.source_name ? q.source_name : '';
 
-  if (moduleName) {
+  if (hideQuestionMeta) {
+    if (tagRow) tagRow.style.display = 'none';
+  } else if (tagRow) {
+    tagRow.style.display = '';
+  }
+
+  if (!hideQuestionMeta && moduleName) {
     moduleTag.textContent = moduleName;
     moduleTag.style.display = 'inline-block';
   } else {
@@ -303,12 +330,20 @@ function show() {
     moduleTag.style.display = 'none';
   }
 
-  if (courseName) {
+  if (!hideQuestionMeta && courseName) {
     courseTag.textContent = courseName;
     courseTag.style.display = 'inline-block';
   } else {
     courseTag.textContent = '';
     courseTag.style.display = 'none';
+  }
+
+  if (!hideQuestionMeta && sourceName) {
+    sourceTag.textContent = sourceName;
+    sourceTag.style.display = 'inline-block';
+  } else if (sourceTag) {
+    sourceTag.textContent = '';
+    sourceTag.style.display = 'none';
   }
 
   const opts = ['A','B','C','D','E'];
@@ -568,8 +603,46 @@ function saveSessionDraft() {
 
 function pauseSession() {
   if (!questions.length || finished) return;
-  saveSessionDraft();
-  window.location.href = 'dashboard.html';
+  const modal = document.getElementById('pauseSessionModal');
+  const input = document.getElementById('pauseSessionNameInput');
+  const confirmBtn = document.getElementById('confirmPauseSessionBtn');
+  const cancelBtn = document.getElementById('cancelPauseSessionBtn');
+  if (!modal || !confirmBtn || !cancelBtn || !input) {
+    saveSessionDraft();
+    window.location.href = 'dashboard.html';
+    return;
+  }
+
+  const close = () => modal.classList.add('hidden');
+  const defaultName = `${mode === 'exam' ? 'Examen' : 'Entrainement'} - ${new Date().toLocaleString('fr-FR')}`;
+  input.value = defaultName;
+
+  confirmBtn.onclick = () => {
+    const draft = buildSessionDraftPayload();
+    const name = (input.value || '').trim() || defaultName;
+    try {
+      const raw = localStorage.getItem('qcm_paused_sessions');
+      const parsed = JSON.parse(raw || '[]');
+      const rows = Array.isArray(parsed) ? parsed : [];
+      rows.unshift({
+        id: Date.now().toString(),
+        name,
+        mode,
+        index,
+        created_at: new Date().toISOString(),
+        draft
+      });
+      localStorage.setItem('qcm_paused_sessions', JSON.stringify(rows.slice(0, 20)));
+      localStorage.removeItem('qcm_session_draft');
+      localStorage.removeItem('qcm_resume_requested');
+    } catch (_) {
+      saveSessionDraft();
+    }
+    close();
+    window.location.href = 'dashboard.html';
+  };
+  cancelBtn.onclick = close;
+  modal.classList.remove('hidden');
 }
 
 function endSessionNow() {
@@ -1065,7 +1138,7 @@ document.getElementById('sendCommentBtn')?.addEventListener('click', sendComment
 
 // Safety: ensure no modal overlay stays open after load.
 document.addEventListener('DOMContentLoaded', () => {
-  ['noteModal', 'reportModal', 'favoriteModal', 'commentEditModal', 'commentDeleteModal', 'endSessionModal']
+  ['noteModal', 'reportModal', 'favoriteModal', 'commentEditModal', 'commentDeleteModal', 'endSessionModal', 'pauseSessionModal']
     .forEach((id) => document.getElementById(id)?.classList.add('hidden'));
 });
 
@@ -1251,3 +1324,4 @@ document.addEventListener('visibilitychange', () => {
     saveSessionDraft();
   }
 });
+

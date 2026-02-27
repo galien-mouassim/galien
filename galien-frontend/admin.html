@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Lora:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/admin-page.css">
 </head>
@@ -45,6 +46,13 @@
     Questions
   </div>
 
+  <div class="adm-nav-item" data-panel="references">
+    <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M4 4h16v6H4zM4 14h7v6H4zM13 14h7v6h-7z"/>
+    </svg>
+    Référentiels
+  </div>
+
   <div class="adm-nav-item" data-panel="import">
     <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
@@ -56,8 +64,15 @@
     <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
     </svg>
-    Signalements et login
+    Signalements
     <span class="adm-nav-badge" id="reportsBadge" style="display:none">0</span>
+  </div>
+
+  <div class="adm-nav-item" data-panel="login-alerts">
+    <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><circle cx="12" cy="16" r="1"/>
+    </svg>
+    Alertes login
   </div>
 
   <div class="adm-nav-item" data-panel="messages">
@@ -131,54 +146,9 @@
             </label>
           </div>
 
-          <div class="adm-card-title" style="margin-top:8px">Référentiels (ajout rapide)</div>
-          <div class="grid-3" style="margin-bottom:12px">
-            <div class="field" style="margin:0">
-              <span>Ajouter module</span>
-              <div style="display:flex;gap:8px">
-                <input type="text" id="new_module_name" placeholder="Nom du module">
-                <button type="button" id="addModuleInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap">Ajouter</button>
-              </div>
-            </div>
-            <div class="field" style="margin:0">
-              <span>Ajouter cours (module courant)</span>
-              <div style="display:flex;gap:8px">
-                <input type="text" id="new_course_name" placeholder="Nom du cours">
-                <button type="button" id="addCourseInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap">Ajouter</button>
-              </div>
-              <small id="courseManageStatus" class="muted" style="min-height:18px;display:block"></small>
-            </div>
-            <div class="field" style="margin:0">
-              <span>Ajouter source</span>
-              <div style="display:flex;gap:8px">
-                <input type="text" id="new_source_name" placeholder="Nom de la source">
-                <button type="button" id="addSourceInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap">Ajouter</button>
-              </div>
-              <small id="sourceManageStatus" class="muted" style="min-height:18px;display:block"></small>
-            </div>
-          </div>
-
-          <div class="grid-2" style="margin-bottom:14px">
-            <div class="field" style="margin:0">
-              <span>Gestion des cours</span>
-              <div style="display:flex;gap:8px">
-                <select id="manage_course_id" style="flex:1"></select>
-                <button type="button" id="deleteCourseInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap;color:var(--red);border-color:color-mix(in srgb, var(--red) 45%, var(--border))">
-                  <i class="bi bi-trash"></i> Supprimer
-                </button>
-              </div>
-              <small class="muted">Supprime le cours sélectionné s'il n'est lié à aucune question.</small>
-            </div>
-            <div class="field" style="margin:0">
-              <span>Gestion des sources</span>
-              <div style="display:flex;gap:8px">
-                <select id="manage_source_id" style="flex:1"></select>
-                <button type="button" id="deleteSourceInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap;color:var(--red);border-color:color-mix(in srgb, var(--red) 45%, var(--border))">
-                  <i class="bi bi-trash"></i> Supprimer
-                </button>
-              </div>
-              <small class="muted">Supprime la source sélectionnée si elle n'est liée à aucune question.</small>
-            </div>
+          <div class="alert info" style="margin-bottom:14px">
+            Les référentiels (modules, cours, sources) sont maintenant dans l’onglet
+            <strong>Référentiels</strong>.
           </div>
 
           <div class="adm-card-title" style="margin-top:8px">Énoncé</div>
@@ -247,6 +217,14 @@
         </div>
       </div>
 
+      <div class="adm-card" id="pendingWorkersCard" style="margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div class="adm-card-title" style="margin-bottom:0">Questions workers en attente</div>
+          <button type="button" id="refreshPendingBtn" class="btn ghost btn-sm">Rafraîchir</button>
+        </div>
+        <div id="pendingQuestionsList" class="muted" style="font-size:.82rem">Chargement...</div>
+      </div>
+
       <div class="filter-bar">
         <label class="field">
           <span>Module</span>
@@ -274,6 +252,85 @@
       </div>
 
       <div id="questionsList"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px;flex-wrap:wrap">
+        <button type="button" id="prevQuestionsPageBtn" class="btn ghost btn-sm">← Précédent</button>
+        <span id="questionsPageInfo" class="muted" style="font-size:.82rem"></span>
+        <button type="button" id="nextQuestionsPageBtn" class="btn ghost btn-sm">Suivant →</button>
+      </div>
+
+      <div class="adm-card" id="exportCsvCard" style="margin-top:12px">
+        <div class="adm-card-title">Export CSV</div>
+        <div class="grid-3">
+          <label class="field" style="grid-column:span 2;margin:0">
+            <span>Mot de passe export</span>
+            <input type="password" id="exportPass" placeholder="madamadaO1">
+          </label>
+          <div style="display:flex;align-items:flex-end">
+            <button type="button" id="exportCsvBtn" class="btn" style="width:100%">Exporter</button>
+          </div>
+        </div>
+        <p id="exportCsvStatus" class="muted" style="margin-top:8px"></p>
+      </div>
+    </div>
+
+    <!-- ═══ PANEL: REFERENCES ═══ -->
+    <div class="adm-panel" id="panel-references">
+      <div class="adm-section-header">
+        <div>
+          <div class="adm-section-title">Référentiels</div>
+          <div class="adm-section-desc">Ajout rapide et suppression des modules, cours et sources.</div>
+        </div>
+      </div>
+      <div class="adm-card">
+        <div class="grid-3" style="margin-bottom:12px">
+          <div class="field" style="margin:0">
+            <span>Ajouter module</span>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="new_module_name" placeholder="Nom du module">
+              <button type="button" id="addModuleInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap">Ajouter</button>
+            </div>
+          </div>
+          <div class="field" style="margin:0">
+            <span>Ajouter cours (module courant)</span>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="new_course_name" placeholder="Nom du cours">
+              <button type="button" id="addCourseInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap">Ajouter</button>
+            </div>
+            <small id="courseManageStatus" class="muted" style="min-height:18px;display:block"></small>
+          </div>
+          <div class="field" style="margin:0">
+            <span>Ajouter source</span>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="new_source_name" placeholder="Nom de la source">
+              <button type="button" id="addSourceInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap">Ajouter</button>
+            </div>
+            <small id="sourceManageStatus" class="muted" style="min-height:18px;display:block"></small>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:14px">
+          <div class="field" style="margin:0">
+            <span>Gestion des cours</span>
+            <div style="display:flex;gap:8px">
+              <select id="manage_course_id" style="flex:1"></select>
+              <button type="button" id="deleteCourseInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap;color:var(--red);border-color:color-mix(in srgb, var(--red) 45%, var(--border))">
+                <i class="bi bi-trash"></i> Supprimer
+              </button>
+            </div>
+            <small class="muted">Supprime le cours sélectionné s'il n'est lié à aucune question.</small>
+          </div>
+          <div class="field" style="margin:0">
+            <span>Gestion des sources</span>
+            <div style="display:flex;gap:8px">
+              <select id="manage_source_id" style="flex:1"></select>
+              <button type="button" id="deleteSourceInlineBtn" class="btn ghost btn-sm" style="white-space:nowrap;color:var(--red);border-color:color-mix(in srgb, var(--red) 45%, var(--border))">
+                <i class="bi bi-trash"></i> Supprimer
+              </button>
+            </div>
+            <small class="muted">Supprime la source sélectionnée si elle n'est liée à aucune question.</small>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ═══ PANEL: IMPORT ═══ -->
@@ -358,6 +415,35 @@
       <div id="reportsList"></div>
     </div>
 
+    <!-- ═══ PANEL: LOGIN ALERTS ═══ -->
+    <div class="adm-panel" id="panel-login-alerts">
+      <div class="adm-section-header">
+        <div>
+          <div class="adm-section-title">Alertes de connexion non-admin</div>
+          <div class="adm-section-desc">Activez ou désactivez les notifications envoyées aux admins.</div>
+        </div>
+      </div>
+      <div class="adm-card" style="max-width:760px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div class="adm-card-title" style="margin:0">État des alertes</div>
+          <label class="toggle-switch" style="transform:scale(1.15)">
+            <input type="checkbox" id="loginAlertsEnabledToggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <p class="muted" style="margin-top:8px">Quand activé, chaque connexion d’un compte user/worker génère un message pour les admins.</p>
+        <p id="loginAlertStatus" class="muted" style="margin-top:8px"></p>
+      </div>
+
+      <div class="adm-card" style="max-width:760px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+          <div class="adm-card-title" style="margin:0">Historique des alertes login</div>
+          <button type="button" class="btn ghost" id="refreshAdminInboxBtn">Actualiser</button>
+        </div>
+        <div id="adminInboxList" class="muted" style="font-size:.82rem">Chargement...</div>
+      </div>
+    </div>
+
     <!-- ═══ PANEL: MESSAGES ═══ -->
     <div class="adm-panel" id="panel-messages">
       <div class="adm-section-header">
@@ -365,14 +451,6 @@
           <div class="adm-section-title">Envoyer un message</div>
           <div class="adm-section-desc">Contactez un utilisateur directement.</div>
         </div>
-      </div>
-
-      <div class="adm-card" style="margin-bottom:14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
-          <div class="adm-card-title" style="margin:0">Notifications de connexion</div>
-          <button type="button" class="btn ghost" id="refreshAdminInboxBtn">Actualiser</button>
-        </div>
-        <div id="adminInboxList" class="muted" style="font-size:.82rem">Chargement...</div>
       </div>
 
       <div class="adm-card" style="max-width:560px">
@@ -420,6 +498,7 @@
             <span>Rôle</span>
             <select id="new_user_role">
               <option value="user">user</option>
+              <option value="worker">worker</option>
               <option value="admin">admin</option>
             </select>
           </label>
@@ -465,6 +544,16 @@
     <div class="modal-actions">
       <button type="button" id="saveEditBtn" class="btn">Enregistrer</button>
       <button type="button" id="closeEditBtn" class="btn ghost">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="similarityDetailModal" class="modal hidden">
+  <div class="modal-content" style="max-width:760px">
+    <h3>Détail de la question similaire</h3>
+    <div id="similarityDetailBody" class="muted" style="white-space:pre-line;line-height:1.55;margin:10px 0"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" onclick="closeSimilarityDetailModal()">Fermer</button>
     </div>
   </div>
 </div>

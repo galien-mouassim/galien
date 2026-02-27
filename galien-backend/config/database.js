@@ -26,6 +26,10 @@ const pool = new Pool(poolConfig);
 // Force the app to use the public schema for unqualified table names.
 pool.on('connect', (client) => {
     client.query('SET search_path TO public').catch(() => {});
+    const statementTimeoutMs = Number(process.env.DB_STATEMENT_TIMEOUT_MS || 15000);
+    if (Number.isFinite(statementTimeoutMs) && statementTimeoutMs > 0) {
+        client.query(`SET statement_timeout TO ${statementTimeoutMs}`).catch(() => {});
+    }
 });
 
 module.exports = pool;

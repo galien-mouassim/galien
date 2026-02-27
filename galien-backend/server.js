@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
@@ -14,6 +15,45 @@ const authMiddleware = require('./middleware/authMiddleware');
 
 const app = express();
 app.set('trust proxy', 1);
+const SLOW_QUERY_MS = Number(process.env.DB_SLOW_QUERY_MS || 250);
+const METADATA_CACHE_TTL_MS = Number(process.env.METADATA_CACHE_TTL_MS || 60000);
+const metadataCache = new Map();
+
+function compactSql(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function cacheGet(key) {
+    const item = metadataCache.get(key);
+    if (!item) return null;
+    if (item.expiresAt <= Date.now()) {
+        metadataCache.delete(key);
+        return null;
+    }
+    return item.payload;
+}
+
+function cacheSet(key, payload, ttlMs = METADATA_CACHE_TTL_MS) {
+    metadataCache.set(key, { payload, expiresAt: Date.now() + ttlMs });
+}
+
+function invalidateMetadataCache() {
+    metadataCache.clear();
+}
+
+const basePoolQuery = pool.query.bind(pool);
+pool.query = async (...args) => {
+    const startedAt = Date.now();
+    try {
+        return await basePoolQuery(...args);
+    } finally {
+        const durationMs = Date.now() - startedAt;
+        if (durationMs >= SLOW_QUERY_MS) {
+            const text = args[0] && typeof args[0] === 'object' ? args[0].text : args[0];
+            console.warn(`[db-slow] ${durationMs}ms ${compactSql(text).slice(0, 220)}`);
+        }
+    }
+};
 
 function parseCsv(value) {
     return String(value || '')
@@ -66,6 +106,7 @@ const corsOptions = allowAllCors
 
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(compression({ threshold: 1024 }));
 const isServerlessRuntime = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
 const uploadsDir = process.env.UPLOADS_DIR
     ? path.resolve(process.env.UPLOADS_DIR)
@@ -1032,6 +1073,7 @@ app.post('/api/questions', authMiddleware, requireAdmin, async (req, res) => {
                 [normalizedModuleId, toIntOrNull(source_id)]
             );
         }
+        invalidateMetadataCache();
         res.json(result.rows[0]);
 
     } catch (err) {
@@ -1056,10 +1098,17 @@ app.delete('/api/questions/:id', authMiddleware, requireAdmin, async (req, res) 
 
 app.get('/api/modules', async (req, res) => {
     try {
-        const result = await pool.query(
-            'SELECT id, name, module_class FROM modules ORDER BY name'
-        );
-        res.json(result.rows);
+        const cacheKey = 'modules:all';
+        const cached = cacheGet(cacheKey);
+        if (cached) {
+            res.set('Cache-Control', 'public, max-age=30');
+            return res.json(cached);
+        }
+
+        const result = await pool.query('SELECT id, name, module_class FROM modules ORDER BY name');
+        cacheSet(cacheKey, result.rows);
+        res.set('Cache-Control', 'public, max-age=30');
+        return res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1077,6 +1126,7 @@ app.post('/api/modules', authMiddleware, requireAdmin, async (req, res) => {
              RETURNING id, name`,
             [String(name).trim()]
         );
+        invalidateMetadataCache();
         res.json(result.rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -1169,6 +1219,15 @@ app.post('/api/questions/check-duplicate', authMiddleware, requireAdmin, async (
 app.get('/api/sources', async (req, res) => {
     try {
         const moduleIds = parseIntList(req.query.module_id || req.query.module);
+        const cacheKey = moduleIds.length
+            ? `sources:modules:${moduleIds.slice().sort((a, b) => a - b).join(',')}`
+            : 'sources:all';
+        const cached = cacheGet(cacheKey);
+        if (cached) {
+            res.set('Cache-Control', 'public, max-age=30');
+            return res.json(cached);
+        }
+
         let result;
         if (moduleIds.length) {
             result = await pool.query(
@@ -1185,7 +1244,9 @@ app.get('/api/sources', async (req, res) => {
                 'SELECT id, name FROM sources ORDER BY name'
             );
         }
-        res.json(result.rows);
+        cacheSet(cacheKey, result.rows);
+        res.set('Cache-Control', 'public, max-age=30');
+        return res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1216,6 +1277,7 @@ app.post('/api/sources', authMiddleware, requireAdmin, async (req, res) => {
                 );
             }
         }
+        invalidateMetadataCache();
         res.json(source);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -1247,6 +1309,7 @@ app.delete('/api/sources/:id', authMiddleware, requireAdmin, async (req, res) =>
         if (!result.rows.length) {
             return res.status(404).json({ message: 'Source not found' });
         }
+        invalidateMetadataCache();
         res.json({ deleted: result.rows[0] });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -2442,6 +2505,7 @@ app.put('/api/questions/:id', authMiddleware, requireAdmin, async (req, res) => 
                 [mId, sId]
             );
         }
+        invalidateMetadataCache();
         res.json(result.rows[0]);
     } catch (err) {
         console.error(err);
@@ -2469,8 +2533,21 @@ app.get('/api/courses', async (req, res) => {
             params.push(pageSize, offset);
         }
 
+        if (!shouldPaginate) {
+            const cacheKey = moduleId ? `courses:module:${moduleId}` : 'courses:all';
+            const cached = cacheGet(cacheKey);
+            if (cached) {
+                res.set('Cache-Control', 'public, max-age=30');
+                return res.json(cached);
+            }
+            const result = await pool.query(query, params);
+            cacheSet(cacheKey, result.rows);
+            res.set('Cache-Control', 'public, max-age=30');
+            return res.json(result.rows);
+        }
+
         const result = await pool.query(query, params);
-        res.json(result.rows);
+        return res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -2487,6 +2564,7 @@ app.post('/api/courses', authMiddleware, requireAdmin, async (req, res) => {
             'INSERT INTO courses (name, module_id) VALUES ($1, $2) RETURNING *',
             [name.trim(), module_id || null]
         );
+        invalidateMetadataCache();
         res.json(result.rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -2518,6 +2596,7 @@ app.delete('/api/courses/:id', authMiddleware, requireAdmin, async (req, res) =>
         if (!result.rows.length) {
             return res.status(404).json({ message: 'Course not found' });
         }
+        invalidateMetadataCache();
         res.json({ deleted: result.rows[0] });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -2641,6 +2720,7 @@ app.post('/api/questions/import', authMiddleware, requireAdmin, async (req, res)
         }
 
         await client.query('COMMIT');
+        invalidateMetadataCache();
         res.json({ inserted: rows.length });
     } catch (err) {
         await client.query('ROLLBACK');

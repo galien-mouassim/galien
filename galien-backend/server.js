@@ -17,6 +17,7 @@ const app = express();
 app.set('trust proxy', 1);
 const SLOW_QUERY_MS = Number(process.env.DB_SLOW_QUERY_MS || 250);
 const METADATA_CACHE_TTL_MS = Number(process.env.METADATA_CACHE_TTL_MS || 60000);
+const USER_ANALYTICS_CACHE_TTL_MS = Number(process.env.USER_ANALYTICS_CACHE_TTL_MS || 20000);
 const metadataCache = new Map();
 
 function compactSql(value) {
@@ -39,6 +40,13 @@ function cacheSet(key, payload, ttlMs = METADATA_CACHE_TTL_MS) {
 
 function invalidateMetadataCache() {
     metadataCache.clear();
+}
+
+function invalidateUserAnalyticsCache(userId) {
+    if (!userId) return;
+    const uid = Number(userId);
+    metadataCache.delete(`user:stats:${uid}`);
+    metadataCache.delete(`user:analytics:${uid}`);
 }
 
 const basePoolQuery = pool.query.bind(pool);
@@ -553,11 +561,18 @@ async function ensurePerformanceIndexes() {
         'CREATE INDEX IF NOT EXISTS idx_questions_module_id ON questions(module_id)',
         'CREATE INDEX IF NOT EXISTS idx_questions_course_id ON questions(course_id)',
         'CREATE INDEX IF NOT EXISTS idx_questions_source_id ON questions(source_id)',
+        'CREATE INDEX IF NOT EXISTS idx_questions_module_course_source_id ON questions(module_id, course_id, source_id, id)',
+        'CREATE INDEX IF NOT EXISTS idx_questions_module_id_id ON questions(module_id, id)',
+        'CREATE INDEX IF NOT EXISTS idx_questions_course_id_id ON questions(course_id, id)',
+        'CREATE INDEX IF NOT EXISTS idx_questions_source_id_id ON questions(source_id, id)',
         'CREATE INDEX IF NOT EXISTS idx_questions_created_at ON questions(created_at DESC)',
         'CREATE INDEX IF NOT EXISTS idx_question_notes_q_u ON question_notes(question_id, user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_question_notes_user_updated ON question_notes(user_id, updated_at DESC)',
         'CREATE INDEX IF NOT EXISTS idx_results_user_created ON results(user_id, created_at DESC)',
+        'CREATE INDEX IF NOT EXISTS idx_results_user_mode_created ON results(user_id, mode, created_at DESC)',
         'CREATE INDEX IF NOT EXISTS idx_sqr_session_qnum ON session_question_results(session_id, question_num)',
         'CREATE INDEX IF NOT EXISTS idx_sqr_question_session ON session_question_results(question_id, session_id)',
+        'CREATE INDEX IF NOT EXISTS idx_sqr_session_question ON session_question_results(session_id, question_id)',
         'CREATE INDEX IF NOT EXISTS idx_reports_resolved_created ON question_reports(resolved, created_at DESC)',
         'CREATE INDEX IF NOT EXISTS idx_reports_user_created ON question_reports(user_id, created_at DESC)',
         'CREATE INDEX IF NOT EXISTS idx_comments_question_created ON question_comments(question_id, created_at DESC)',
@@ -856,7 +871,31 @@ app.get('/api/questions', authMiddleware, async (req, res) => {
             params.push(pageSize, offset);
         }
 
-        const result = await pool.query(query, params);
+        let countQuery = 'SELECT COUNT(*)::int AS total FROM questions q';
+        const countParams = [];
+        const countFilters = [];
+        if (moduleIds.length) {
+            countFilters.push(`q.module_id = ANY($${countParams.length + 1}::int[])`);
+            countParams.push(moduleIds);
+        }
+        if (sourceIds.length) {
+            countFilters.push(`q.source_id = ANY($${countParams.length + 1}::int[])`);
+            countParams.push(sourceIds);
+        }
+        if (courseIds.length) {
+            countFilters.push(`q.course_id = ANY($${countParams.length + 1}::int[])`);
+            countParams.push(courseIds);
+        }
+        if (countFilters.length) {
+            countQuery += ' WHERE ' + countFilters.join(' AND ');
+        }
+
+        const [result, countRes] = shouldPaginate
+            ? await Promise.all([
+                pool.query(query, params),
+                pool.query(countQuery, countParams)
+            ])
+            : [await pool.query(query, params), null];
 
         const questions = result.rows.map(q => {
             const fromArray =
@@ -882,26 +921,6 @@ app.get('/api/questions', authMiddleware, async (req, res) => {
         if (!shouldPaginate) {
             return res.json({ questions });
         }
-
-        let countQuery = 'SELECT COUNT(*)::int AS total FROM questions q';
-        const countParams = [];
-        const countFilters = [];
-        if (moduleIds.length) {
-            countFilters.push(`q.module_id = ANY($${countParams.length + 1}::int[])`);
-            countParams.push(moduleIds);
-        }
-        if (sourceIds.length) {
-            countFilters.push(`q.source_id = ANY($${countParams.length + 1}::int[])`);
-            countParams.push(sourceIds);
-        }
-        if (courseIds.length) {
-            countFilters.push(`q.course_id = ANY($${countParams.length + 1}::int[])`);
-            countParams.push(courseIds);
-        }
-        if (countFilters.length) {
-            countQuery += ' WHERE ' + countFilters.join(' AND ');
-        }
-        const countRes = await pool.query(countQuery, countParams);
         const total = Number(countRes.rows[0]?.total || 0);
 
         return res.json({
@@ -1166,18 +1185,38 @@ app.post('/api/questions/check-duplicate', authMiddleware, requireAdmin, async (
                    option_a, option_b, option_c, option_d, option_e
             FROM questions
         `;
+        const filters = [];
         if (exclude_id) {
-            query += ' WHERE id <> $1';
+            filters.push(`id <> $${params.length + 1}`);
             params.push(Number(exclude_id));
         }
+        if (inputModuleId !== null) {
+            filters.push(`module_id = $${params.length + 1}`);
+            params.push(inputModuleId);
+        }
+        if (inputCourseId !== null) {
+            filters.push(`course_id = $${params.length + 1}`);
+            params.push(inputCourseId);
+        }
+        if (inputSourceId !== null) {
+            filters.push(`source_id = $${params.length + 1}`);
+            params.push(inputSourceId);
+        }
+        if (filters.length) {
+            query += ` WHERE ${filters.join(' AND ')}`;
+        }
+
+        const normalizedTokens = normalized.split(' ').filter(Boolean);
+        if (normalizedTokens.length) {
+            const token = normalizedTokens[0];
+            query += `${filters.length ? ' AND' : ' WHERE'} LOWER(question) LIKE $${params.length + 1}`;
+            params.push(`%${token}%`);
+        }
+
+        query += ' ORDER BY id DESC LIMIT 1500';
 
         const result = await pool.query(query, params);
-        const rows = (result.rows || []).filter(r => {
-            if (inputModuleId !== null && toIntOrNull(r.module_id) !== inputModuleId) return false;
-            if (inputCourseId !== null && toIntOrNull(r.course_id) !== inputCourseId) return false;
-            if (inputSourceId !== null && toIntOrNull(r.source_id) !== inputSourceId) return false;
-            return true;
-        });
+        const rows = result.rows || [];
 
         const exactMatches = rows.filter(r =>
             normalizeQuestionText(r.question) === normalized &&
@@ -1480,6 +1519,7 @@ app.post('/api/results', authMiddleware, async (req, res) => {
             }
         }
         await client.query('COMMIT');
+        invalidateUserAnalyticsCache(req.user.id);
         res.json(session);
     } catch (err) {
         await client.query('ROLLBACK');
@@ -1580,6 +1620,13 @@ app.get('/api/users/results', authMiddleware, async (req, res) => {
 
 app.get('/api/users/stats', authMiddleware, async (req, res) => {
     try {
+        const cacheKey = `user:stats:${req.user.id}`;
+        const cached = cacheGet(cacheKey);
+        if (cached) {
+            res.set('Cache-Control', 'private, max-age=15');
+            return res.json(cached);
+        }
+
         const result = await pool.query(
             `SELECT
                 COUNT(*)::int AS total_exams,
@@ -1589,7 +1636,10 @@ app.get('/api/users/stats', authMiddleware, async (req, res) => {
              WHERE user_id = $1`,
             [req.user.id]
         );
-        res.json(result.rows[0]);
+        const payload = result.rows[0];
+        cacheSet(cacheKey, payload, USER_ANALYTICS_CACHE_TTL_MS);
+        res.set('Cache-Control', 'private, max-age=15');
+        return res.json(payload);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1598,35 +1648,125 @@ app.get('/api/users/stats', authMiddleware, async (req, res) => {
 app.get('/api/users/analytics', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
+        const cacheKey = `user:analytics:${userId}`;
+        const cached = cacheGet(cacheKey);
+        if (cached) {
+            res.set('Cache-Control', 'private, max-age=15');
+            return res.json(cached);
+        }
 
-        const sessionsRes = await pool.query(
-            `SELECT mode, created_at, COALESCE(elapsed_seconds, 0) AS elapsed_seconds,
-                    score, total
-             FROM results
-             WHERE user_id = $1
-             ORDER BY created_at ASC`,
-            [userId]
-        );
+        const [
+            sessionsRes,
+            moduleScoresRes,
+            courseScoresRes,
+            questionsProgressRes,
+            totalQuestionsRes,
+            favoritesRes,
+            mostFailedRes,
+            timelineRes
+        ] = await Promise.all([
+            pool.query(
+                `SELECT mode, created_at, COALESCE(elapsed_seconds, 0) AS elapsed_seconds,
+                        score, total
+                 FROM results
+                 WHERE user_id = $1
+                 ORDER BY created_at ASC`,
+                [userId]
+            ),
+            pool.query(
+                `SELECT q.module_id, COALESCE(m.name, 'Sans module') AS module_name,
+                        ROUND(AVG(sqr.score) * 100.0, 2) AS avg_percent,
+                        COUNT(*)::int AS attempts
+                 FROM session_question_results sqr
+                 JOIN results r ON r.id = sqr.session_id
+                 LEFT JOIN questions q ON q.id = sqr.question_id
+                 LEFT JOIN modules m ON m.id = q.module_id
+                 WHERE r.user_id = $1 AND sqr.question_id IS NOT NULL
+                 GROUP BY q.module_id, m.name
+                 ORDER BY avg_percent DESC NULLS LAST`,
+                [userId]
+            ),
+            pool.query(
+                `SELECT q.module_id, q.course_id, COALESCE(c.name, 'Sans cours') AS course_name,
+                        ROUND(AVG(sqr.score) * 100.0, 2) AS avg_percent,
+                        COUNT(*)::int AS attempts
+                 FROM session_question_results sqr
+                 JOIN results r ON r.id = sqr.session_id
+                 LEFT JOIN questions q ON q.id = sqr.question_id
+                 LEFT JOIN courses c ON c.id = q.course_id
+                 WHERE r.user_id = $1 AND sqr.question_id IS NOT NULL
+                 GROUP BY q.module_id, q.course_id, c.name
+                 ORDER BY avg_percent DESC NULLS LAST`,
+                [userId]
+            ),
+            pool.query(
+                `SELECT
+                    COUNT(DISTINCT sqr.question_id)::int AS unique_questions_done,
+                    COUNT(sqr.question_id)::int AS total_questions_done_with_duplicates
+                 FROM session_question_results sqr
+                 JOIN results r ON r.id = sqr.session_id
+                 WHERE r.user_id = $1
+                   AND sqr.question_id IS NOT NULL`,
+                [userId]
+            ),
+            pool.query(`SELECT COUNT(*)::int AS total_questions FROM questions`),
+            pool.query(
+                `SELECT COUNT(*)::int AS favorites_count
+                 FROM question_flags
+                 WHERE user_id = $1 AND flag_type = 'favorite'`,
+                [userId]
+            ),
+            pool.query(
+                `SELECT q.id AS question_id, q.question,
+                        COUNT(*)::int AS attempts,
+                        SUM(CASE WHEN sqr.score < 1 THEN 1 ELSE 0 END)::int AS fail_count,
+                        ROUND((SUM(CASE WHEN sqr.score < 1 THEN 1 ELSE 0 END)::numeric / COUNT(*)) * 100.0, 2) AS fail_rate_percent
+                 FROM session_question_results sqr
+                 JOIN results r ON r.id = sqr.session_id
+                 JOIN questions q ON q.id = sqr.question_id
+                 WHERE r.user_id = $1
+                 GROUP BY q.id, q.question
+                 HAVING COUNT(*) >= 2
+                 ORDER BY fail_rate_percent DESC, attempts DESC
+                 LIMIT 10`,
+                [userId]
+            ),
+            pool.query(
+                `SELECT DATE(created_at) AS day,
+                        ROUND(AVG(CASE WHEN total > 0 THEN (score::numeric / total::numeric) * 100 ELSE NULL END), 2) AS avg_percent,
+                        COUNT(*)::int AS sessions
+                 FROM results
+                 WHERE user_id = $1
+                 GROUP BY DATE(created_at)
+                 ORDER BY day ASC`,
+                [userId]
+            )
+        ]);
+
         const sessions = sessionsRes.rows || [];
 
         const modeBuckets = { training: 0, exam: 0, other: 0 };
         let totalRevisionSeconds = 0;
+        const distinctDaysAsc = [];
+        let prevDay = '';
         sessions.forEach((s) => {
             const mode = String(s.mode || '').toLowerCase();
             if (mode.includes('train') || mode.includes('entrain')) modeBuckets.training += 1;
             else if (mode.includes('exam')) modeBuckets.exam += 1;
             else modeBuckets.other += 1;
             totalRevisionSeconds += Number(s.elapsed_seconds || 0);
+
+            const day = new Date(s.created_at).toISOString().slice(0, 10);
+            if (day !== prevDay) {
+                distinctDaysAsc.push(day);
+                prevDay = day;
+            }
         });
 
-        const streakDatesRes = await pool.query(
-            `SELECT DISTINCT DATE(created_at) AS day
-             FROM results
-             WHERE user_id = $1
-             ORDER BY day DESC`,
-            [userId]
-        );
-        const streakDates = (streakDatesRes.rows || []).map((r) => new Date(r.day));
+        const streakDates = distinctDaysAsc
+            .slice()
+            .reverse()
+            .map((d) => new Date(d));
         let streakDays = 0;
         if (streakDates.length) {
             let expected = new Date(streakDates[0]);
@@ -1643,82 +1783,10 @@ app.get('/api/users/analytics', authMiddleware, async (req, res) => {
             }
         }
 
-        const moduleScoresRes = await pool.query(
-            `SELECT q.module_id, COALESCE(m.name, 'Sans module') AS module_name,
-                    ROUND(AVG(sqr.score) * 100.0, 2) AS avg_percent,
-                    COUNT(*)::int AS attempts
-             FROM session_question_results sqr
-             JOIN results r ON r.id = sqr.session_id
-             LEFT JOIN questions q ON q.id = sqr.question_id
-             LEFT JOIN modules m ON m.id = q.module_id
-             WHERE r.user_id = $1 AND sqr.question_id IS NOT NULL
-             GROUP BY q.module_id, m.name
-             ORDER BY avg_percent DESC NULLS LAST`,
-            [userId]
-        );
-
-        const courseScoresRes = await pool.query(
-            `SELECT q.module_id, q.course_id, COALESCE(c.name, 'Sans cours') AS course_name,
-                    ROUND(AVG(sqr.score) * 100.0, 2) AS avg_percent,
-                    COUNT(*)::int AS attempts
-             FROM session_question_results sqr
-             JOIN results r ON r.id = sqr.session_id
-             LEFT JOIN questions q ON q.id = sqr.question_id
-             LEFT JOIN courses c ON c.id = q.course_id
-             WHERE r.user_id = $1 AND sqr.question_id IS NOT NULL
-             GROUP BY q.module_id, q.course_id, c.name
-             ORDER BY avg_percent DESC NULLS LAST`,
-            [userId]
-        );
         const courseRows = courseScoresRes.rows || [];
         const strongestCourse = courseRows.length ? courseRows[0] : null;
         const weakestCourse = courseRows.length ? courseRows[courseRows.length - 1] : null;
 
-        const questionsProgressRes = await pool.query(
-            `SELECT
-                COUNT(DISTINCT sqr.question_id)::int AS unique_questions_done,
-                COUNT(sqr.question_id)::int AS total_questions_done_with_duplicates
-             FROM session_question_results sqr
-             JOIN results r ON r.id = sqr.session_id
-             WHERE r.user_id = $1
-               AND sqr.question_id IS NOT NULL`,
-            [userId]
-        );
-        const totalQuestionsRes = await pool.query(`SELECT COUNT(*)::int AS total_questions FROM questions`);
-
-        const favoritesRes = await pool.query(
-            `SELECT COUNT(*)::int AS favorites_count
-             FROM question_flags
-             WHERE user_id = $1 AND flag_type = 'favorite'`,
-            [userId]
-        );
-
-        const mostFailedRes = await pool.query(
-            `SELECT q.id AS question_id, q.question,
-                    COUNT(*)::int AS attempts,
-                    SUM(CASE WHEN sqr.score < 1 THEN 1 ELSE 0 END)::int AS fail_count,
-                    ROUND((SUM(CASE WHEN sqr.score < 1 THEN 1 ELSE 0 END)::numeric / COUNT(*)) * 100.0, 2) AS fail_rate_percent
-             FROM session_question_results sqr
-             JOIN results r ON r.id = sqr.session_id
-             JOIN questions q ON q.id = sqr.question_id
-             WHERE r.user_id = $1
-             GROUP BY q.id, q.question
-             HAVING COUNT(*) >= 2
-             ORDER BY fail_rate_percent DESC, attempts DESC
-             LIMIT 10`,
-            [userId]
-        );
-
-        const timelineRes = await pool.query(
-            `SELECT DATE(created_at) AS day,
-                    ROUND(AVG(CASE WHEN total > 0 THEN (score::numeric / total::numeric) * 100 ELSE NULL END), 2) AS avg_percent,
-                    COUNT(*)::int AS sessions
-             FROM results
-             WHERE user_id = $1
-             GROUP BY DATE(created_at)
-             ORDER BY day ASC`,
-            [userId]
-        );
         const timeline = timelineRes.rows || [];
         const firstHalf = timeline.slice(0, Math.max(1, Math.floor(timeline.length / 2)));
         const secondHalf = timeline.slice(Math.floor(timeline.length / 2));
@@ -1731,7 +1799,7 @@ app.get('/api/users/analytics', authMiddleware, async (req, res) => {
         const secondAvg = avg(secondHalf);
         const trendDelta = (firstAvg == null || secondAvg == null) ? null : Number((secondAvg - firstAvg).toFixed(2));
 
-        res.json({
+        const payload = {
             sessions: {
                 total: sessions.length,
                 training: modeBuckets.training,
@@ -1756,7 +1824,11 @@ app.get('/api/users/analytics', authMiddleware, async (req, res) => {
                 trend_delta_percent: trendDelta,
                 improving: trendDelta == null ? null : trendDelta > 0
             }
-        });
+        };
+
+        cacheSet(cacheKey, payload, USER_ANALYTICS_CACHE_TTL_MS);
+        res.set('Cache-Control', 'private, max-age=15');
+        return res.json(payload);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1778,6 +1850,7 @@ app.post('/api/users/questions/:id/flag', authMiddleware, async (req, res) => {
               DO UPDATE SET tags = EXCLUDED.tags`,
             [req.user.id, questionId, flag_type, tags || null]
         );
+        invalidateUserAnalyticsCache(req.user.id);
         res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -1793,6 +1866,7 @@ app.delete('/api/users/questions/:id/flag', authMiddleware, async (req, res) => 
              WHERE user_id = $1 AND question_id = $2 AND flag_type = $3`,
             [req.user.id, questionId, flagType]
         );
+        invalidateUserAnalyticsCache(req.user.id);
         res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });

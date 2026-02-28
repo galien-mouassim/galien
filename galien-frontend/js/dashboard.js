@@ -399,6 +399,7 @@ function renderPausedSessions(rows) {
       try {
         localStorage.setItem('qcm_session_draft', JSON.stringify(found.draft));
       } catch (_) {}
+      localStorage.setItem('qcm_resumed_paused_id', String(id));
       localStorage.setItem('qcm_resume_requested', '1');
       window.location.href = 'qcm.html';
     });

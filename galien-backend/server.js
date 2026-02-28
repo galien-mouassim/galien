@@ -453,6 +453,12 @@ async function ensureCoreSchema() {
         ALTER TABLE users
         DROP CONSTRAINT IF EXISTS users_role_check
     `);
+    await pool.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS display_name TEXT,
+        ADD COLUMN IF NOT EXISTS profile_photo TEXT,
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    `);
 
     await pool.query(`
         ALTER TABLE users
@@ -536,6 +542,24 @@ async function ensureCoreSchema() {
             reviewed_at TIMESTAMPTZ,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
+    `);
+    await pool.query(`
+        ALTER TABLE pending_questions
+        ADD COLUMN IF NOT EXISTS option_a TEXT,
+        ADD COLUMN IF NOT EXISTS option_b TEXT,
+        ADD COLUMN IF NOT EXISTS option_c TEXT,
+        ADD COLUMN IF NOT EXISTS option_d TEXT,
+        ADD COLUMN IF NOT EXISTS option_e TEXT,
+        ADD COLUMN IF NOT EXISTS correct_options TEXT,
+        ADD COLUMN IF NOT EXISTS module_id INTEGER REFERENCES modules(id) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS explanation TEXT,
+        ADD COLUMN IF NOT EXISTS submitted_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending',
+        ADD COLUMN IF NOT EXISTS admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     `);
 
     await pool.query(`
@@ -2688,7 +2712,7 @@ app.post('/api/admin/users', authMiddleware, requireAdmin, async (req, res) => {
         const result = await pool.query(
             `INSERT INTO users (email, password, role, display_name)
              VALUES ($1, $2, $3, $4)
-             RETURNING id, email, display_name, role, created_at`,
+             RETURNING id, email, display_name, role`,
             [email, hash, role, displayName]
         );
         res.status(201).json(result.rows[0]);
@@ -2755,7 +2779,7 @@ app.put('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res) =
             `UPDATE users
              SET ${updates.join(', ')}
              WHERE id = $${params.length}
-             RETURNING id, email, display_name, role, created_at`,
+             RETURNING id, email, display_name, role`,
             params
         );
         res.json(result.rows[0]);

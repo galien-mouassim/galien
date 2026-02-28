@@ -32,6 +32,20 @@ function parseIdList(raw) {
     .filter(Boolean);
 }
 
+function removeResumedPausedSession() {
+  const resumedId = localStorage.getItem('qcm_resumed_paused_id');
+  if (!resumedId) return;
+  try {
+    const raw = localStorage.getItem('qcm_paused_sessions');
+    const rows = JSON.parse(raw || '[]');
+    if (Array.isArray(rows)) {
+      const next = rows.filter((r) => String(r.id) !== String(resumedId));
+      localStorage.setItem('qcm_paused_sessions', JSON.stringify(next));
+    }
+  } catch (_) {}
+  localStorage.removeItem('qcm_resumed_paused_id');
+}
+
 function sameIdList(a, b) {
   const sa = [...new Set((a || []).map(String))].sort();
   const sb = [...new Set((b || []).map(String))].sort();
@@ -281,6 +295,7 @@ async function finishExam(timeout = false, totalOverride = null) {
     question_results
   }));
   localStorage.removeItem('qcm_session_draft');
+  removeResumedPausedSession();
 
   window.location.href = 'result.html';
 }

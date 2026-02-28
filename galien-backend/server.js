@@ -19,6 +19,7 @@ const SLOW_QUERY_MS = Number(process.env.DB_SLOW_QUERY_MS || 250);
 const METADATA_CACHE_TTL_MS = Number(process.env.METADATA_CACHE_TTL_MS || 60000);
 const USER_ANALYTICS_CACHE_TTL_MS = Number(process.env.USER_ANALYTICS_CACHE_TTL_MS || 20000);
 const metadataCache = new Map();
+let ensureResultsSavedSchemaPromise = null;
 
 function compactSql(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
@@ -47,6 +48,24 @@ function invalidateUserAnalyticsCache(userId) {
     const uid = Number(userId);
     metadataCache.delete(`user:stats:${uid}`);
     metadataCache.delete(`user:analytics:${uid}`);
+}
+
+async function ensureResultsSavedSchema() {
+    if (ensureResultsSavedSchemaPromise) return ensureResultsSavedSchemaPromise;
+    ensureResultsSavedSchemaPromise = (async () => {
+        await pool.query(`
+            ALTER TABLE results
+            ADD COLUMN IF NOT EXISTS is_saved BOOLEAN NOT NULL DEFAULT FALSE
+        `);
+        await pool.query(`
+            ALTER TABLE results
+            ADD COLUMN IF NOT EXISTS session_name TEXT
+        `);
+    })().catch((err) => {
+        ensureResultsSavedSchemaPromise = null;
+        throw err;
+    });
+    return ensureResultsSavedSchemaPromise;
 }
 
 const basePoolQuery = pool.query.bind(pool);
@@ -1741,6 +1760,7 @@ app.put('/api/users/preferences', authMiddleware, async (req, res) => {
 app.post('/api/results', authMiddleware, async (req, res) => {
     const client = await pool.connect();
     try {
+        await ensureResultsSavedSchema();
         const { score, total, mode, elapsed_seconds, correction_system, time_limit_seconds, question_results, is_saved, session_name } = req.body;
         await client.query('BEGIN');
         const sessionRes = await client.query(
@@ -1862,6 +1882,7 @@ app.get('/api/questions/:id/attempt-history', authMiddleware, async (req, res) =
 
 app.get('/api/users/results', authMiddleware, async (req, res) => {
     try {
+        await ensureResultsSavedSchema();
         const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 20, maxPageSize: 100 });
         const savedFilter = String(req.query.saved || 'all').trim();
         const where = ['user_id = $1'];
@@ -1888,6 +1909,7 @@ app.get('/api/users/results', authMiddleware, async (req, res) => {
 
 app.patch('/api/results/:id/meta', authMiddleware, async (req, res) => {
     try {
+        await ensureResultsSavedSchema();
         const id = Number(req.params.id);
         if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'invalid id' });
         const sessionName = (req.body?.session_name || '').toString().trim();

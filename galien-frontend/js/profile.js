@@ -369,7 +369,7 @@ async function loadProfile() {
       fetchJSON(`${API_URL}/users/me`),
       fetchJSON(`${API_URL}/users/stats`),
       fetchJSON(`${API_URL}/users/preferences`),
-      fetchJSON(`${API_URL}/users/results?saved=0`),
+      fetchJSON(`${API_URL}/users/results?saved=all`),
       fetchJSON(`${API_URL}/users/results?saved=1`),
       fetchJSON(`${API_URL}/users/flags?type=favorite`),
       fetchJSON(`${API_URL}/users/flags?type=flag`),

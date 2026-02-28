@@ -971,153 +971,163 @@ app.get('/api/questions', authMiddleware, async (req, res) => {
         const reviewMode = String(req.query.review_mode || '').trim();
         const shouldPaginate = req.query.page !== undefined || req.query.page_size !== undefined || req.query.limit !== undefined;
         const { page, pageSize, offset } = getPagination(req, { page: 1, pageSize: 100, maxPageSize: 300 });
+        const runQuery = async ({ withNotes, withReview }) => {
+            let query = `
+                SELECT q.*, m.name AS module_name, c.name AS course_name, s.name AS source_name,
+                       ${withNotes ? 'qn.note AS user_note, qn.updated_at AS user_note_updated_at' : 'NULL::text AS user_note, NULL::timestamptz AS user_note_updated_at'}
+                FROM questions q
+                LEFT JOIN modules m ON q.module_id = m.id
+                LEFT JOIN courses c ON q.course_id = c.id
+                LEFT JOIN sources s ON q.source_id = s.id
+                ${withNotes ? 'LEFT JOIN question_notes qn ON qn.question_id = q.id AND qn.user_id = $1' : ''}
+            `;
+            const params = withNotes ? [req.user.id] : [];
+            const filters = [];
 
-        let query = `
-            SELECT q.*, m.name AS module_name, c.name AS course_name, s.name AS source_name,
-                   qn.note AS user_note,
-                   qn.updated_at AS user_note_updated_at
-            FROM questions q
-            LEFT JOIN modules m ON q.module_id = m.id
-            LEFT JOIN courses c ON q.course_id = c.id
-            LEFT JOIN sources s ON q.source_id = s.id
-            LEFT JOIN question_notes qn ON qn.question_id = q.id AND qn.user_id = $1
-        `;
-
-        const params = [req.user.id];
-
-        const filters = [];
-        if (moduleIds.length) {
-            filters.push(`q.module_id = ANY($${params.length + 1}::int[])`);
-            params.push(moduleIds);
-        }
-        if (sourceIds.length) {
-            filters.push(`q.source_id = ANY($${params.length + 1}::int[])`);
-            params.push(sourceIds);
-        }
-        if (courseIds.length) {
-            filters.push(`q.course_id = ANY($${params.length + 1}::int[])`);
-            params.push(courseIds);
-        }
-        if (reviewMode === 'wrong_ever') {
-            filters.push(`
-                EXISTS (
-                    SELECT 1
-                    FROM session_question_results sqr
-                    JOIN results r ON r.id = sqr.session_id
-                    WHERE r.user_id = $${params.length + 1}
-                      AND sqr.question_id = q.id
-                      AND sqr.score < 1
-                )
-            `);
-            params.push(req.user.id);
-        } else if (reviewMode === 'wrong_last') {
-            filters.push(`
-                EXISTS (
-                    SELECT 1
-                    FROM (
-                        SELECT DISTINCT ON (sqr.question_id)
-                            sqr.question_id,
-                            sqr.score
+            if (moduleIds.length) {
+                filters.push(`q.module_id = ANY($${params.length + 1}::int[])`);
+                params.push(moduleIds);
+            }
+            if (sourceIds.length) {
+                filters.push(`q.source_id = ANY($${params.length + 1}::int[])`);
+                params.push(sourceIds);
+            }
+            if (courseIds.length) {
+                filters.push(`q.course_id = ANY($${params.length + 1}::int[])`);
+                params.push(courseIds);
+            }
+            if (withReview && reviewMode === 'wrong_ever') {
+                filters.push(`
+                    EXISTS (
+                        SELECT 1
                         FROM session_question_results sqr
                         JOIN results r ON r.id = sqr.session_id
                         WHERE r.user_id = $${params.length + 1}
-                        ORDER BY sqr.question_id, r.created_at DESC, sqr.id DESC
-                    ) last_q
-                    WHERE last_q.question_id = q.id
-                      AND last_q.score < 1
-                )
-            `);
-            params.push(req.user.id);
-        } else if (reviewMode === 'unanswered') {
-            filters.push(`
-                NOT EXISTS (
-                    SELECT 1
-                    FROM session_question_results sqr
-                    JOIN results r ON r.id = sqr.session_id
-                    WHERE r.user_id = $${params.length + 1}
-                      AND sqr.question_id = q.id
-                      AND COALESCE(NULLIF(BTRIM(sqr.user_answer), ''), '') <> ''
-                )
-            `);
-            params.push(req.user.id);
-        }
-        if (filters.length) {
-            query += ' WHERE ' + filters.join(' AND ');
-        }
-        query += ' ORDER BY q.id ASC';
-        if (shouldPaginate) {
-            query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-            params.push(pageSize, offset);
-        }
+                          AND sqr.question_id = q.id
+                          AND sqr.score < 1
+                    )
+                `);
+                params.push(req.user.id);
+            } else if (withReview && reviewMode === 'wrong_last') {
+                filters.push(`
+                    EXISTS (
+                        SELECT 1
+                        FROM (
+                            SELECT DISTINCT ON (sqr.question_id)
+                                sqr.question_id,
+                                sqr.score
+                            FROM session_question_results sqr
+                            JOIN results r ON r.id = sqr.session_id
+                            WHERE r.user_id = $${params.length + 1}
+                            ORDER BY sqr.question_id, r.created_at DESC, sqr.id DESC
+                        ) last_q
+                        WHERE last_q.question_id = q.id
+                          AND last_q.score < 1
+                    )
+                `);
+                params.push(req.user.id);
+            } else if (withReview && reviewMode === 'unanswered') {
+                filters.push(`
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM session_question_results sqr
+                        JOIN results r ON r.id = sqr.session_id
+                        WHERE r.user_id = $${params.length + 1}
+                          AND sqr.question_id = q.id
+                          AND COALESCE(NULLIF(BTRIM(sqr.user_answer), ''), '') <> ''
+                    )
+                `);
+                params.push(req.user.id);
+            }
+            if (filters.length) query += ' WHERE ' + filters.join(' AND ');
+            query += ' ORDER BY q.id ASC';
+            if (shouldPaginate) {
+                query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+                params.push(pageSize, offset);
+            }
 
-        let countQuery = 'SELECT COUNT(*)::int AS total FROM questions q';
-        const countParams = [];
-        const countFilters = [];
-        if (moduleIds.length) {
-            countFilters.push(`q.module_id = ANY($${countParams.length + 1}::int[])`);
-            countParams.push(moduleIds);
-        }
-        if (sourceIds.length) {
-            countFilters.push(`q.source_id = ANY($${countParams.length + 1}::int[])`);
-            countParams.push(sourceIds);
-        }
-        if (courseIds.length) {
-            countFilters.push(`q.course_id = ANY($${countParams.length + 1}::int[])`);
-            countParams.push(courseIds);
-        }
-        if (reviewMode === 'wrong_ever') {
-            countFilters.push(`
-                EXISTS (
-                    SELECT 1
-                    FROM session_question_results sqr
-                    JOIN results r ON r.id = sqr.session_id
-                    WHERE r.user_id = $${countParams.length + 1}
-                      AND sqr.question_id = q.id
-                      AND sqr.score < 1
-                )
-            `);
-            countParams.push(req.user.id);
-        } else if (reviewMode === 'wrong_last') {
-            countFilters.push(`
-                EXISTS (
-                    SELECT 1
-                    FROM (
-                        SELECT DISTINCT ON (sqr.question_id)
-                            sqr.question_id,
-                            sqr.score
+            let countQuery = 'SELECT COUNT(*)::int AS total FROM questions q';
+            const countParams = [];
+            const countFilters = [];
+            if (moduleIds.length) {
+                countFilters.push(`q.module_id = ANY($${countParams.length + 1}::int[])`);
+                countParams.push(moduleIds);
+            }
+            if (sourceIds.length) {
+                countFilters.push(`q.source_id = ANY($${countParams.length + 1}::int[])`);
+                countParams.push(sourceIds);
+            }
+            if (courseIds.length) {
+                countFilters.push(`q.course_id = ANY($${countParams.length + 1}::int[])`);
+                countParams.push(courseIds);
+            }
+            if (withReview && reviewMode === 'wrong_ever') {
+                countFilters.push(`
+                    EXISTS (
+                        SELECT 1
                         FROM session_question_results sqr
                         JOIN results r ON r.id = sqr.session_id
                         WHERE r.user_id = $${countParams.length + 1}
-                        ORDER BY sqr.question_id, r.created_at DESC, sqr.id DESC
-                    ) last_q
-                    WHERE last_q.question_id = q.id
-                      AND last_q.score < 1
-                )
-            `);
-            countParams.push(req.user.id);
-        } else if (reviewMode === 'unanswered') {
-            countFilters.push(`
-                NOT EXISTS (
-                    SELECT 1
-                    FROM session_question_results sqr
-                    JOIN results r ON r.id = sqr.session_id
-                    WHERE r.user_id = $${countParams.length + 1}
-                      AND sqr.question_id = q.id
-                      AND COALESCE(NULLIF(BTRIM(sqr.user_answer), ''), '') <> ''
-                )
-            `);
-            countParams.push(req.user.id);
-        }
-        if (countFilters.length) {
-            countQuery += ' WHERE ' + countFilters.join(' AND ');
+                          AND sqr.question_id = q.id
+                          AND sqr.score < 1
+                    )
+                `);
+                countParams.push(req.user.id);
+            } else if (withReview && reviewMode === 'wrong_last') {
+                countFilters.push(`
+                    EXISTS (
+                        SELECT 1
+                        FROM (
+                            SELECT DISTINCT ON (sqr.question_id)
+                                sqr.question_id,
+                                sqr.score
+                            FROM session_question_results sqr
+                            JOIN results r ON r.id = sqr.session_id
+                            WHERE r.user_id = $${countParams.length + 1}
+                            ORDER BY sqr.question_id, r.created_at DESC, sqr.id DESC
+                        ) last_q
+                        WHERE last_q.question_id = q.id
+                          AND last_q.score < 1
+                    )
+                `);
+                countParams.push(req.user.id);
+            } else if (withReview && reviewMode === 'unanswered') {
+                countFilters.push(`
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM session_question_results sqr
+                        JOIN results r ON r.id = sqr.session_id
+                        WHERE r.user_id = $${countParams.length + 1}
+                          AND sqr.question_id = q.id
+                          AND COALESCE(NULLIF(BTRIM(sqr.user_answer), ''), '') <> ''
+                    )
+                `);
+                countParams.push(req.user.id);
+            }
+            if (countFilters.length) countQuery += ' WHERE ' + countFilters.join(' AND ');
+
+            const [result, countRes] = shouldPaginate
+                ? await Promise.all([pool.query(query, params), pool.query(countQuery, countParams)])
+                : [await pool.query(query, params), null];
+            return { result, countRes };
+        };
+
+        let runOpts = { withNotes: true, withReview: true };
+        let queryResult;
+        try {
+            queryResult = await runQuery(runOpts);
+        } catch (err) {
+            if (err.code === '42P01') {
+                const msg = String(err.message || '').toLowerCase();
+                if (msg.includes('question_notes')) runOpts.withNotes = false;
+                if (msg.includes('session_question_results') || msg.includes('results')) runOpts.withReview = false;
+                queryResult = await runQuery(runOpts);
+            } else {
+                throw err;
+            }
         }
 
-        const [result, countRes] = shouldPaginate
-            ? await Promise.all([
-                pool.query(query, params),
-                pool.query(countQuery, countParams)
-            ])
-            : [await pool.query(query, params), null];
+        const { result, countRes } = queryResult;
 
         const questions = result.rows.map(q => {
             const fromArray =
@@ -1166,71 +1176,80 @@ app.get('/api/questions/count', authMiddleware, async (req, res) => {
         const sourceIds = parseIntList(req.query.source);
         const courseIds = parseIntList(req.query.course);
         const reviewMode = String(req.query.review_mode || '').trim();
+        const runCount = async (withReview) => {
+            let query = 'SELECT COUNT(*)::int AS total FROM questions q';
+            const params = [];
+            const filters = [];
 
-        let query = 'SELECT COUNT(*)::int AS total FROM questions q';
-        const params = [];
-        const filters = [];
-
-        if (moduleIds.length) {
-            filters.push(`q.module_id = ANY($${params.length + 1}::int[])`);
-            params.push(moduleIds);
-        }
-        if (sourceIds.length) {
-            filters.push(`q.source_id = ANY($${params.length + 1}::int[])`);
-            params.push(sourceIds);
-        }
-        if (courseIds.length) {
-            filters.push(`q.course_id = ANY($${params.length + 1}::int[])`);
-            params.push(courseIds);
-        }
-        if (reviewMode === 'wrong_ever') {
-            filters.push(`
-                EXISTS (
-                    SELECT 1
-                    FROM session_question_results sqr
-                    JOIN results r ON r.id = sqr.session_id
-                    WHERE r.user_id = $${params.length + 1}
-                      AND sqr.question_id = q.id
-                      AND sqr.score < 1
-                )
-            `);
-            params.push(req.user.id);
-        } else if (reviewMode === 'wrong_last') {
-            filters.push(`
-                EXISTS (
-                    SELECT 1
-                    FROM (
-                        SELECT DISTINCT ON (sqr.question_id)
-                            sqr.question_id,
-                            sqr.score
+            if (moduleIds.length) {
+                filters.push(`q.module_id = ANY($${params.length + 1}::int[])`);
+                params.push(moduleIds);
+            }
+            if (sourceIds.length) {
+                filters.push(`q.source_id = ANY($${params.length + 1}::int[])`);
+                params.push(sourceIds);
+            }
+            if (courseIds.length) {
+                filters.push(`q.course_id = ANY($${params.length + 1}::int[])`);
+                params.push(courseIds);
+            }
+            if (withReview && reviewMode === 'wrong_ever') {
+                filters.push(`
+                    EXISTS (
+                        SELECT 1
                         FROM session_question_results sqr
                         JOIN results r ON r.id = sqr.session_id
                         WHERE r.user_id = $${params.length + 1}
-                        ORDER BY sqr.question_id, r.created_at DESC, sqr.id DESC
-                    ) last_q
-                    WHERE last_q.question_id = q.id
-                      AND last_q.score < 1
-                )
-            `);
-            params.push(req.user.id);
-        } else if (reviewMode === 'unanswered') {
-            filters.push(`
-                NOT EXISTS (
-                    SELECT 1
-                    FROM session_question_results sqr
-                    JOIN results r ON r.id = sqr.session_id
-                    WHERE r.user_id = $${params.length + 1}
-                      AND sqr.question_id = q.id
-                      AND COALESCE(NULLIF(BTRIM(sqr.user_answer), ''), '') <> ''
-                )
-            `);
-            params.push(req.user.id);
-        }
-        if (filters.length) {
-            query += ' WHERE ' + filters.join(' AND ');
-        }
+                          AND sqr.question_id = q.id
+                          AND sqr.score < 1
+                    )
+                `);
+                params.push(req.user.id);
+            } else if (withReview && reviewMode === 'wrong_last') {
+                filters.push(`
+                    EXISTS (
+                        SELECT 1
+                        FROM (
+                            SELECT DISTINCT ON (sqr.question_id)
+                                sqr.question_id,
+                                sqr.score
+                            FROM session_question_results sqr
+                            JOIN results r ON r.id = sqr.session_id
+                            WHERE r.user_id = $${params.length + 1}
+                            ORDER BY sqr.question_id, r.created_at DESC, sqr.id DESC
+                        ) last_q
+                        WHERE last_q.question_id = q.id
+                          AND last_q.score < 1
+                    )
+                `);
+                params.push(req.user.id);
+            } else if (withReview && reviewMode === 'unanswered') {
+                filters.push(`
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM session_question_results sqr
+                        JOIN results r ON r.id = sqr.session_id
+                        WHERE r.user_id = $${params.length + 1}
+                          AND sqr.question_id = q.id
+                          AND COALESCE(NULLIF(BTRIM(sqr.user_answer), ''), '') <> ''
+                    )
+                `);
+                params.push(req.user.id);
+            }
+            if (filters.length) query += ' WHERE ' + filters.join(' AND ');
+            return pool.query(query, params);
+        };
 
-        const result = await pool.query(query, params);
+        let result;
+        try {
+            result = await runCount(true);
+        } catch (err) {
+            if (err.code === '42P01') {
+                result = await runCount(false);
+            } else {
+                throw err;
+            }
+        }
         res.json({ total: result.rows[0]?.total || 0 });
     } catch (err) {
         res.status(500).json({ error: err.message });

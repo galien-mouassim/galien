@@ -166,7 +166,7 @@ function wbApplyGuidedFilters() {
 }
 
 function wbApplyAdvancedFilters() {
-  // now delegates to libState â€” real implementation added below after lib setup
+  // now delegates to libState - real implementation added below after lib setup
 }
 
 function wbApplyActiveFilters() {
@@ -573,7 +573,7 @@ function wbAttachWizardEvents() {
   }
 }
 
-/* â”€â”€ Advanced filters now use libState instead of wb_adv_ selects â”€â”€ */
+/* Advanced filters now use libState instead of wb_adv_ selects */
 function wbApplyAdvancedFilters() {
   const sm = document.getElementById('sel_module');
   const sc = document.getElementById('sel_course');
@@ -601,7 +601,7 @@ function wbApplyAdvancedFilters() {
   }, changed ? 360 : 40);
 }
 
-/* â”€â”€ Libre dropdown helpers â”€â”€ */
+/* Libre dropdown helpers */
 const LIB_KEYS = ['module','course','source','favtag'];
 const LIB_PH = {module:'Tous les modules',course:'Tous les cours',source:'Toutes les sources',favtag:'Tous les tags'};
 const libState = {module:new Set(),course:new Set(),source:new Set(),favtag:new Set()};
@@ -715,7 +715,7 @@ LIB_KEYS.forEach(key=>{
 });
 document.addEventListener('click',()=>libCloseAll(null));
 
-/* â”€â”€ Mode switch â”€â”€ */
+/* Mode switch */
 function wbSetMode(mode) {
   wbMode = mode==='advanced'?'advanced':'guided';
   document.getElementById('wbGuidedBtn')?.classList.toggle('active',wbMode==='guided');
@@ -727,7 +727,7 @@ function wbSetMode(mode) {
   wbApplyActiveFilters();
 }
 
-/* â”€â”€ Wire events â”€â”€ */
+/* Wire events */
 function wbWireCommonEvents() {
   document.getElementById('wb-add-btn')?.addEventListener('click',()=>wbStartWizard());
   document.getElementById('filterResetBtn')?.addEventListener('click',()=>{

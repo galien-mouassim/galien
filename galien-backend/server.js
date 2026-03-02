@@ -20,6 +20,7 @@ const METADATA_CACHE_TTL_MS = Number(process.env.METADATA_CACHE_TTL_MS || 60000)
 const USER_ANALYTICS_CACHE_TTL_MS = Number(process.env.USER_ANALYTICS_CACHE_TTL_MS || 20000);
 const metadataCache = new Map();
 let ensureResultsSavedSchemaPromise = null;
+let ensurePendingQuestionsSchemaPromise = null;
 
 function compactSql(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
@@ -66,6 +67,64 @@ async function ensureResultsSavedSchema() {
         throw err;
     });
     return ensureResultsSavedSchemaPromise;
+}
+
+async function ensurePendingQuestionsSchema() {
+    if (ensurePendingQuestionsSchemaPromise) return ensurePendingQuestionsSchemaPromise;
+    ensurePendingQuestionsSchemaPromise = (async () => {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS pending_questions (
+                id SERIAL PRIMARY KEY,
+                question TEXT NOT NULL,
+                option_a TEXT NOT NULL,
+                option_b TEXT NOT NULL,
+                option_c TEXT NOT NULL,
+                option_d TEXT NOT NULL,
+                option_e TEXT NOT NULL,
+                correct_options TEXT NOT NULL,
+                module_id INTEGER REFERENCES modules(id) ON DELETE SET NULL,
+                course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+                source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
+                explanation TEXT,
+                submitted_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                status TEXT NOT NULL DEFAULT 'pending',
+                admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                reviewed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        `);
+        await pool.query(`
+            ALTER TABLE pending_questions
+            ADD COLUMN IF NOT EXISTS option_a TEXT,
+            ADD COLUMN IF NOT EXISTS option_b TEXT,
+            ADD COLUMN IF NOT EXISTS option_c TEXT,
+            ADD COLUMN IF NOT EXISTS option_d TEXT,
+            ADD COLUMN IF NOT EXISTS option_e TEXT,
+            ADD COLUMN IF NOT EXISTS correct_options TEXT,
+            ADD COLUMN IF NOT EXISTS module_id INTEGER REFERENCES modules(id) ON DELETE SET NULL,
+            ADD COLUMN IF NOT EXISTS course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+            ADD COLUMN IF NOT EXISTS source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
+            ADD COLUMN IF NOT EXISTS explanation TEXT,
+            ADD COLUMN IF NOT EXISTS submitted_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending',
+            ADD COLUMN IF NOT EXISTS admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        `);
+        await pool.query(`
+            ALTER TABLE pending_questions
+            DROP CONSTRAINT IF EXISTS pending_questions_status_check
+        `);
+        await pool.query(`
+            ALTER TABLE pending_questions
+            ADD CONSTRAINT pending_questions_status_check
+            CHECK (status IN ('pending', 'approved', 'rejected'))
+        `);
+    })().catch((err) => {
+        ensurePendingQuestionsSchemaPromise = null;
+        throw err;
+    });
+    return ensurePendingQuestionsSchemaPromise;
 }
 
 const basePoolQuery = pool.query.bind(pool);
@@ -443,6 +502,7 @@ async function ensureCoreSchema() {
             email TEXT NOT NULL UNIQUE,
             password TEXT NOT NULL,
             role TEXT NOT NULL DEFAULT 'user',
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
             display_name TEXT,
             profile_photo TEXT,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -457,7 +517,13 @@ async function ensureCoreSchema() {
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS display_name TEXT,
         ADD COLUMN IF NOT EXISTS profile_photo TEXT,
+        ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE,
         ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    `);
+    await pool.query(`
+        UPDATE users
+        SET is_active = TRUE
+        WHERE is_active IS NULL
     `);
 
     await pool.query(`
@@ -522,56 +588,7 @@ async function ensureCoreSchema() {
         )
     `);
 
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS pending_questions (
-            id SERIAL PRIMARY KEY,
-            question TEXT NOT NULL,
-            option_a TEXT NOT NULL,
-            option_b TEXT NOT NULL,
-            option_c TEXT NOT NULL,
-            option_d TEXT NOT NULL,
-            option_e TEXT NOT NULL,
-            correct_options TEXT NOT NULL,
-            module_id INTEGER REFERENCES modules(id) ON DELETE SET NULL,
-            course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
-            source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
-            explanation TEXT,
-            submitted_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            status TEXT NOT NULL DEFAULT 'pending',
-            admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-            reviewed_at TIMESTAMPTZ,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    `);
-    await pool.query(`
-        ALTER TABLE pending_questions
-        ADD COLUMN IF NOT EXISTS option_a TEXT,
-        ADD COLUMN IF NOT EXISTS option_b TEXT,
-        ADD COLUMN IF NOT EXISTS option_c TEXT,
-        ADD COLUMN IF NOT EXISTS option_d TEXT,
-        ADD COLUMN IF NOT EXISTS option_e TEXT,
-        ADD COLUMN IF NOT EXISTS correct_options TEXT,
-        ADD COLUMN IF NOT EXISTS module_id INTEGER REFERENCES modules(id) ON DELETE SET NULL,
-        ADD COLUMN IF NOT EXISTS course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
-        ADD COLUMN IF NOT EXISTS source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
-        ADD COLUMN IF NOT EXISTS explanation TEXT,
-        ADD COLUMN IF NOT EXISTS submitted_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending',
-        ADD COLUMN IF NOT EXISTS admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    `);
-
-    await pool.query(`
-        ALTER TABLE pending_questions
-        DROP CONSTRAINT IF EXISTS pending_questions_status_check
-    `);
-
-    await pool.query(`
-        ALTER TABLE pending_questions
-        ADD CONSTRAINT pending_questions_status_check
-        CHECK (status IN ('pending', 'approved', 'rejected'))
-    `);
+    await ensurePendingQuestionsSchema();
 
     await pool.query(`
         CREATE TABLE IF NOT EXISTS app_settings (
@@ -927,6 +944,9 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         }
 
         const user = result.rows[0];
+        if (user.is_active === false) {
+            return res.status(403).json({ message: 'Compte désactivé. Contactez un administrateur.' });
+        }
         const valid = await bcrypt.compare(password, user.password);
 
         if (!valid) {
@@ -1350,6 +1370,7 @@ app.post('/api/questions', authMiddleware, requireAdminOrWorker, async (req, res
         const normalizedSourceId = toIntOrNull(source_id);
 
         if (req.user.role === 'worker') {
+            await ensurePendingQuestionsSchema();
             const pending = await pool.query(
                 `INSERT INTO pending_questions
                  (question, option_a, option_b, option_c, option_d, option_e, correct_options, module_id, course_id, source_id, explanation, submitted_by)
@@ -1408,6 +1429,12 @@ app.post('/api/questions', authMiddleware, requireAdminOrWorker, async (req, res
 
     } catch (err) {
         console.error(err);
+        if (err?.code === '23503') {
+            return res.status(400).json({ message: 'Module, cours ou source invalide.' });
+        }
+        if (err?.code === '22P02') {
+            return res.status(400).json({ message: 'Valeur invalide dans le formulaire.' });
+        }
         res.status(500).json({ error: err.message });
     }
 });
@@ -2703,7 +2730,7 @@ app.get('/api/admin/users', authMiddleware, async (req, res) => {
         }
         const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 200, maxPageSize: 500 });
         const result = await pool.query(
-            `SELECT id, email, display_name, role
+            `SELECT id, email, display_name, role, is_active
              FROM users
              ORDER BY email
              LIMIT $1 OFFSET $2`,
@@ -2729,9 +2756,9 @@ app.post('/api/admin/users', authMiddleware, requireAdmin, async (req, res) => {
 
         const hash = await bcrypt.hash(password, 10);
         const result = await pool.query(
-            `INSERT INTO users (email, password, role, display_name)
-             VALUES ($1, $2, $3, $4)
-             RETURNING id, email, display_name, role`,
+            `INSERT INTO users (email, password, role, display_name, is_active)
+             VALUES ($1, $2, $3, $4, TRUE)
+             RETURNING id, email, display_name, role, is_active`,
             [email, hash, role, displayName]
         );
         res.status(201).json(result.rows[0]);
@@ -2779,6 +2806,15 @@ app.put('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res) =
             updates.push(`role = $${params.length}`);
         }
 
+        if (req.body.is_active !== undefined) {
+            const isActive = !!req.body.is_active;
+            if (req.user.id === targetId && !isActive) {
+                return res.status(400).json({ message: 'you cannot deactivate your own account' });
+            }
+            params.push(isActive);
+            updates.push(`is_active = $${params.length}`);
+        }
+
         if (req.body.password !== undefined) {
             const plain = String(req.body.password || '');
             if (plain.length < 4) {
@@ -2798,7 +2834,7 @@ app.put('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res) =
             `UPDATE users
              SET ${updates.join(', ')}
              WHERE id = $${params.length}
-             RETURNING id, email, display_name, role`,
+             RETURNING id, email, display_name, role, is_active`,
             params
         );
         res.json(result.rows[0]);
@@ -2905,6 +2941,7 @@ app.put('/api/admin/login-alert-settings', authMiddleware, requireAdmin, async (
 
 app.get('/api/admin/pending-questions', authMiddleware, requireAdmin, async (req, res) => {
     try {
+        await ensurePendingQuestionsSchema();
         const status = String(req.query.status || 'pending').trim().toLowerCase();
         const pageCfg = getPagination(req, { page: 1, pageSize: 25, maxPageSize: 100 });
         const validStatus = ['pending', 'approved', 'rejected'].includes(status) ? status : 'pending';
@@ -2951,6 +2988,7 @@ app.post('/api/admin/pending-questions/:id/approve', authMiddleware, requireAdmi
 
     const client = await pool.connect();
     try {
+        await ensurePendingQuestionsSchema();
         await client.query('BEGIN');
         const qRes = await client.query(
             'SELECT * FROM pending_questions WHERE id = $1 AND status = $2 FOR UPDATE',
@@ -2999,6 +3037,7 @@ app.post('/api/admin/pending-questions/:id/reject', authMiddleware, requireAdmin
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid id' });
     try {
+        await ensurePendingQuestionsSchema();
         const result = await pool.query(
             `UPDATE pending_questions
              SET status = 'rejected', admin_id = $1, reviewed_at = NOW()
@@ -3016,7 +3055,10 @@ app.post('/api/admin/pending-questions/:id/reject', authMiddleware, requireAdmin
 app.get('/api/admin/questions/export-csv', authMiddleware, requireAdmin, async (req, res) => {
     try {
         const providedPass = String(req.query.pass || '');
-        const expectedPass = process.env.ADMIN_EXPORT_PASS || 'madamadaO1';
+        const expectedPass = String(process.env.ADMIN_EXPORT_PASS || '');
+        if (!expectedPass) {
+            return res.status(503).json({ message: 'Export CSV indisponible: mot de passe non configuré' });
+        }
         if (providedPass !== expectedPass) {
             return res.status(403).json({ message: 'Mot de passe export invalide' });
         }

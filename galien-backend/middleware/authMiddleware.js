@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken'); 
+﻿const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 
 async function authMiddleware(req, res, next) {
@@ -8,7 +8,6 @@ async function authMiddleware(req, res, next) {
         return res.status(401).json({ message: 'No token provided' });
     }
 
-    // Supporte "Bearer TOKEN"
     const token = authHeader.startsWith('Bearer ')
         ? authHeader.split(' ')[1]
         : authHeader;
@@ -20,12 +19,15 @@ async function authMiddleware(req, res, next) {
         }
 
         const result = await pool.query(
-            'SELECT session_id FROM users WHERE id = $1',
+            'SELECT session_id, is_active FROM users WHERE id = $1',
             [decoded.id]
         );
 
         if (!result.rows.length || result.rows[0].session_id !== decoded.sid) {
-            return res.status(401).json({ message: 'Session expirée (connexion sur un autre appareil)' });
+            return res.status(401).json({ message: 'Session expiree (connexion sur un autre appareil)' });
+        }
+        if (result.rows[0].is_active === false) {
+            return res.status(403).json({ message: 'Compte desactive' });
         }
 
         req.user = decoded;

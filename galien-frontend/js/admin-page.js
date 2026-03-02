@@ -469,12 +469,19 @@ function renderUsersAdminList(rows){
           </select>
         </label>
         <label class="field" style="margin:0">
+          <span>Compte</span>
+          <select data-user-active="${u.id}">
+            <option value="1" ${u.is_active !== false ? 'selected' : ''}>Actif</option>
+            <option value="0" ${u.is_active === false ? 'selected' : ''}>Désactivé</option>
+          </select>
+        </label>
+        <label class="field" style="margin:0">
           <span>Nouveau mot de passe</span>
           <input type="text" data-user-password="${u.id}" placeholder="laisser vide si inchangé">
         </label>
       </div>
       <div class="question-item-actions">
-        <button class="btn-inline btn-sm" data-user-save="${u.id}">💾 Enregistrer</button>
+        <button class="btn-inline btn-sm" data-user-save="${u.id}"><i class="bi bi-floppy"></i> Enregistrer</button>
         <button class="btn-inline btn-sm" style="color:var(--red)" data-user-delete="${u.id}"><i class="bi bi-trash"></i> Supprimer</button>
       </div>
     </div>
@@ -497,6 +504,7 @@ async function loadUsersAdminManagement(){
 
 async function loadPendingQuestions() {
   const wrap = document.getElementById('pendingQuestionsList');
+  const badge = document.getElementById('pendingCountBadge');
   if (!wrap || isWorker) return;
   wrap.textContent = 'Chargement...';
   try {
@@ -506,6 +514,10 @@ async function loadPendingQuestions() {
     if (!res.ok) throw new Error('load failed');
     const data = await res.json();
     const rows = data.data || [];
+    if (badge) {
+      badge.textContent = String(rows.length);
+      badge.style.display = rows.length ? '' : 'none';
+    }
     if (!rows.length) {
       wrap.innerHTML = '<div class="muted">Aucune question en attente.</div>';
       return;
@@ -527,6 +539,7 @@ async function loadPendingQuestions() {
       </div>
     `).join('');
   } catch (_) {
+    if (badge) badge.style.display = 'none';
     wrap.innerHTML = '<div class="muted">Erreur de chargement.</div>';
   }
 }
@@ -677,10 +690,20 @@ bindSimilarityInputs();
 
 async function deleteQuestion(id) {
   if (isWorker) return;
-  if(!confirm('Voulez-vous vraiment supprimer cette question ?'))return;
-  const token = localStorage.getItem('token');
-  await fetch(`${API_URL}/questions/${id}`,{method:'DELETE',headers:{'Authorization':'Bearer '+token}});
-  loadQuestionsAdmin();
+  const status = document.getElementById('questionsActionStatus');
+  openRefConfirm('Voulez-vous vraiment supprimer cette question ?', async () => {
+    const token = localStorage.getItem('token');
+    if (status) status.textContent = 'Suppression en cours...';
+    const res = await fetch(`${API_URL}/questions/${id}`,{method:'DELETE',headers:{'Authorization':'Bearer '+token}});
+    if (res.ok) {
+      if (status) status.textContent = 'Question supprimée.';
+      await loadQuestionsAdmin();
+      await loadSimilarityQuestionsPool();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      if (status) status.textContent = data.message || data.error || 'Erreur lors de la suppression.';
+    }
+  });
 }
 
 async function editQuestion(id) {
@@ -964,8 +987,9 @@ document.getElementById('usersAdminList')?.addEventListener('click', async (e) =
     const userId = saveBtn.getAttribute('data-user-save');
     const display_name = document.querySelector(`[data-user-display="${userId}"]`)?.value?.trim() ?? '';
     const role = document.querySelector(`[data-user-role="${userId}"]`)?.value ?? 'user';
+    const isActiveValue = document.querySelector(`[data-user-active="${userId}"]`)?.value ?? '1';
     const password = document.querySelector(`[data-user-password="${userId}"]`)?.value ?? '';
-    const payload = { display_name, role };
+    const payload = { display_name, role, is_active: isActiveValue === '1' };
     if(password.trim()) payload.password = password.trim();
     saveBtn.disabled = true;
     status.textContent = 'Mise à jour...';

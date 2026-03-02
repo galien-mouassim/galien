@@ -1456,7 +1456,7 @@ app.delete('/api/questions/:id', authMiddleware, requireAdmin, async (req, res) 
 app.get('/api/modules', async (req, res) => {
     try {
         const cacheKey = 'modules:all';
-        const cached = cacheGet(cacheKey);
+        const cached = cacheKey ? cacheGet(cacheKey) : null;
         if (cached) {
             res.set('Cache-Control', 'public, max-age=30');
             return res.json(cached);
@@ -2044,12 +2044,33 @@ app.get('/api/users/stats', authMiddleware, async (req, res) => {
 app.get('/api/users/analytics', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const cacheKey = `user:analytics:${userId}`;
+        const moduleIds = parseIntList(req.query.module_id || req.query.module);
+        const courseIds = parseIntList(req.query.course_id || req.query.course);
+        const sourceIds = parseIntList(req.query.source_id || req.query.source);
+        const hasScopedFilters = moduleIds.length || courseIds.length || sourceIds.length;
+        const cacheKey = hasScopedFilters
+            ? null
+            : `user:analytics:${userId}`;
         const cached = cacheGet(cacheKey);
         if (cached) {
             res.set('Cache-Control', 'private, max-age=15');
             return res.json(cached);
         }
+        const failFilters = [];
+        const failParams = [userId];
+        if (moduleIds.length) {
+            failFilters.push(`q.module_id = ANY($${failParams.length + 1}::int[])`);
+            failParams.push(moduleIds);
+        }
+        if (courseIds.length) {
+            failFilters.push(`q.course_id = ANY($${failParams.length + 1}::int[])`);
+            failParams.push(courseIds);
+        }
+        if (sourceIds.length) {
+            failFilters.push(`q.source_id = ANY($${failParams.length + 1}::int[])`);
+            failParams.push(sourceIds);
+        }
+        const failWhere = failFilters.length ? ` AND ${failFilters.join(' AND ')}` : '';
 
         const [
             sessionsRes,
@@ -2114,18 +2135,28 @@ app.get('/api/users/analytics', authMiddleware, async (req, res) => {
             ),
             pool.query(
                 `SELECT q.id AS question_id, q.question,
+                        q.module_id, q.course_id, q.source_id,
+                        COALESCE(m.name, 'Sans module') AS module_name,
+                        COALESCE(c.name, 'Sans cours') AS course_name,
+                        COALESCE(s.name, 'Sans source') AS source_name,
+                        q.option_a, q.option_b, q.option_c, q.option_d, q.option_e, q.correct_options, q.explanation,
                         COUNT(*)::int AS attempts,
                         SUM(CASE WHEN sqr.score < 1 THEN 1 ELSE 0 END)::int AS fail_count,
                         ROUND((SUM(CASE WHEN sqr.score < 1 THEN 1 ELSE 0 END)::numeric / COUNT(*)) * 100.0, 2) AS fail_rate_percent
                  FROM session_question_results sqr
                  JOIN results r ON r.id = sqr.session_id
                  JOIN questions q ON q.id = sqr.question_id
+                 LEFT JOIN modules m ON m.id = q.module_id
+                 LEFT JOIN courses c ON c.id = q.course_id
+                 LEFT JOIN sources s ON s.id = q.source_id
                  WHERE r.user_id = $1
-                 GROUP BY q.id, q.question
+                 ${failWhere}
+                 GROUP BY q.id, q.question, q.module_id, q.course_id, q.source_id, m.name, c.name, s.name,
+                          q.option_a, q.option_b, q.option_c, q.option_d, q.option_e, q.correct_options, q.explanation
                  HAVING COUNT(*) >= 2
                  ORDER BY fail_rate_percent DESC, attempts DESC
                  LIMIT 10`,
-                [userId]
+                failParams
             ),
             pool.query(
                 `SELECT DATE(created_at) AS day,
@@ -2222,7 +2253,9 @@ app.get('/api/users/analytics', authMiddleware, async (req, res) => {
             }
         };
 
-        cacheSet(cacheKey, payload, USER_ANALYTICS_CACHE_TTL_MS);
+        if (cacheKey) {
+            cacheSet(cacheKey, payload, USER_ANALYTICS_CACHE_TTL_MS);
+        }
         res.set('Cache-Control', 'private, max-age=15');
         return res.json(payload);
     } catch (err) {

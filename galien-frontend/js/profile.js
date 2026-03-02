@@ -10,6 +10,9 @@ let editingFavoriteId = null;
 let analyticsCache = null;
 let selectedModuleForCourses = null;
 let basicStatsCache = null;
+let referencesCache = { modules: [], courses: [], sources: [] };
+let failedFilterState = { module_id: '', course_id: '', source_id: '' };
+let failedOverrideRows = null;
 
 function setActiveSection(name) {
   document.querySelectorAll('.profile-section').forEach((s) => {
@@ -300,15 +303,61 @@ function renderAnalytics(analytics, basicStats) {
         : '<span class="muted">Aucun cours pour ce module.</span>'}
     </div>`;
 
-  const failedRows = analytics?.most_failed_questions_top10 || [];
+  const failedRows = Array.isArray(failedOverrideRows) ? failedOverrideRows : (analytics?.most_failed_questions_top10 || []);
+  const moduleValue = String(failedFilterState.module_id || '');
+  const courseValue = String(failedFilterState.course_id || '');
+  const sourceValue = String(failedFilterState.source_id || '');
+  const coursesFiltered = moduleValue
+    ? referencesCache.courses.filter((c) => String(c.module_id || '') === moduleValue)
+    : referencesCache.courses;
+  const sourcesFiltered = moduleValue
+    ? referencesCache.sources.filter((s) => !s.module_id || String(s.module_id) === moduleValue)
+    : referencesCache.sources;
   failedWrap.innerHTML = `<h4>Top 10 questions les plus ratees</h4>
+    <div class="muted" style="margin-bottom:8px">Developper pour voir details + filtrer par module, cours et reference.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:10px">
+      <label class="field" style="margin:0">
+        <span>Module</span>
+        <select id="failedFilterModule">
+          <option value="">Tous</option>
+          ${referencesCache.modules.map((m) => `<option value="${m.id}" ${String(m.id)===moduleValue?'selected':''}>${escHtml(m.name)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="field" style="margin:0">
+        <span>Cours</span>
+        <select id="failedFilterCourse">
+          <option value="">Tous</option>
+          ${coursesFiltered.map((c) => `<option value="${c.id}" ${String(c.id)===courseValue?'selected':''}>${escHtml(c.name)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="field" style="margin:0">
+        <span>Reference</span>
+        <select id="failedFilterSource">
+          <option value="">Toutes</option>
+          ${sourcesFiltered.map((s) => `<option value="${s.id}" ${String(s.id)===sourceValue?'selected':''}>${escHtml(s.name)}</option>`).join('')}
+        </select>
+      </label>
+    </div>
     <div class="mini-table">
       ${failedRows.length
         ? failedRows.map((r) => `
-          <div class="mini-row">
-            <div>${escHtml(r.question || '')}</div>
+          <div class="mini-row" style="align-items:flex-start;grid-template-columns:1fr auto auto auto">
+            <div>
+              ${escHtml(r.question || '')}
+              <div class="muted" style="margin-top:2px">${escHtml(r.module_name || '-')}${r.course_name ? ` · ${escHtml(r.course_name)}` : ''}${r.source_name ? ` · ${escHtml(r.source_name)}` : ''}</div>
+            </div>
             <div class="pct bad">${Number(r.fail_rate_percent || 0).toFixed(1)}%</div>
             <div class="muted">${r.fail_count}/${r.attempts}</div>
+            <button class="btn-inline" type="button" data-failed-toggle="${r.question_id}">Details</button>
+          </div>
+          <div class="mini-row hidden" id="failedDetail-${r.question_id}" style="display:grid;grid-template-columns:1fr;gap:6px">
+            <div><strong>A:</strong> ${escHtml(r.option_a || '')}</div>
+            <div><strong>B:</strong> ${escHtml(r.option_b || '')}</div>
+            <div><strong>C:</strong> ${escHtml(r.option_c || '')}</div>
+            <div><strong>D:</strong> ${escHtml(r.option_d || '')}</div>
+            <div><strong>E:</strong> ${escHtml(r.option_e || '')}</div>
+            <div><strong>Correction:</strong> ${escHtml(r.correct_options || '-')}</div>
+            <div><strong>Explication:</strong> ${escHtml(r.explanation || '-')}</div>
           </div>
         `).join('')
         : '<span class="muted">Pas assez de tentatives.</span>'}
@@ -323,6 +372,43 @@ function renderAnalytics(analytics, basicStats) {
     <div class="timeline-list">
       ${daily.slice(-10).map((d) => `<div class="timeline-day"><span>${new Date(d.day).toLocaleDateString('fr-FR')}</span><strong>${Number(d.avg_percent || 0).toFixed(1)}%</strong></div>`).join('')}
     </div>`;
+}
+
+async function loadReferencesForStats() {
+  try {
+    const [modules, courses, sources] = await Promise.all([
+      fetchJSON(`${API_URL}/modules`),
+      fetchJSON(`${API_URL}/courses`),
+      fetchJSON(`${API_URL}/sources`)
+    ]);
+    referencesCache = {
+      modules: Array.isArray(modules) ? modules : [],
+      courses: Array.isArray(courses) ? courses : [],
+      sources: Array.isArray(sources) ? sources : []
+    };
+  } catch (_) {
+    referencesCache = { modules: [], courses: [], sources: [] };
+  }
+}
+
+async function refreshFailedQuestionsAnalytics() {
+  if (!analyticsCache) return;
+  const params = new URLSearchParams();
+  if (failedFilterState.module_id) params.set('module_id', failedFilterState.module_id);
+  if (failedFilterState.course_id) params.set('course_id', failedFilterState.course_id);
+  if (failedFilterState.source_id) params.set('source_id', failedFilterState.source_id);
+  if (!params.toString()) {
+    failedOverrideRows = null;
+    renderAnalytics(analyticsCache, basicStatsCache || {});
+    return;
+  }
+  try {
+    const scoped = await fetchJSON(`${API_URL}/users/analytics?${params.toString()}`);
+    failedOverrideRows = scoped?.most_failed_questions_top10 || [];
+  } catch (_) {
+    failedOverrideRows = [];
+  }
+  renderAnalytics(analyticsCache, basicStatsCache || {});
 }
 
 async function loadMessages() {
@@ -375,6 +461,7 @@ async function loadProfile() {
       fetchJSON(`${API_URL}/users/flags?type=flag`),
       fetchJSON(`${API_URL}/users/analytics`)
     ]);
+    await loadReferencesForStats();
 
     await loadUnreadCount();
 
@@ -394,6 +481,8 @@ async function loadProfile() {
     basicStatsCache = stats || null;
     analyticsCache = analytics || null;
     selectedModuleForCourses = null;
+    failedOverrideRows = null;
+    failedFilterState = { module_id: '', course_id: '', source_id: '' };
     renderAnalytics(analyticsCache, basicStatsCache);
 
     document.getElementById('default_exam_minutes').value = prefs.default_exam_minutes || '';
@@ -640,4 +729,29 @@ document.getElementById('moduleScoresWrap')?.addEventListener('click', (e) => {
   const id = btn.getAttribute('data-module-score');
   selectedModuleForCourses = selectedModuleForCourses === id ? null : id;
   renderAnalytics(analyticsCache, basicStatsCache || {});
+});
+
+document.getElementById('failedQuestionsWrap')?.addEventListener('change', (e) => {
+  const target = e.target;
+  if (!(target instanceof HTMLSelectElement)) return;
+  if (target.id === 'failedFilterModule') {
+    failedFilterState.module_id = target.value || '';
+    if (failedFilterState.course_id) {
+      const hasCourse = referencesCache.courses.some((c) => String(c.id) === String(failedFilterState.course_id) && String(c.module_id || '') === String(failedFilterState.module_id || c.module_id || ''));
+      if (!hasCourse) failedFilterState.course_id = '';
+    }
+  }
+  if (target.id === 'failedFilterCourse') failedFilterState.course_id = target.value || '';
+  if (target.id === 'failedFilterSource') failedFilterState.source_id = target.value || '';
+  refreshFailedQuestionsAnalytics();
+});
+
+document.getElementById('failedQuestionsWrap')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-failed-toggle]');
+  if (!btn) return;
+  const id = btn.getAttribute('data-failed-toggle');
+  const detail = document.getElementById(`failedDetail-${id}`);
+  if (!detail) return;
+  detail.classList.toggle('hidden');
+  btn.textContent = detail.classList.contains('hidden') ? 'Details' : 'Masquer';
 });

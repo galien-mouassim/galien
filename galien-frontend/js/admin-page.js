@@ -14,6 +14,7 @@ const panelMeta = {
   'login-alerts': { title: 'Alertes login', sub: 'Notifications des connexions non-admin' },
   messages:  { title: 'Messages',       sub: 'Contactez vos utilisateurs' },
   users:     { title: 'Utilisateurs',   sub: 'Créez et gérez les comptes' },
+  'worker-submissions': { title: 'Questions workers', sub: 'Validation en lot avec score de similarité' },
 };
 
 function switchPanel(name) {
@@ -31,6 +32,9 @@ function switchPanel(name) {
     loadAdminInbox();
     loadLoginAlertSettings();
   }
+  if (name === 'worker-submissions') {
+    loadPendingQuestions();
+  }
 }
 
 document.querySelectorAll('.adm-nav-item[data-panel]').forEach(item => {
@@ -44,9 +48,8 @@ document.querySelectorAll('.adm-nav-item[data-panel]').forEach(item => {
 
 if (isWorker) {
   document.querySelectorAll('.adm-nav-item[data-panel]').forEach((item) => {
-    if (item.dataset.panel !== 'questions') item.style.display = 'none';
+    if (!['questions', 'worker-submissions'].includes(item.dataset.panel)) item.style.display = 'none';
   });
-  document.getElementById('pendingWorkersCard')?.classList.add('hidden');
   document.getElementById('exportCsvCard')?.classList.add('hidden');
   document.getElementById('panel-references')?.classList.add('hidden');
   document.getElementById('panel-import')?.classList.add('hidden');
@@ -54,6 +57,8 @@ if (isWorker) {
   document.getElementById('panel-login-alerts')?.classList.add('hidden');
   document.getElementById('panel-messages')?.classList.add('hidden');
   document.getElementById('panel-users')?.classList.add('hidden');
+  document.getElementById('pendingApproveSelectedBtn')?.classList.add('hidden');
+  document.getElementById('pendingApproveAllBtn')?.classList.add('hidden');
   const topbarSub = document.getElementById('topbarSub');
   if (topbarSub) topbarSub.textContent = 'Ajoutez des questions (validation admin requise)';
 }
@@ -97,6 +102,11 @@ let latestSimilarity = { maxPercent: 0, matches: [] };
 let questionsPage = 1;
 const questionsPageSize = 25;
 let questionsTotal = 0;
+let pendingPage = 1;
+const pendingPageSize = 20;
+let pendingTotal = 0;
+let pendingRowsCache = [];
+let workerSessionSubmittedCount = 0;
 const moduleNameById = new Map();
 const courseNameById = new Map();
 const sourceNameById = new Map();
@@ -504,50 +514,102 @@ async function loadUsersAdminManagement(){
 
 async function loadPendingQuestions() {
   const wrap = document.getElementById('pendingQuestionsList');
-  const badge = document.getElementById('pendingCountBadge');
-  if (!wrap || isWorker) return;
-  wrap.textContent = 'Chargement...';
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
   try {
-    const res = await fetch(`${API_URL}/admin/pending-questions?status=pending&page=1&page_size=20`, {
-      headers: getAuthHeaders()
+    const moduleId = document.getElementById('pending_filter_module_id')?.value || '';
+    const courseId = document.getElementById('pending_filter_course_id')?.value || '';
+    const sourceId = document.getElementById('pending_filter_source_id')?.value || '';
+    const status = document.getElementById('pending_filter_status')?.value || 'pending';
+    const params = new URLSearchParams({
+      page: String(pendingPage),
+      page_size: String(pendingPageSize),
+      status
     });
+    if (moduleId) params.set('module', moduleId);
+    if (courseId) params.set('course', courseId);
+    if (sourceId) params.set('source', sourceId);
+    const endpoint = isWorker ? `${API_URL}/worker/pending-questions` : `${API_URL}/admin/pending-questions`;
+    const res = await fetch(`${endpoint}?${params.toString()}`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('load failed');
     const data = await res.json();
     const rows = data.data || [];
-    if (badge) {
-      badge.textContent = String(rows.length);
-      badge.style.display = rows.length ? '' : 'none';
-    }
-    if (!rows.length) {
-      wrap.innerHTML = '<div class="muted">Aucune question en attente.</div>';
-      return;
-    }
-    wrap.innerHTML = rows.map((r) => `
-      <div class="question-item">
-        <div class="question-item-text">${esc(r.question)}</div>
-        <div class="question-item-meta">
-          <span class="question-item-tag">Worker: ${esc(r.submitted_by_email || r.submitted_by)}</span>
-          ${r.module_name ? `<span class="question-item-tag">${esc(r.module_name)}</span>` : ''}
-          ${r.course_name ? `<span class="question-item-tag">${esc(r.course_name)}</span>` : ''}
-          ${r.source_name ? `<span class="question-item-tag">${esc(r.source_name)}</span>` : ''}
-        </div>
-        <div class="question-item-actions">
-          <button class="btn-inline btn-sm" onclick="showPendingQuestionDetail(${r.id})">Voir</button>
-          <button class="btn-inline btn-sm" onclick="approvePendingQuestion(${r.id})">Approuver</button>
-          <button class="btn-inline btn-sm" style="color:var(--red)" onclick="rejectPendingQuestion(${r.id})">Rejeter</button>
-        </div>
-      </div>
-    `).join('');
+    pendingRowsCache = rows;
+    pendingTotal = Number(data.pagination?.total || rows.length || 0);
+    const compared = rows.map((r) => {
+      const raw = {
+        question: r.question,
+        option_a: r.option_a,
+        option_b: r.option_b,
+        option_c: r.option_c,
+        option_d: r.option_d,
+        option_e: r.option_e,
+        correct_option: r.correct_options,
+        module_id: r.module_id,
+        course_id: r.course_id,
+        source_id: r.source_id
+      };
+      const sim = computeRowSimilarity(raw, allQuestionsForSimilarity.length ? allQuestionsForSimilarity : allQuestions, []);
+      const rowSourceName = resolveRefDisplay(raw.source_id, r.source_name, sourceNameById);
+      const bestDbSourceName = resolveRefDisplay(sim.bestDb?.source_id, sim.bestDb?.source_name, sourceNameById);
+      return { ...r, similarity: sim.percent, bestDb: sim.bestDb, sourceDiff: !!(sim.bestDb?.id && isDifferentSource(rowSourceName?.toLowerCase?.(), bestDbSourceName?.toLowerCase?.())) };
+    });
+    renderPendingRows(compared);
+    renderPendingPagination();
   } catch (_) {
-    if (badge) badge.style.display = 'none';
     wrap.innerHTML = '<div class="muted">Erreur de chargement.</div>';
   }
 }
 
+function renderPendingRows(rows) {
+  const wrap = document.getElementById('pendingQuestionsList');
+  if (!wrap) return;
+  if (!rows.length) {
+    wrap.innerHTML = '<div class="adm-empty"><p>Aucune question trouvée.</p></div>';
+    return;
+  }
+  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.82rem">
+    <thead><tr style="background:var(--surface-2);text-align:left">
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">${isWorker ? '#' : 'Sel.'}</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Question</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Similarité</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Statut</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Actions</th>
+    </tr></thead>
+    <tbody>
+      ${rows.map((r) => {
+        const color = r.similarity >= 90 ? 'var(--red)' : r.similarity >= 70 ? '#f59e0b' : 'var(--ink-3)';
+        const statusLabel = r.status === 'approved' ? 'Approuvée' : r.status === 'rejected' ? 'Rejetée' : 'En attente';
+        const sourceTag = r.sourceDiff ? '<span class="sim-source-diff-tag">Source différente</span>' : '';
+        return `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px 10px">${isWorker ? r.id : `<input type="checkbox" data-pending-select="${r.id}" ${r.status !== 'pending' ? 'disabled' : ''}>`}</td>
+          <td style="padding:8px 10px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sourceTag}${esc(r.question || '')}<div class="muted">${esc(r.module_name || '-')} · ${esc(r.course_name || '-')} · ${esc(r.source_name || '-')}</div></td>
+          <td style="padding:8px 10px;font-weight:700;color:${color}">${r.similarity}%</td>
+          <td style="padding:8px 10px">${statusLabel}</td>
+          <td style="padding:8px 10px;display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn-inline btn-sm" onclick="showPendingQuestionDetail(${r.id})">Détail</button>
+            ${(!isWorker && r.status === 'pending') ? `<button class="btn-inline btn-sm" onclick="approvePendingQuestion(${r.id})">Approuver</button><button class="btn-inline btn-sm" style="color:var(--red)" onclick="rejectPendingQuestion(${r.id})">Rejeter</button>` : ''}
+          </td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
+}
+
+function renderPendingPagination() {
+  const info = document.getElementById('pendingPageInfo');
+  const prev = document.getElementById('prevPendingPageBtn');
+  const next = document.getElementById('nextPendingPageBtn');
+  if (!info || !prev || !next) return;
+  const totalPages = Math.max(1, Math.ceil(pendingTotal / pendingPageSize));
+  if (pendingPage > totalPages) pendingPage = totalPages;
+  info.textContent = `Page ${pendingPage} / ${totalPages} (${pendingTotal} lignes)`;
+  prev.disabled = pendingPage <= 1;
+  next.disabled = pendingPage >= totalPages;
+}
+
 async function showPendingQuestionDetail(id) {
-  const res = await fetch(`${API_URL}/admin/pending-questions?status=pending&page=1&page_size=100`, { headers: getAuthHeaders() });
-  const data = await res.json();
-  const q = (data.data || []).find(x => Number(x.id) === Number(id));
+  const q = pendingRowsCache.find((x) => Number(x.id) === Number(id));
   if (!q) return;
   const body = [
     `Question: ${q.question}`,
@@ -665,7 +727,12 @@ form.addEventListener('submit', async e => {
     loadQuestionsAdmin();
     loadPendingQuestions();
     if (res.status === 202) {
-      alert('Question envoyée pour validation admin.');
+      workerSessionSubmittedCount += 1;
+      const status = document.getElementById('workerSubmitStatus');
+      if (status) {
+        status.style.color = 'var(--green)';
+        status.textContent = `${workerSessionSubmittedCount} question(s) envoyée(s) dans cette session.`;
+      }
     }
   }
   else if(res.status===409){const d=await res.json().catch(()=>({}));alert(d.message||'Question déjà existante.');}
@@ -764,6 +831,59 @@ if (isAdmin) {
   loadPendingQuestions();
   loadLoginAlertSettings();
 }
+if (isWorker) {
+  loadPendingQuestions();
+}
+
+document.getElementById('pendingRefreshBtn')?.addEventListener('click', () => loadPendingQuestions());
+document.getElementById('pending_filter_module_id')?.addEventListener('change', async () => {
+  pendingPage = 1;
+  await loadFilterCourses();
+  await loadFilterSources();
+  loadPendingQuestions();
+});
+document.getElementById('pending_filter_course_id')?.addEventListener('change', () => { pendingPage = 1; loadPendingQuestions(); });
+document.getElementById('pending_filter_source_id')?.addEventListener('change', () => { pendingPage = 1; loadPendingQuestions(); });
+document.getElementById('pending_filter_status')?.addEventListener('change', () => { pendingPage = 1; loadPendingQuestions(); });
+document.getElementById('prevPendingPageBtn')?.addEventListener('click', () => { if (pendingPage > 1) { pendingPage -= 1; loadPendingQuestions(); } });
+document.getElementById('nextPendingPageBtn')?.addEventListener('click', () => {
+  const totalPages = Math.max(1, Math.ceil(pendingTotal / pendingPageSize));
+  if (pendingPage < totalPages) { pendingPage += 1; loadPendingQuestions(); }
+});
+
+document.getElementById('pendingApproveSelectedBtn')?.addEventListener('click', async () => {
+  const ids = Array.from(document.querySelectorAll('[data-pending-select]:checked'))
+    .map((el) => Number(el.getAttribute('data-pending-select')))
+    .filter((n) => Number.isInteger(n) && n > 0);
+  if (!ids.length) return;
+  const statusEl = document.getElementById('pendingBulkStatus');
+  if (statusEl) statusEl.textContent = 'Validation en cours...';
+  let done = 0;
+  for (const id of ids) {
+    const res = await fetch(`${API_URL}/admin/pending-questions/${id}/approve`, { method: 'POST', headers: getAuthHeaders() });
+    if (res.ok) done += 1;
+  }
+  if (statusEl) statusEl.textContent = `${done}/${ids.length} questions approuvées.`;
+  await loadQuestionsAdmin();
+  await loadSimilarityQuestionsPool();
+  await loadPendingQuestions();
+});
+
+document.getElementById('pendingApproveAllBtn')?.addEventListener('click', async () => {
+  const ids = pendingRowsCache.filter((r) => r.status === 'pending').map((r) => Number(r.id));
+  if (!ids.length) return;
+  const statusEl = document.getElementById('pendingBulkStatus');
+  if (statusEl) statusEl.textContent = 'Validation de toutes les lignes en cours...';
+  let done = 0;
+  for (const id of ids) {
+    const res = await fetch(`${API_URL}/admin/pending-questions/${id}/approve`, { method: 'POST', headers: getAuthHeaders() });
+    if (res.ok) done += 1;
+  }
+  if (statusEl) statusEl.textContent = `${done}/${ids.length} questions approuvées.`;
+  await loadQuestionsAdmin();
+  await loadSimilarityQuestionsPool();
+  await loadPendingQuestions();
+});
 
 async function loadModules() {
   const res=await fetch(`${API_URL}/modules`);
@@ -774,6 +894,11 @@ async function loadModules() {
   const filterSelect=document.getElementById('filter_module_id');
   filterSelect.innerHTML='<option value="">Tous les modules</option>';
   modules.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.name;filterSelect.appendChild(o);});
+  const pendingSelect=document.getElementById('pending_filter_module_id');
+  if(pendingSelect){
+    pendingSelect.innerHTML='<option value="">Tous les modules</option>';
+    modules.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.name;pendingSelect.appendChild(o);});
+  }
 }
 loadModules();
 
@@ -826,6 +951,15 @@ async function loadFilterCourses() {
   const select=document.getElementById('filter_course_id');
   select.innerHTML='<option value="">Tous les cours</option>';
   courses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;select.appendChild(o);});
+  const pendingModuleId=document.getElementById('pending_filter_module_id')?.value||'';
+  const pendingUrl=pendingModuleId?`${API_URL}/courses?module_id=${pendingModuleId}`:`${API_URL}/courses`;
+  const pendingRes=await fetch(pendingUrl);
+  const pendingCourses=await pendingRes.json();
+  const pendingSelect=document.getElementById('pending_filter_course_id');
+  if(pendingSelect){
+    pendingSelect.innerHTML='<option value="">Tous les cours</option>';
+    pendingCourses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;pendingSelect.appendChild(o);});
+  }
 }
 loadFilterCourses();
 
@@ -837,6 +971,15 @@ async function loadFilterSources() {
   const select=document.getElementById('filter_source_id');
   select.innerHTML='<option value="">Toutes les sources</option>';
   sources.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;select.appendChild(o);});
+  const pendingModuleId=document.getElementById('pending_filter_module_id')?.value||'';
+  const pendingUrl=pendingModuleId?`${API_URL}/sources?module_id=${pendingModuleId}`:`${API_URL}/sources`;
+  const pendingRes=await fetch(pendingUrl);
+  const pendingSources=await pendingRes.json();
+  const pendingSelect=document.getElementById('pending_filter_source_id');
+  if(pendingSelect){
+    pendingSelect.innerHTML='<option value="">Toutes les sources</option>';
+    pendingSources.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;pendingSelect.appendChild(o);});
+  }
 }
 loadFilterSources();
 
@@ -901,7 +1044,7 @@ document.getElementById('sendMessageBtn').addEventListener('click',async()=>{
 });
 
 document.getElementById('refreshAdminInboxBtn')?.addEventListener('click', loadAdminInbox);
-document.getElementById('refreshPendingBtn')?.addEventListener('click', loadPendingQuestions);
+document.getElementById('pendingRefreshBtn')?.addEventListener('click', loadPendingQuestions);
 document.getElementById('loginAlertsEnabledToggle')?.addEventListener('change', async (e) => {
   const status = document.getElementById('loginAlertStatus');
   try {

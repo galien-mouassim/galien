@@ -2978,6 +2978,24 @@ app.get('/api/admin/pending-questions', authMiddleware, requireAdmin, async (req
         const status = String(req.query.status || 'pending').trim().toLowerCase();
         const pageCfg = getPagination(req, { page: 1, pageSize: 25, maxPageSize: 100 });
         const validStatus = ['pending', 'approved', 'rejected'].includes(status) ? status : 'pending';
+        const moduleIds = parseIntList(req.query.module);
+        const courseIds = parseIntList(req.query.course);
+        const sourceIds = parseIntList(req.query.source);
+        const filters = ['pq.status = $1'];
+        const params = [validStatus];
+        if (moduleIds.length) {
+            params.push(moduleIds);
+            filters.push(`pq.module_id = ANY($${params.length}::int[])`);
+        }
+        if (courseIds.length) {
+            params.push(courseIds);
+            filters.push(`pq.course_id = ANY($${params.length}::int[])`);
+        }
+        if (sourceIds.length) {
+            params.push(sourceIds);
+            filters.push(`pq.source_id = ANY($${params.length}::int[])`);
+        }
+        const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
         const [rowsRes, countRes] = await Promise.all([
             pool.query(
@@ -2991,14 +3009,73 @@ app.get('/api/admin/pending-questions', authMiddleware, requireAdmin, async (req
                  LEFT JOIN courses c ON c.id = pq.course_id
                  LEFT JOIN sources s ON s.id = pq.source_id
                  LEFT JOIN users u ON u.id = pq.submitted_by
-                 WHERE pq.status = $1
+                 ${where}
                  ORDER BY pq.created_at DESC
-                 LIMIT $2 OFFSET $3`,
-                [validStatus, pageCfg.pageSize, pageCfg.offset]
+                 LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+                [...params, pageCfg.pageSize, pageCfg.offset]
             ),
             pool.query(
-                'SELECT COUNT(*)::int AS total FROM pending_questions WHERE status = $1',
-                [validStatus]
+                `SELECT COUNT(*)::int AS total FROM pending_questions pq ${where}`,
+                params
+            )
+        ]);
+
+        res.json({
+            data: rowsRes.rows,
+            pagination: {
+                page: pageCfg.page,
+                page_size: pageCfg.pageSize,
+                total: Number(countRes.rows[0]?.total || 0)
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/worker/pending-questions', authMiddleware, async (req, res) => {
+    try {
+        if (req.user?.role !== 'worker') return res.status(403).json({ message: 'Forbidden' });
+        await ensurePendingQuestionsSchema();
+        const status = String(req.query.status || 'pending').trim().toLowerCase();
+        const pageCfg = getPagination(req, { page: 1, pageSize: 25, maxPageSize: 100 });
+        const validStatus = ['pending', 'approved', 'rejected'].includes(status) ? status : 'pending';
+        const moduleIds = parseIntList(req.query.module);
+        const courseIds = parseIntList(req.query.course);
+        const sourceIds = parseIntList(req.query.source);
+        const filters = ['pq.submitted_by = $1', 'pq.status = $2'];
+        const params = [req.user.id, validStatus];
+        if (moduleIds.length) {
+            params.push(moduleIds);
+            filters.push(`pq.module_id = ANY($${params.length}::int[])`);
+        }
+        if (courseIds.length) {
+            params.push(courseIds);
+            filters.push(`pq.course_id = ANY($${params.length}::int[])`);
+        }
+        if (sourceIds.length) {
+            params.push(sourceIds);
+            filters.push(`pq.source_id = ANY($${params.length}::int[])`);
+        }
+        const where = `WHERE ${filters.join(' AND ')}`;
+
+        const [rowsRes, countRes] = await Promise.all([
+            pool.query(
+                `SELECT pq.*, m.name AS module_name, c.name AS course_name, s.name AS source_name
+                 FROM pending_questions pq
+                 LEFT JOIN modules m ON m.id = pq.module_id
+                 LEFT JOIN courses c ON c.id = pq.course_id
+                 LEFT JOIN sources s ON s.id = pq.source_id
+                 ${where}
+                 ORDER BY pq.created_at DESC
+                 LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+                [...params, pageCfg.pageSize, pageCfg.offset]
+            ),
+            pool.query(
+                `SELECT COUNT(*)::int AS total
+                 FROM pending_questions pq
+                 ${where}`,
+                params
             )
         ]);
 

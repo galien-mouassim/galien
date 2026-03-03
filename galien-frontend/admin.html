@@ -91,6 +91,15 @@
     Utilisateurs
   </div>
 
+  <div class="adm-nav-item" data-panel="worker-submissions">
+    <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Mes envois
+  </div>
+
   <div class="adm-sidebar-spacer"></div>
 
   <div class="adm-sidebar-footer">
@@ -198,9 +207,10 @@
             <div id="similarityList" class="similarity-list"></div>
           </div>
 
-          <div style="display:flex;gap:10px;margin-top:4px">
+        <div style="display:flex;gap:10px;margin-top:4px">
             <button type="submit" id="submitBtn" class="btn" style="flex:1">Ajouter la question</button>
           </div>
+          <p id="workerSubmitStatus" class="muted" style="margin-top:8px"></p>
         </form>
       </div>
 
@@ -210,14 +220,6 @@
           <div class="adm-section-title">Questions existantes</div>
           <div class="adm-section-desc">Filtrez et modifiez vos questions.</div>
         </div>
-      </div>
-
-      <div class="adm-card" id="pendingWorkersCard" style="margin-bottom:12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-          <div class="adm-card-title" style="margin-bottom:0">Questions workers en attente <span id="pendingCountBadge" class="adm-nav-badge" style="display:none">0</span></div>
-          <button type="button" id="refreshPendingBtn" class="btn ghost btn-sm">Rafraîchir</button>
-        </div>
-        <div id="pendingQuestionsList" class="muted" style="font-size:.82rem">Chargement...</div>
       </div>
 
       <div class="filter-bar">
@@ -385,6 +387,40 @@
           <span id="importPageInfo" class="muted" style="font-size:.82rem"></span>
           <button type="button" id="nextImportPageBtn" class="btn ghost btn-sm">Suivant →</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ═══ PANEL: PENDING WORKERS (ADMIN) ═══ -->
+    <div class="adm-panel" id="panel-worker-submissions">
+      <div class="adm-section-header">
+        <div>
+          <div class="adm-section-title">Questions workers</div>
+          <div class="adm-section-desc">Validation en lot avec analyse de similarité.</div>
+        </div>
+      </div>
+      <div class="filter-bar">
+        <label class="field"><span>Module</span><select id="pending_filter_module_id"></select></label>
+        <label class="field"><span>Cours</span><select id="pending_filter_course_id"></select></label>
+        <label class="field"><span>Source</span><select id="pending_filter_source_id"></select></label>
+        <label class="field"><span>Statut</span>
+          <select id="pending_filter_status">
+            <option value="pending">En attente</option>
+            <option value="approved">Approuvées</option>
+            <option value="rejected">Rejetées</option>
+          </select>
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button type="button" class="btn ghost btn-sm" id="pendingRefreshBtn">Rafraîchir</button>
+        <button type="button" class="btn btn-sm" id="pendingApproveSelectedBtn">Accepter sélection</button>
+        <button type="button" class="btn ghost btn-sm" id="pendingApproveAllBtn">Accepter tout</button>
+        <span id="pendingBulkStatus" class="muted" style="margin-left:auto"></span>
+      </div>
+      <div id="pendingQuestionsList"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px;flex-wrap:wrap">
+        <button type="button" id="prevPendingPageBtn" class="btn ghost btn-sm">← Précédent</button>
+        <span id="pendingPageInfo" class="muted" style="font-size:.82rem"></span>
+        <button type="button" id="nextPendingPageBtn" class="btn ghost btn-sm">Suivant →</button>
       </div>
     </div>
 

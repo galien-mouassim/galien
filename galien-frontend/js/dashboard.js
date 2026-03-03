@@ -35,8 +35,10 @@ const trainingQuestionCountValue = document.getElementById('training_question_co
 const examQuestionCountValue = document.getElementById('exam_question_count_value');
 const trainingSliderMax = document.getElementById('training_slider_max');
 const examSliderMax = document.getElementById('exam_slider_max');
-const reviewModeSel = document.getElementById('review_mode');
-const hideMetaToggle = document.getElementById('hideMetaToggle');
+const trainingReviewModeSel = document.getElementById('training_review_mode');
+const examReviewModeSel = document.getElementById('exam_review_mode');
+const trainingHideMetaToggle = document.getElementById('training_hideMetaToggle');
+const examHideMetaToggle = document.getElementById('exam_hideMetaToggle');
 const examWarningInput = document.getElementById('exam_warning_minutes');
 
 const selModule = document.getElementById('sel_module');
@@ -81,6 +83,25 @@ function selectMode(mode) {
   trainingPanel.classList.toggle('hidden', mode !== 'training');
   examPanel.classList.toggle('hidden', mode !== 'exam');
   scheduleCountRefresh();
+}
+
+function getActiveReviewMode() {
+  const sel = currentMode === 'exam' ? examReviewModeSel : trainingReviewModeSel;
+  return sel?.value || 'all';
+}
+
+function getActiveHideMeta() {
+  const toggle = currentMode === 'exam' ? examHideMetaToggle : trainingHideMetaToggle;
+  return !!toggle?.checked;
+}
+
+function syncSharedOptions(fromMode) {
+  const fromReview = fromMode === 'exam' ? examReviewModeSel : trainingReviewModeSel;
+  const toReview = fromMode === 'exam' ? trainingReviewModeSel : examReviewModeSel;
+  const fromHide = fromMode === 'exam' ? examHideMetaToggle : trainingHideMetaToggle;
+  const toHide = fromMode === 'exam' ? trainingHideMetaToggle : examHideMetaToggle;
+  if (fromReview && toReview) toReview.value = fromReview.value;
+  if (fromHide && toHide) toHide.checked = !!fromHide.checked;
 }
 
 function updateCorrectionHelp() {
@@ -248,7 +269,7 @@ async function refreshQuestionCount() {
     const courseIds = getSelectedValues(selCourse);
     const sourceIds = getSelectedValues(selSource);
     const favoriteTags = getSelectedValues(selFavTag);
-    const reviewMode = reviewModeSel?.value || 'all';
+    const reviewMode = getActiveReviewMode();
     const countParams = new URLSearchParams();
     if (moduleIds.length) countParams.set('module', moduleIds.join(','));
     if (courseIds.length) countParams.set('course', courseIds.join(','));
@@ -422,7 +443,10 @@ selModule.addEventListener('change', () => {
 selCourse.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
 selSource.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
 selFavTag?.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
-reviewModeSel?.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
+trainingReviewModeSel?.addEventListener('change', () => { syncSharedOptions('training'); if (!isPopulatingFilters) scheduleCountRefresh(); });
+examReviewModeSel?.addEventListener('change', () => { syncSharedOptions('exam'); if (!isPopulatingFilters) scheduleCountRefresh(); });
+trainingHideMetaToggle?.addEventListener('change', () => syncSharedOptions('training'));
+examHideMetaToggle?.addEventListener('change', () => syncSharedOptions('exam'));
 
 const startBtn = document.getElementById('startBtn');
 startBtn.addEventListener('click', () => {
@@ -434,8 +458,8 @@ startBtn.addEventListener('click', () => {
   localStorage.setItem('course_id', getSelectedValues(selCourse).join(','));
   localStorage.setItem('source_id', getSelectedValues(selSource).join(','));
   localStorage.setItem('favorite_tags', getSelectedValues(selFavTag).join(','));
-  localStorage.setItem('review_mode', reviewModeSel?.value || 'all');
-  localStorage.setItem('hide_question_meta', hideMetaToggle?.checked ? '1' : '0');
+  localStorage.setItem('review_mode', getActiveReviewMode());
+  localStorage.setItem('hide_question_meta', getActiveHideMeta() ? '1' : '0');
 
   const corrSystem = currentMode === 'exam' ? correctionSel.value : trainingCorrectionSel.value;
   localStorage.setItem('correction_system', corrSystem);
@@ -480,12 +504,12 @@ startBtn.addEventListener('click', () => {
   });
 });
 
-if (reviewModeSel) {
-  reviewModeSel.value = localStorage.getItem('review_mode') || 'all';
-}
-if (hideMetaToggle) {
-  hideMetaToggle.checked = localStorage.getItem('hide_question_meta') === '1';
-}
+const reviewModeSaved = localStorage.getItem('review_mode') || 'all';
+if (trainingReviewModeSel) trainingReviewModeSel.value = reviewModeSaved;
+if (examReviewModeSel) examReviewModeSel.value = reviewModeSaved;
+const hideMetaSaved = localStorage.getItem('hide_question_meta') === '1';
+if (trainingHideMetaToggle) trainingHideMetaToggle.checked = hideMetaSaved;
+if (examHideMetaToggle) examHideMetaToggle.checked = hideMetaSaved;
 if (examWarningInput && localStorage.getItem('exam_warning_minutes')) {
   examWarningInput.value = localStorage.getItem('exam_warning_minutes');
 }

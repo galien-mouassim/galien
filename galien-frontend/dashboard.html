@@ -142,27 +142,6 @@
             </div>
           </div>
         </div>
-        <div class="filters-row" style="margin-top:12px">
-          <div class="field" style="margin-bottom:0">
-            <span>Questions à réviser</span>
-            <select id="review_mode">
-              <option value="all">Toutes les questions</option>
-              <option value="wrong_ever">Questions ratées (au moins une fois)</option>
-              <option value="wrong_last">Questions ratées à la dernière tentative</option>
-              <option value="unanswered">Questions jamais répondues</option>
-            </select>
-          </div>
-          <div class="toggle-row" style="border-top:none;padding-top:0;margin:0">
-            <div class="toggle-label">
-              Masquer module/cours/source dans la carte QCM
-              <small>Affiche uniquement l'énoncé et les propositions</small>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="hideMetaToggle">
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-        </div>
         <div class="filters-count-wrap" style="margin-top:12px">
           <div class="question-counter">
             <span class="question-counter-num js-questions-count">...</span>
@@ -223,6 +202,27 @@
               <input type="number" id="customDelay" min="1" max="60" placeholder="Ex: 7" style="width:90px">
             </div>
           </div>
+        <div class="filters-row" style="margin-top:12px">
+          <div class="field" style="margin-bottom:0">
+            <span>Questions a reviser</span>
+            <select id="training_review_mode">
+              <option value="all">Toutes les questions</option>
+              <option value="wrong_ever">Questions ratees (au moins une fois)</option>
+              <option value="wrong_last">Questions ratees a la derniere tentative</option>
+              <option value="unanswered">Questions jamais repondues</option>
+            </select>
+          </div>
+          <div class="toggle-row" style="border-top:none;padding-top:0;margin:0">
+            <div class="toggle-label">
+              Masquer module/cours/source dans la carte QCM
+              <small>Affiche uniquement l'enonce et les propositions</small>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="training_hideMetaToggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
         </div>
       </div>
 
@@ -260,6 +260,27 @@
         <div class="field" style="margin-bottom:0">
           <span>Alerte temps restant (minutes)</span>
           <input type="number" id="exam_warning_minutes" min="1" placeholder="Ex: 5 (laisser vide pour désactiver)">
+        <div class="filters-row" style="margin-top:12px">
+          <div class="field" style="margin-bottom:0">
+            <span>Questions a reviser</span>
+            <select id="exam_review_mode">
+              <option value="all">Toutes les questions</option>
+              <option value="wrong_ever">Questions ratees (au moins une fois)</option>
+              <option value="wrong_last">Questions ratees a la derniere tentative</option>
+              <option value="unanswered">Questions jamais repondues</option>
+            </select>
+          </div>
+          <div class="toggle-row" style="border-top:none;padding-top:0;margin:0">
+            <div class="toggle-label">
+              Masquer module/cours/source dans la carte QCM
+              <small>Affiche uniquement l'enonce et les propositions</small>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="exam_hideMetaToggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
         </div>
         <div class="help-text" id="correctionHelp">Vous devez cocher toutes les bonnes reponses et uniquement celles-ci.</div>
       </div>

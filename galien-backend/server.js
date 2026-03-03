@@ -3514,24 +3514,24 @@ async function ensureRequestedCourses() {
     );
 
     const extras = [
-        ['Biochimie', 'métabolisme du glycogène (Métabolisme des glucides)'],
-        ['Biochimie', 'glyolyse (Métabolisme des glucides)'],
-        ['Biochimie', 'cycle de krebs (Métabolisme des glucides)'],
-        ['Biochimie', 'cycle de pentose phosphate (Métabolisme des glucides)'],
-        ['Hémobiologie', 'Les anémies hémolytiques héréditaires par anomalie de l’hémoglobine'],
-        ['Hémobiologie', 'Effets indésirables de la transfusion'],
+        ['Biochimie', 'm\u00e9tabolisme du glycog\u00e8ne (M\u00e9tabolisme des glucides)'],
+        ['Biochimie', 'glyolyse (M\u00e9tabolisme des glucides)'],
+        ['Biochimie', 'cycle de krebs (M\u00e9tabolisme des glucides)'],
+        ['Biochimie', 'cycle de pentose phosphate (M\u00e9tabolisme des glucides)'],
+        ['H\u00e9mobiologie', 'Les an\u00e9mies h\u00e9molytiques h\u00e9r\u00e9ditaires par anomalie de l\u2019h\u00e9moglobine'],
+        ['H\u00e9mobiologie', 'Effets ind\u00e9sirables de la transfusion'],
         ['Biophysique', 'Osmose'],
-        ['Pharmacie galénique', 'Dessiccation – Lyophilisation'],
-        ['Pharmacie galénique', 'Mélange des poudres'],
-        ['Pharmacie galénique', 'Granulation des poudres'],
-        ['Pharmacie galénique', 'Formes pharmaceutiques destinées aux autres voies d’administration (nasale, auriculaire et vaginale)'],
-        ['Pharmacie galénique', 'Stabilité'],
-        ['Pharmacie galénique', 'Pommades, crèmes et gels'],
-        ['Pharmacie galénique', 'Dispositifs médicaux : Articles de pansement'],
+        ['Pharmacie gal\u00e9nique', 'Dessiccation \u2013 Lyophilisation'],
+        ['Pharmacie gal\u00e9nique', 'M\u00e9lange des poudres'],
+        ['Pharmacie gal\u00e9nique', 'Granulation des poudres'],
+        ['Pharmacie gal\u00e9nique', 'Formes pharmaceutiques destin\u00e9es aux autres voies d\u2019administration (nasale, auriculaire et vaginale)'],
+        ['Pharmacie gal\u00e9nique', 'Stabilit\u00e9'],
+        ['Pharmacie gal\u00e9nique', 'Pommades, cr\u00e8mes et gels'],
+        ['Pharmacie gal\u00e9nique', 'Dispositifs m\u00e9dicaux : Articles de pansement'],
         ['Toxicologie', 'Substances dopantes'],
         ['Toxicologie', 'Cyanure'],
         ['Toxicologie', 'Ethers de glycol'],
-        ['Toxicologie', 'Pesticides pyréthrinoïdes'],
+        ['Toxicologie', 'Pesticides pyr\u00e9thrino\u00efdes'],
         ['Toxicologie', 'Contaminants alimentaires']
     ];
 

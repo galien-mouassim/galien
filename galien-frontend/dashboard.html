@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/wizard-enhanced.css">
+<link rel="stylesheet" href="css/mode-cards-enhanced.css">
 </head>
 <body>
 <div class="dashboard-wrap">
@@ -151,8 +152,9 @@
       </div>
       <div class="dash-panel" id="trainingPanel">
         <div class="dash-panel-title"><i class="bi bi-lightning-charge"></i> Options entrainement</div>
-        <div class="filters-row" style="margin-bottom:12px">
-          <div class="field" style="margin-bottom:0">
+        <div class="options-panel-body">
+        <div class="filters-row filters-row--top">
+          <div class="field">
             <span>Systeme de correction</span>
             <select id="training_correction_system">
               <option value="tout_ou_rien">Tout ou rien</option>
@@ -160,7 +162,19 @@
               <option value="partiel_negative">Partiel negatif</option>
             </select>
           </div>
-          <div class="field" style="margin-bottom:0">
+          <div class="field">
+            <span>Questions a reviser</span>
+            <select id="training_review_mode">
+              <option value="all">Toutes les questions</option>
+              <option value="wrong_ever">Questions ratees (au moins une fois)</option>
+              <option value="wrong_last">Questions ratees a la derniere tentative</option>
+              <option value="unanswered">Questions jamais repondues</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-divider"></div>
+        <div class="filters-row filters-row--single">
+          <div class="field field--slider">
             <div class="qcount-slider-wrap">
               <div class="slider-header">
                 <span>Nombre de questions</span>
@@ -176,7 +190,8 @@
             </div>
           </div>
         </div>
-        <div class="toggle-row" style="border-top:none;padding-top:0">
+        <div class="panel-divider"></div>
+        <div class="toggle-row toggle-row--flush">
           <div class="toggle-label">
             Avance automatique apres correction
             <small>Passe a la question suivante automatiquement</small>
@@ -186,9 +201,9 @@
             <span class="toggle-slider"></span>
           </label>
         </div>
-        <div id="delayPanel" class="hidden" style="margin-top:12px">
+        <div id="delayPanel" class="delay-panel hidden">
           <div class="delay-row">
-            <div class="field" style="margin-bottom:0">
+            <div class="field">
               <span>Delai rapide</span>
               <select id="delayPreset">
                 <option value="2">2 secondes</option>
@@ -199,41 +214,32 @@
             </div>
             <div class="delay-input-wrap hidden" id="customDelayWrap">
               <span>Secondes</span>
-              <input type="number" id="customDelay" min="1" max="60" placeholder="Ex: 7" style="width:90px">
+              <input type="number" id="customDelay" min="1" max="60" placeholder="Ex: 7" class="delay-custom-input">
             </div>
           </div>
         </div>
-        <div class="filters-row" style="margin-top:12px">
-          <div class="field" style="margin-bottom:0">
-            <span>Questions a reviser</span>
-            <select id="training_review_mode">
-              <option value="all">Toutes les questions</option>
-              <option value="wrong_ever">Questions ratees (au moins une fois)</option>
-              <option value="wrong_last">Questions ratees a la derniere tentative</option>
-              <option value="unanswered">Questions jamais repondues</option>
-            </select>
+        <div class="toggle-row toggle-row--flush">
+          <div class="toggle-label">
+            Masquer module/cours/source dans la carte QCM
+            <small>Affiche uniquement l'enonce et les propositions</small>
           </div>
-          <div class="toggle-row" style="border-top:none;padding-top:0;margin:0">
-            <div class="toggle-label">
-              Masquer module/cours/source dans la carte QCM
-              <small>Affiche uniquement l'enonce et les propositions</small>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="training_hideMetaToggle">
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="training_hideMetaToggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
         </div>
       </div>
 
       <div class="dash-panel hidden" id="examPanel">
         <div class="dash-panel-title"><i class="bi bi-clock"></i> Options examen</div>
-        <div class="filters-row" style="margin-bottom:12px">
-          <div class="field" style="margin-bottom:0">
+        <div class="options-panel-body">
+        <div class="filters-row filters-row--triple filters-row--top">
+          <div class="field">
             <span>Duree (minutes)</span>
             <input type="number" id="exam_minutes" min="1" placeholder="Ex: 30">
           </div>
-          <div class="field" style="margin-bottom:0">
+          <div class="field">
             <span>Systeme de correction</span>
             <select id="correction_system">
               <option value="tout_ou_rien">Tout ou rien</option>
@@ -241,7 +247,14 @@
               <option value="partiel_negative">Partiel negatif</option>
             </select>
           </div>
-          <div class="field" style="margin-bottom:0">
+          <div class="field">
+            <span>Alerte temps restant (minutes)</span>
+            <input type="number" id="exam_warning_minutes" min="1" placeholder="Ex: 5 (laisser vide pour desactiver)">
+          </div>
+        </div>
+        <div class="panel-divider"></div>
+        <div class="filters-row filters-row--single">
+          <div class="field field--slider">
             <div class="qcount-slider-wrap">
               <div class="slider-header">
                 <span>Nombre de questions</span>
@@ -257,12 +270,9 @@
             </div>
           </div>
         </div>
-        <div class="field" style="margin-bottom:0">
-          <span>Alerte temps restant (minutes)</span>
-          <input type="number" id="exam_warning_minutes" min="1" placeholder="Ex: 5 (laisser vide pour désactiver)">
-        </div>
-        <div class="filters-row" style="margin-top:12px">
-          <div class="field" style="margin-bottom:0">
+        <div class="panel-divider"></div>
+        <div class="filters-row filters-row--single">
+          <div class="field">
             <span>Questions a reviser</span>
             <select id="exam_review_mode">
               <option value="all">Toutes les questions</option>
@@ -271,19 +281,22 @@
               <option value="unanswered">Questions jamais repondues</option>
             </select>
           </div>
-          <div class="toggle-row" style="border-top:none;padding-top:0;margin:0">
-            <div class="toggle-label">
-              Masquer module/cours/source dans la carte QCM
-              <small>Affiche uniquement l'enonce et les propositions</small>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="exam_hideMetaToggle">
-              <span class="toggle-slider"></span>
-            </label>
+        </div>
+        <div class="toggle-row toggle-row--flush">
+          <div class="toggle-label">
+            Masquer module/cours/source dans la carte QCM
+            <small>Affiche uniquement l'enonce et les propositions</small>
           </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="exam_hideMetaToggle">
+            <span class="toggle-slider"></span>
+          </label>
         </div>
         <div class="help-text" id="correctionHelp">Vous devez cocher toutes les bonnes reponses et uniquement celles-ci.</div>
+        </div>
       </div>
+
+      
 
       <button class="btn start-btn" id="startBtn" type="button"><i class="bi bi-play-fill"></i> Commencer</button>
       <button class="btn ghost hidden" id="resumeBtn" type="button" style="margin-top:8px"><i class="bi bi-arrow-counterclockwise"></i> Reprendre la session en cours</button>
@@ -302,8 +315,5 @@
 <script src="js/profile-link.js" defer></script>
 </body>
 </html>
-
-
-
 
 

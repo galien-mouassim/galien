@@ -1,6 +1,16 @@
 ﻿async function fetchJSON(url, options = {}) {
   const res = await fetch(url, { ...options, headers: { ...getAuthHeaders(), ...(options.headers || {}) } });
-  if (!res.ok) throw new Error('Request failed');
+  if (!res.ok) {
+    let msg = 'Request failed';
+    try {
+      const payload = await res.json();
+      if (payload?.message) msg = payload.message;
+      else if (payload?.error) msg = payload.error;
+    } catch (_) {}
+    const err = new Error(msg);
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 
@@ -679,7 +689,12 @@ document.getElementById('flagsList')?.addEventListener('click', async (e) => {
   try {
     await fetchJSON(`${API_URL}/users/reports/${id}`, { method: 'DELETE' });
     loadProfile();
-  } catch (_) {
+  } catch (err) {
+    if (err?.status === 404) {
+      flagsCache = flagsCache.filter((r) => String(r.id) !== String(id));
+      renderFlags(flagsCache);
+      return;
+    }
     btn.innerHTML = '<i class="bi bi-x-circle"></i> Retirer';
   }
 });

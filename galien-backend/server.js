@@ -931,7 +931,7 @@ function weightedSimilarity(parts) {
 }
 
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
 
     try {
         const result = await pool.query(
@@ -976,7 +976,9 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         });
 
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        const msg = err?.message || String(err) || 'Login failed';
+        console.error('[LOGIN_ERROR]', msg, err?.code || '');
+        res.status(500).json({ error: msg });
     }
 });
 
@@ -1467,7 +1469,9 @@ app.get('/api/modules', async (req, res) => {
         res.set('Cache-Control', 'public, max-age=30');
         return res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        const msg = err?.message || String(err) || 'Failed to load modules';
+        console.error('[MODULES_ERROR]', msg, err?.code || '');
+        res.status(500).json({ error: msg });
     }
 });
 
@@ -1625,7 +1629,9 @@ app.get('/api/sources', async (req, res) => {
         res.set('Cache-Control', 'public, max-age=30');
         return res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        const msg = err?.message || String(err) || 'Failed to load sources';
+        console.error('[SOURCES_ERROR]', msg, err?.code || '');
+        res.status(500).json({ error: msg });
     }
 });
 

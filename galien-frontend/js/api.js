@@ -57,14 +57,31 @@ function clearAuthState() {
 if (!window.__galienFetchWrapped) {
   const nativeFetch = window.fetch.bind(window);
   window.fetch = async (...args) => {
+    const requestInit = args[1] || {};
+    const requestHeaders = requestInit.headers || {};
+    const authHeader =
+      (typeof requestHeaders.get === 'function' && requestHeaders.get('Authorization')) ||
+      requestHeaders.Authorization ||
+      requestHeaders.authorization ||
+      '';
+    const usedToken = String(authHeader).startsWith('Bearer ')
+      ? String(authHeader).slice(7)
+      : '';
+
     const res = await nativeFetch(...args);
     const url = String(args[0] || '');
     const isLoginCall = url.includes('/api/auth/login');
 
     if (res.status === 401 && !isLoginCall) {
-      clearAuthState();
-      if (!window.location.pathname.toLowerCase().endsWith('login.html')) {
-        window.location.href = 'login.html?reason=session';
+      const currentToken = localStorage.getItem('token') || '';
+      const sameToken = !!usedToken && usedToken === currentToken;
+      // Ignore stale-tab and unauthenticated-call 401s.
+      // Force logout only if the failing request used the currently active token.
+      if (sameToken) {
+        clearAuthState();
+        if (!window.location.pathname.toLowerCase().endsWith('login.html')) {
+          window.location.href = 'login.html?reason=session';
+        }
       }
     }
 

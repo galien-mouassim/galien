@@ -3502,7 +3502,27 @@ app.post('/api/questions/import', authMiddleware, requireAdmin, async (req, res)
     try {
         await client.query('BEGIN');
 
-        for (const row of rows) {
+        const existingRes = await client.query(
+            `SELECT id, question, option_a, option_b, option_c, option_d, option_e,
+                    module_id, course_id, source_id
+             FROM questions`
+        );
+        const duplicateKeys = new Set();
+        existingRes.rows.forEach((q) => {
+            const key = [
+                normalizeQuestionText(q.question),
+                buildOptionSignature(q),
+                String(toIntOrNull(q.module_id) ?? ''),
+                String(toIntOrNull(q.course_id) ?? ''),
+                String(toIntOrNull(q.source_id) ?? '')
+            ].join('::');
+            duplicateKeys.add(key);
+        });
+
+        let inserted = 0;
+        const skipped = [];
+
+        for (const [idx, row] of rows.entries()) {
             const question = (row.question || '').trim();
             const option_a = (row.option_a || '').trim();
             const option_b = (row.option_b || '').trim();
@@ -3581,6 +3601,22 @@ app.post('/api/questions/import', authMiddleware, requireAdmin, async (req, res)
                 );
             }
 
+            const importKey = [
+                normalizeQuestionText(question),
+                buildOptionSignature({ option_a, option_b, option_c, option_d, option_e }),
+                String(module_id ?? ''),
+                String(course_id ?? ''),
+                String(source_id ?? '')
+            ].join('::');
+            if (duplicateKeys.has(importKey)) {
+                skipped.push({
+                    row: idx + 1,
+                    question,
+                    reason: 'duplicate'
+                });
+                continue;
+            }
+
             const insertQuery = `
                 INSERT INTO questions
                 (question, option_a, option_b, option_c, option_d, option_e, correct_options, module_id, course_id, source_id, explanation)
@@ -3602,11 +3638,17 @@ app.post('/api/questions/import', authMiddleware, requireAdmin, async (req, res)
             ];
 
             await client.query(insertQuery, values);
+            duplicateKeys.add(importKey);
+            inserted += 1;
         }
 
         await client.query('COMMIT');
         invalidateMetadataCache();
-        res.json({ inserted: rows.length });
+        res.json({
+            inserted,
+            skipped_duplicates: skipped.length,
+            skipped
+        });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(400).json({ error: err.message });

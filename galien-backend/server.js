@@ -21,6 +21,7 @@ const USER_ANALYTICS_CACHE_TTL_MS = Number(process.env.USER_ANALYTICS_CACHE_TTL_
 const metadataCache = new Map();
 let ensureResultsSavedSchemaPromise = null;
 let ensurePendingQuestionsSchemaPromise = null;
+let ensureAppSettingsSchemaPromise = null;
 
 function compactSql(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
@@ -125,6 +126,27 @@ async function ensurePendingQuestionsSchema() {
         throw err;
     });
     return ensurePendingQuestionsSchemaPromise;
+}
+
+async function ensureAppSettingsSchema() {
+    if (ensureAppSettingsSchemaPromise) return ensureAppSettingsSchemaPromise;
+    ensureAppSettingsSchemaPromise = (async () => {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        `);
+        await pool.query(`
+            INSERT INTO app_settings (key, value)
+            VALUES ('non_admin_login_alert_enabled', 'true')
+            ON CONFLICT (key) DO NOTHING
+        `);
+    })().catch((err) => {
+        ensureAppSettingsSchemaPromise = null;
+        throw err;
+    });
+    return ensureAppSettingsSchemaPromise;
 }
 
 const basePoolQuery = pool.query.bind(pool);
@@ -375,6 +397,7 @@ function getLoginAlertConfigIssue() {
 
 async function getAppSettingBoolean(key, fallback = false) {
     try {
+        await ensureAppSettingsSchema();
         const res = await pool.query(
             'SELECT value FROM app_settings WHERE key = $1',
             [key]
@@ -3009,6 +3032,7 @@ app.post('/api/admin/test-login-alert', authMiddleware, requireAdmin, async (req
 
 app.get('/api/admin/login-alert-settings', authMiddleware, requireAdmin, async (req, res) => {
     try {
+        await ensureAppSettingsSchema();
         const enabled = await getAppSettingBoolean('non_admin_login_alert_enabled', true);
         res.json({ enabled });
     } catch (err) {
@@ -3019,6 +3043,7 @@ app.get('/api/admin/login-alert-settings', authMiddleware, requireAdmin, async (
 app.put('/api/admin/login-alert-settings', authMiddleware, requireAdmin, async (req, res) => {
     try {
         const enabled = !!req.body?.enabled;
+        await ensureAppSettingsSchema();
         await pool.query(
             `INSERT INTO app_settings (key, value)
              VALUES ('non_admin_login_alert_enabled', $1)

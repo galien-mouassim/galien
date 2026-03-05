@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
@@ -540,6 +540,7 @@ async function ensureCoreSchema() {
             password TEXT NOT NULL,
             role TEXT NOT NULL DEFAULT 'user',
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            active_until TIMESTAMPTZ,
             display_name TEXT,
             profile_photo TEXT,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -555,6 +556,7 @@ async function ensureCoreSchema() {
         ADD COLUMN IF NOT EXISTS display_name TEXT,
         ADD COLUMN IF NOT EXISTS profile_photo TEXT,
         ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS active_until TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     `);
     await pool.query(`
@@ -936,6 +938,13 @@ function toIntOrNull(v) {
     return Number.isNaN(n) ? null : n;
 }
 
+function toTimestampOrNull(v) {
+    if (v === undefined || v === null || v === '') return null;
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+}
+
 function parseIntList(v) {
     return String(v || '')
         .split(',')
@@ -1021,7 +1030,10 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 
         const user = result.rows[0];
         if (user.is_active === false) {
-            return res.status(403).json({ message: 'Compte désactivé. Contactez un administrateur.' });
+            return res.status(403).json({ message: 'Compte desactive. Contactez un administrateur.' });
+        }
+        if (user.active_until && new Date(user.active_until).getTime() <= Date.now()) {
+            return res.status(403).json({ message: 'Compte expire. Contactez un administrateur.' });
         }
         const valid = await bcrypt.compare(password, user.password);
 
@@ -1454,7 +1466,7 @@ app.post('/api/questions', authMiddleware, requireAdminOrWorker, async (req, res
         );
         if (duplicate) {
             return res.status(409).json({
-                message: 'Question déjà existante',
+                message: 'Question dÃ©jÃ  existante',
                 duplicate_id: duplicate.id
             });
         }
@@ -1484,7 +1496,7 @@ app.post('/api/questions', authMiddleware, requireAdminOrWorker, async (req, res
                 ]
             );
             return res.status(202).json({
-                message: 'Question envoyée pour validation admin',
+                message: 'Question envoyÃ©e pour validation admin',
                 pending_question: pending.rows[0]
             });
         }
@@ -1539,7 +1551,7 @@ app.delete('/api/questions/:id', authMiddleware, requireAdmin, async (req, res) 
     const id = req.params.id;
     try {
         await pool.query('DELETE FROM questions WHERE id=$1', [id]);
-        res.json({ message: 'Question supprimée' });
+        res.json({ message: 'Question supprimÃ©e' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1771,7 +1783,7 @@ app.delete('/api/sources/:id', authMiddleware, requireAdmin, async (req, res) =>
         const usedCount = Number(usage.rows[0]?.total || 0);
         if (usedCount > 0) {
             return res.status(409).json({
-                message: `Impossible de supprimer: cette source est utilisée dans ${usedCount} question(s).`
+                message: `Impossible de supprimer: cette source est utilisÃ©e dans ${usedCount} question(s).`
             });
         }
 
@@ -2869,7 +2881,7 @@ app.get('/api/admin/users', authMiddleware, async (req, res) => {
         }
         const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 200, maxPageSize: 500 });
         const result = await pool.query(
-            `SELECT id, email, display_name, role, is_active
+            `SELECT id, email, display_name, role, is_active, active_until
              FROM users
              ORDER BY email
              LIMIT $1 OFFSET $2`,
@@ -2888,6 +2900,11 @@ app.post('/api/admin/users', authMiddleware, requireAdmin, async (req, res) => {
         const displayName = String(req.body?.display_name || '').trim() || null;
         const roleRaw = String(req.body?.role || 'user').trim().toLowerCase();
         const role = ['admin', 'worker', 'user'].includes(roleRaw) ? roleRaw : 'user';
+        const activeUntil = req.body?.active_until ? toTimestampOrNull(req.body.active_until) : null;
+
+        if (req.body?.active_until && !activeUntil) {
+            return res.status(400).json({ message: 'active_until invalid datetime' });
+        }
 
         if (!email || !password) {
             return res.status(400).json({ message: 'email and password are required' });
@@ -2895,10 +2912,10 @@ app.post('/api/admin/users', authMiddleware, requireAdmin, async (req, res) => {
 
         const hash = await bcrypt.hash(password, 10);
         const result = await pool.query(
-            `INSERT INTO users (email, password, role, display_name, is_active)
-             VALUES ($1, $2, $3, $4, TRUE)
-             RETURNING id, email, display_name, role, is_active`,
-            [email, hash, role, displayName]
+            `INSERT INTO users (email, password, role, display_name, is_active, active_until)
+             VALUES ($1, $2, $3, $4, TRUE, $5)
+             RETURNING id, email, display_name, role, is_active, active_until`,
+            [email, hash, role, displayName, activeUntil]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -2954,6 +2971,19 @@ app.put('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res) =
             updates.push(`is_active = $${params.length}`);
         }
 
+        if (req.body.active_until !== undefined) {
+            if (req.body.active_until === null || req.body.active_until === '') {
+                updates.push('active_until = NULL');
+            } else {
+                const activeUntil = toTimestampOrNull(req.body.active_until);
+                if (!activeUntil) {
+                    return res.status(400).json({ message: 'active_until invalid datetime' });
+                }
+                params.push(activeUntil);
+                updates.push(`active_until = $${params.length}`);
+            }
+        }
+
         if (req.body.password !== undefined) {
             const plain = String(req.body.password || '');
             if (plain.length < 4) {
@@ -2973,7 +3003,7 @@ app.put('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res) =
             `UPDATE users
              SET ${updates.join(', ')}
              WHERE id = $${params.length}
-             RETURNING id, email, display_name, role, is_active`,
+             RETURNING id, email, display_name, role, is_active, active_until`,
             params
         );
         res.json(result.rows[0]);
@@ -3242,7 +3272,7 @@ app.post('/api/admin/pending-questions/:id/approve', authMiddleware, requireAdmi
         );
         await client.query('COMMIT');
         invalidateMetadataCache();
-        res.json({ message: 'Question approuvée', question: inserted.rows[0] });
+        res.json({ message: 'Question approuvÃ©e', question: inserted.rows[0] });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ error: err.message });
@@ -3264,7 +3294,7 @@ app.post('/api/admin/pending-questions/:id/reject', authMiddleware, requireAdmin
             [req.user.id, id]
         );
         if (!result.rows.length) return res.status(404).json({ message: 'Pending question not found' });
-        res.json({ message: 'Question rejetée' });
+        res.json({ message: 'Question rejetÃ©e' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -3275,7 +3305,7 @@ app.get('/api/admin/questions/export-csv', authMiddleware, requireAdmin, async (
         const providedPass = String(req.query.pass || '');
         const expectedPass = String(process.env.ADMIN_EXPORT_PASS || '');
         if (!expectedPass) {
-            return res.status(503).json({ message: 'Export CSV indisponible: mot de passe non configuré' });
+            return res.status(503).json({ message: 'Export CSV indisponible: mot de passe non configurÃ©' });
         }
         if (providedPass !== expectedPass) {
             return res.status(403).json({ message: 'Mot de passe export invalide' });
@@ -3470,7 +3500,7 @@ app.delete('/api/courses/:id', authMiddleware, requireAdmin, async (req, res) =>
         const usedCount = Number(usage.rows[0]?.total || 0);
         if (usedCount > 0) {
             return res.status(409).json({
-                message: `Impossible de supprimer: ce cours est utilisé dans ${usedCount} question(s).`
+                message: `Impossible de supprimer: ce cours est utilisÃ© dans ${usedCount} question(s).`
             });
         }
 
@@ -3743,3 +3773,4 @@ if (require.main === module) {
 }
 
 module.exports = { app, initApp };
+

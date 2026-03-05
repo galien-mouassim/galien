@@ -19,7 +19,7 @@ async function authMiddleware(req, res, next) {
         }
 
         const result = await pool.query(
-            'SELECT session_id, is_active FROM users WHERE id = $1',
+            'SELECT session_id, is_active, active_until FROM users WHERE id = $1',
             [decoded.id]
         );
 
@@ -28,6 +28,9 @@ async function authMiddleware(req, res, next) {
         }
         if (result.rows[0].is_active === false) {
             return res.status(403).json({ message: 'Compte desactive' });
+        }
+        if (result.rows[0].active_until && new Date(result.rows[0].active_until).getTime() <= Date.now()) {
+            return res.status(403).json({ message: 'Compte expire' });
         }
 
         req.user = decoded;

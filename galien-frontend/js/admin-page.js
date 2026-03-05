@@ -111,6 +111,14 @@ const moduleNameById = new Map();
 const courseNameById = new Map();
 const sourceNameById = new Map();
 
+function toDateTimeLocalValue(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function normalizeText(v) {
   return (v || '').toString().toLowerCase().normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -488,6 +496,10 @@ function renderUsersAdminList(rows){
         <label class="field" style="margin:0">
           <span>Nouveau mot de passe</span>
           <input type="text" data-user-password="${u.id}" placeholder="laisser vide si inchangé">
+        </label>
+        <label class="field" style="margin:0">
+          <span>Actif jusqu'au</span>
+          <input type="datetime-local" data-user-active-until="${u.id}" value="${toDateTimeLocalValue(u.active_until)}">
         </label>
       </div>
       <div class="question-item-actions">
@@ -1092,6 +1104,7 @@ document.getElementById('createUserBtn')?.addEventListener('click', async () => 
   const display_name = document.getElementById('new_user_display_name').value.trim();
   const password = document.getElementById('new_user_password').value;
   const role = document.getElementById('new_user_role').value;
+  const active_until = document.getElementById('new_user_active_until')?.value || '';
   if(!email || !password){
     status.textContent = 'Email et mot de passe sont requis.';
     return;
@@ -1101,7 +1114,7 @@ document.getElementById('createUserBtn')?.addEventListener('click', async () => 
     const res = await fetch(`${API_URL}/admin/users`, {
       method:'POST',
       headers:getAuthHeaders(),
-      body:JSON.stringify({ email, display_name, password, role })
+      body:JSON.stringify({ email, display_name, password, role, active_until: active_until || null })
     });
     const data = await res.json().catch(()=>({}));
     if(!res.ok){
@@ -1112,6 +1125,8 @@ document.getElementById('createUserBtn')?.addEventListener('click', async () => 
     document.getElementById('new_user_display_name').value='';
     document.getElementById('new_user_password').value='';
     document.getElementById('new_user_role').value='user';
+    const au = document.getElementById('new_user_active_until');
+    if (au) au.value='';
     status.textContent = 'Compte créé.';
     await loadUsersAdminManagement();
   }catch(_){
@@ -1132,7 +1147,8 @@ document.getElementById('usersAdminList')?.addEventListener('click', async (e) =
     const role = document.querySelector(`[data-user-role="${userId}"]`)?.value ?? 'user';
     const isActiveValue = document.querySelector(`[data-user-active="${userId}"]`)?.value ?? '1';
     const password = document.querySelector(`[data-user-password="${userId}"]`)?.value ?? '';
-    const payload = { display_name, role, is_active: isActiveValue === '1' };
+    const activeUntilValue = document.querySelector(`[data-user-active-until="${userId}"]`)?.value ?? '';
+    const payload = { display_name, role, is_active: isActiveValue === '1', active_until: activeUntilValue || null };
     if(password.trim()) payload.password = password.trim();
     saveBtn.disabled = true;
     status.textContent = 'Mise à jour...';

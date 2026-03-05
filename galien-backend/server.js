@@ -1807,7 +1807,7 @@ app.delete('/api/sources/:id', authMiddleware, requireAdmin, async (req, res) =>
 app.get('/api/users/me', authMiddleware, async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT id, email, role, display_name, profile_photo FROM users WHERE id = $1',
+            'SELECT id, email, role, display_name, profile_photo, active_until FROM users WHERE id = $1',
             [req.user.id]
         );
         if (!result.rows.length) return res.status(404).json({ message: 'User not found' });
@@ -1823,7 +1823,7 @@ app.put('/api/users/me', authMiddleware, async (req, res) => {
     try {
         const { display_name } = req.body;
         const result = await pool.query(
-            'UPDATE users SET display_name = $1 WHERE id = $2 RETURNING id, email, role, display_name, profile_photo',
+            'UPDATE users SET display_name = $1 WHERE id = $2 RETURNING id, email, role, display_name, profile_photo, active_until',
             [display_name || null, req.user.id]
         );
         if (!result.rows.length) return res.status(404).json({ message: 'User not found' });

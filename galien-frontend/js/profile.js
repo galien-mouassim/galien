@@ -78,6 +78,13 @@ function formatDuration(totalSeconds) {
   return `${h} h ${String(m).padStart(2, '0')} min`;
 }
 
+function formatActiveUntil(value) {
+  if (!value) return 'Illimitee';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return 'Illimitee';
+  return d.toLocaleString('fr-FR');
+}
+
 function renderResults(rows) {
   if (!rows.length) return '<p class="muted">Aucun resultat pour le moment.</p>';
   return `<div class="result-header"><div>Session</div><div>Score</div><div>Temps</div><div>Correction</div></div>${rows.map((r) => {
@@ -484,7 +491,16 @@ async function loadProfile() {
 
     await loadUnreadCount();
 
-    document.getElementById('profileInfo').innerHTML = `<p><strong>Email</strong><br>${me.email}</p><p><strong>Role</strong><br><span style="text-transform:capitalize">${me.role}</span></p>`;
+    const nowTs = Date.now();
+    const activeUntilTs = me.active_until ? new Date(me.active_until).getTime() : null;
+    const accountStatus = activeUntilTs && activeUntilTs <= nowTs ? 'Expire' : 'Actif';
+    const statusClass = accountStatus === 'Expire' ? 'color:var(--red);font-weight:700' : 'color:var(--ok);font-weight:700';
+    document.getElementById('profileInfo').innerHTML = `
+      <p><strong>Email</strong><br>${me.email}</p>
+      <p><strong>Role</strong><br><span style="text-transform:capitalize">${me.role}</span></p>
+      <p><strong>Statut du compte</strong><br><span style="${statusClass}">${accountStatus}</span></p>
+      <p><strong>Actif jusqu'au</strong><br>${formatActiveUntil(me.active_until)}</p>
+    `;
     document.getElementById('display_name').value = me.display_name || '';
     const adminShortcutTab = document.getElementById('adminShortcutTab');
     if (adminShortcutTab) {

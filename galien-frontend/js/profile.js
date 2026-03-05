@@ -456,6 +456,15 @@ function resolvePhotoUrl(value) {
   if (/^https?:\/\//i.test(v) || v.startsWith('data:')) return v;
   return `${getBaseUrl()}${v}`;
 }
+const PROFILE_FALLBACK_SVG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" fill="%23f1f5f9"/><circle cx="48" cy="36" r="16" fill="%23ccfbf1"/><path d="M16 86c6-16 20-24 32-24s26 8 32 24" fill="%23ccfbf1"/></svg>';
+
+function bindPhotoFallback(el) {
+  if (!el) return;
+  el.onerror = () => {
+    el.onerror = null;
+    el.src = PROFILE_FALLBACK_SVG;
+  };
+}
 
 async function loadProfile() {
   if (!localStorage.getItem('token')) { window.location.href = 'login.html'; return; }
@@ -482,10 +491,13 @@ async function loadProfile() {
       adminShortcutTab.classList.toggle('hidden', me.role !== 'admin');
     }
 
-    const fallback = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" fill="%23f1f5f9"/><circle cx="48" cy="36" r="16" fill="%23ccfbf1"/><path d="M16 86c6-16 20-24 32-24s26 8 32 24" fill="%23ccfbf1"/></svg>`;
-    const photoUrl = me.profile_photo ? resolvePhotoUrl(me.profile_photo) : fallback;
-    document.getElementById('profilePhoto').src = photoUrl;
-    document.getElementById('sidebarPhoto').src = photoUrl;
+    const photoUrl = me.profile_photo ? resolvePhotoUrl(me.profile_photo) : PROFILE_FALLBACK_SVG;
+    const profilePhotoEl = document.getElementById('profilePhoto');
+    const sidebarPhotoEl = document.getElementById('sidebarPhoto');
+    bindPhotoFallback(profilePhotoEl);
+    bindPhotoFallback(sidebarPhotoEl);
+    if (profilePhotoEl) profilePhotoEl.src = photoUrl;
+    if (sidebarPhotoEl) sidebarPhotoEl.src = photoUrl;
     document.getElementById('sidebarDisplayName').textContent = me.display_name || me.email || 'Utilisateur';
 
     basicStatsCache = stats || null;

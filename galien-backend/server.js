@@ -286,6 +286,20 @@ async function saveProfilePhoto(buffer, userId) {
     return `/uploads/${fileName}`;
 }
 
+function sanitizeProfilePhotoForResponse(rawValue) {
+    const value = String(rawValue || '').trim();
+    if (!value) return null;
+    if (/^https?:\/\//i.test(value) || value.startsWith('data:')) return value;
+    if (!value.startsWith('/uploads/')) return value;
+
+    // If Cloudinary is enabled, legacy local upload paths are considered stale.
+    if (hasCloudinary) return null;
+
+    const relative = value.replace(/^\/+uploads\/+/, '');
+    const fullPath = path.join(uploadsDir, relative);
+    return fs.existsSync(fullPath) ? value : null;
+}
+
 function createRateLimiter({ windowMs, max, keyFn }) {
     const hits = new Map();
 
@@ -1784,7 +1798,10 @@ app.get('/api/users/me', authMiddleware, async (req, res) => {
             'SELECT id, email, role, display_name, profile_photo FROM users WHERE id = $1',
             [req.user.id]
         );
-        res.json(result.rows[0]);
+        if (!result.rows.length) return res.status(404).json({ message: 'User not found' });
+        const row = result.rows[0];
+        row.profile_photo = sanitizeProfilePhotoForResponse(row.profile_photo);
+        res.json(row);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1797,7 +1814,10 @@ app.put('/api/users/me', authMiddleware, async (req, res) => {
             'UPDATE users SET display_name = $1 WHERE id = $2 RETURNING id, email, role, display_name, profile_photo',
             [display_name || null, req.user.id]
         );
-        res.json(result.rows[0]);
+        if (!result.rows.length) return res.status(404).json({ message: 'User not found' });
+        const row = result.rows[0];
+        row.profile_photo = sanitizeProfilePhotoForResponse(row.profile_photo);
+        res.json(row);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -2665,7 +2685,11 @@ app.get('/api/questions/:id/comments', authMiddleware, async (req, res) => {
              LIMIT $4 OFFSET $5`,
             [questionId, req.user.id, req.user.role, pageSize, offset]
         );
-        res.json(result.rows);
+        const rows = (result.rows || []).map((row) => ({
+            ...row,
+            profile_photo: sanitizeProfilePhotoForResponse(row.profile_photo)
+        }));
+        res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

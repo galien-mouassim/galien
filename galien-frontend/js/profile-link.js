@@ -19,6 +19,10 @@
     img.className = 'profile-link-img';
     img.alt = 'Profil';
     img.src = photoUrl;
+    img.onerror = () => {
+      img.onerror = null;
+      img.src = fallback;
+    };
 
     btn.appendChild(img);
 

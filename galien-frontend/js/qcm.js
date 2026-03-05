@@ -861,7 +861,10 @@ async function loadComments(questionId) {
       const photo = c.profile_photo
         ? (c.profile_photo.startsWith('http') ? c.profile_photo : `${baseUrl}${c.profile_photo}`)
         : '';
-      const avatarHtml = photo ? `<img src="${photo}" alt="">` : initials;
+      const safeInitials = String(initials || 'U').replace(/"/g, '&quot;');
+      const avatarHtml = photo
+        ? `<img src="${photo}" alt="" onerror="this.onerror=null;this.parentElement.textContent='${safeInitials}'">`
+        : initials;
 
       const editHtml = canEdit
         ? `<div class="comment-menu">

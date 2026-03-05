@@ -908,6 +908,45 @@ function parseIntList(v) {
         .filter(n => Number.isInteger(n) && n > 0);
 }
 
+function parseGuidedBlocks(rawValue) {
+    if (!rawValue) return [];
+    try {
+        const raw = typeof rawValue === 'string' ? JSON.parse(rawValue) : rawValue;
+        if (!Array.isArray(raw)) return [];
+        return raw
+            .map((b) => ({
+                moduleId: toIntOrNull(b?.moduleId || b?.module_id),
+                courseIds: parseIntList(Array.isArray(b?.courseIds) ? b.courseIds.join(',') : (Array.isArray(b?.course_ids) ? b.course_ids.join(',') : '')),
+                sourceIds: parseIntList(Array.isArray(b?.sourceIds) ? b.sourceIds.join(',') : (Array.isArray(b?.source_ids) ? b.source_ids.join(',') : ''))
+            }))
+            .filter((b) => Number.isInteger(b.moduleId) && b.moduleId > 0);
+    } catch (_) {
+        return [];
+    }
+}
+
+function pushGuidedBlocksFilter({ filters, params, tableAlias, guidedBlocks }) {
+    if (!Array.isArray(guidedBlocks) || !guidedBlocks.length) return;
+    const orClauses = [];
+    guidedBlocks.forEach((b) => {
+        const andClauses = [];
+        andClauses.push(`${tableAlias}.module_id = $${params.length + 1}`);
+        params.push(b.moduleId);
+        if (Array.isArray(b.courseIds) && b.courseIds.length) {
+            andClauses.push(`${tableAlias}.course_id = ANY($${params.length + 1}::int[])`);
+            params.push(b.courseIds);
+        }
+        if (Array.isArray(b.sourceIds) && b.sourceIds.length) {
+            andClauses.push(`${tableAlias}.source_id = ANY($${params.length + 1}::int[])`);
+            params.push(b.sourceIds);
+        }
+        orClauses.push(`(${andClauses.join(' AND ')})`);
+    });
+    if (orClauses.length) {
+        filters.push(`(${orClauses.join(' OR ')})`);
+    }
+}
+
 function toPositiveInt(value, fallback) {
     const n = Number(value);
     if (!Number.isInteger(n) || n <= 0) return fallback;
@@ -990,6 +1029,7 @@ app.get('/api/questions', authMiddleware, async (req, res) => {
         const moduleIds = parseIntList(req.query.module);
         const sourceIds = parseIntList(req.query.source);
         const courseIds = parseIntList(req.query.course);
+        const guidedBlocks = parseGuidedBlocks(req.query.guided_filters);
         const reviewMode = String(req.query.review_mode || '').trim();
         const shouldPaginate = req.query.page !== undefined || req.query.page_size !== undefined || req.query.limit !== undefined;
         const { page, pageSize, offset } = getPagination(req, { page: 1, pageSize: 100, maxPageSize: 300 });
@@ -1006,17 +1046,21 @@ app.get('/api/questions', authMiddleware, async (req, res) => {
             const params = withNotes ? [req.user.id] : [];
             const filters = [];
 
-            if (moduleIds.length) {
-                filters.push(`q.module_id = ANY($${params.length + 1}::int[])`);
-                params.push(moduleIds);
-            }
-            if (sourceIds.length) {
-                filters.push(`q.source_id = ANY($${params.length + 1}::int[])`);
-                params.push(sourceIds);
-            }
-            if (courseIds.length) {
-                filters.push(`q.course_id = ANY($${params.length + 1}::int[])`);
-                params.push(courseIds);
+            if (guidedBlocks.length) {
+                pushGuidedBlocksFilter({ filters, params, tableAlias: 'q', guidedBlocks });
+            } else {
+                if (moduleIds.length) {
+                    filters.push(`q.module_id = ANY($${params.length + 1}::int[])`);
+                    params.push(moduleIds);
+                }
+                if (sourceIds.length) {
+                    filters.push(`q.source_id = ANY($${params.length + 1}::int[])`);
+                    params.push(sourceIds);
+                }
+                if (courseIds.length) {
+                    filters.push(`q.course_id = ANY($${params.length + 1}::int[])`);
+                    params.push(courseIds);
+                }
             }
             if (withReview && reviewMode === 'wrong_ever') {
                 filters.push(`
@@ -1071,17 +1115,21 @@ app.get('/api/questions', authMiddleware, async (req, res) => {
             let countQuery = 'SELECT COUNT(*)::int AS total FROM questions q';
             const countParams = [];
             const countFilters = [];
-            if (moduleIds.length) {
-                countFilters.push(`q.module_id = ANY($${countParams.length + 1}::int[])`);
-                countParams.push(moduleIds);
-            }
-            if (sourceIds.length) {
-                countFilters.push(`q.source_id = ANY($${countParams.length + 1}::int[])`);
-                countParams.push(sourceIds);
-            }
-            if (courseIds.length) {
-                countFilters.push(`q.course_id = ANY($${countParams.length + 1}::int[])`);
-                countParams.push(courseIds);
+            if (guidedBlocks.length) {
+                pushGuidedBlocksFilter({ filters: countFilters, params: countParams, tableAlias: 'q', guidedBlocks });
+            } else {
+                if (moduleIds.length) {
+                    countFilters.push(`q.module_id = ANY($${countParams.length + 1}::int[])`);
+                    countParams.push(moduleIds);
+                }
+                if (sourceIds.length) {
+                    countFilters.push(`q.source_id = ANY($${countParams.length + 1}::int[])`);
+                    countParams.push(sourceIds);
+                }
+                if (courseIds.length) {
+                    countFilters.push(`q.course_id = ANY($${countParams.length + 1}::int[])`);
+                    countParams.push(courseIds);
+                }
             }
             if (withReview && reviewMode === 'wrong_ever') {
                 countFilters.push(`
@@ -1197,23 +1245,28 @@ app.get('/api/questions/count', authMiddleware, async (req, res) => {
         const moduleIds = parseIntList(req.query.module);
         const sourceIds = parseIntList(req.query.source);
         const courseIds = parseIntList(req.query.course);
+        const guidedBlocks = parseGuidedBlocks(req.query.guided_filters);
         const reviewMode = String(req.query.review_mode || '').trim();
         const runCount = async (withReview) => {
             let query = 'SELECT COUNT(*)::int AS total FROM questions q';
             const params = [];
             const filters = [];
 
-            if (moduleIds.length) {
-                filters.push(`q.module_id = ANY($${params.length + 1}::int[])`);
-                params.push(moduleIds);
-            }
-            if (sourceIds.length) {
-                filters.push(`q.source_id = ANY($${params.length + 1}::int[])`);
-                params.push(sourceIds);
-            }
-            if (courseIds.length) {
-                filters.push(`q.course_id = ANY($${params.length + 1}::int[])`);
-                params.push(courseIds);
+            if (guidedBlocks.length) {
+                pushGuidedBlocksFilter({ filters, params, tableAlias: 'q', guidedBlocks });
+            } else {
+                if (moduleIds.length) {
+                    filters.push(`q.module_id = ANY($${params.length + 1}::int[])`);
+                    params.push(moduleIds);
+                }
+                if (sourceIds.length) {
+                    filters.push(`q.source_id = ANY($${params.length + 1}::int[])`);
+                    params.push(sourceIds);
+                }
+                if (courseIds.length) {
+                    filters.push(`q.course_id = ANY($${params.length + 1}::int[])`);
+                    params.push(courseIds);
+                }
             }
             if (withReview && reviewMode === 'wrong_ever') {
                 filters.push(`

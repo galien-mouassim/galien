@@ -57,6 +57,8 @@ const courseIds = parseIdList(localStorage.getItem('course_id'));
 const sourceIds = parseIdList(localStorage.getItem('source_id'));
 const favoriteTagFilters = parseIdList(localStorage.getItem('favorite_tags'));
 const reviewMode = String(localStorage.getItem('review_mode') || 'all');
+const wbMode = String(localStorage.getItem('wb_mode') || 'guided');
+const guidedFiltersRaw = localStorage.getItem('guided_filters') || '';
 const hideQuestionMeta = localStorage.getItem('hide_question_meta') === '1';
 const examWarningMinutesRaw = parseInt(localStorage.getItem('exam_warning_minutes') || '', 10);
 const examWarningSeconds = Number.isFinite(examWarningMinutesRaw) && examWarningMinutesRaw > 0 ? examWarningMinutesRaw * 60 : null;
@@ -64,9 +66,13 @@ let examWarningShown = false;
 const questionLimitRaw = parseInt(localStorage.getItem('question_limit') || '', 10);
 const questionLimit = Number.isFinite(questionLimitRaw) && questionLimitRaw > 0 ? questionLimitRaw : null;
 const queryParams = new URLSearchParams();
-if (moduleIds.length) queryParams.set('module', moduleIds.join(','));
-if (courseIds.length) queryParams.set('course', courseIds.join(','));
-if (sourceIds.length) queryParams.set('source', sourceIds.join(','));
+if (wbMode === 'guided' && guidedFiltersRaw) {
+  queryParams.set('guided_filters', guidedFiltersRaw);
+} else {
+  if (moduleIds.length) queryParams.set('module', moduleIds.join(','));
+  if (courseIds.length) queryParams.set('course', courseIds.join(','));
+  if (sourceIds.length) queryParams.set('source', sourceIds.join(','));
+}
 if (reviewMode && reviewMode !== 'all') queryParams.set('review_mode', reviewMode);
 const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
 

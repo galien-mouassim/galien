@@ -140,9 +140,17 @@ function wbApplyGuidedFilters() {
 
   const blocks = wbGetGuidedEffectiveBlocks().filter((b) => b && b.moduleId);
   if (!blocks.length) {
+    localStorage.removeItem('guided_filters');
     wbClearNativeFilters();
     return;
   }
+
+  const guidedPayload = blocks.map((b) => ({
+    moduleId: Number(b.moduleId),
+    courseIds: (b.courseIds || []).map((x) => Number(x)).filter((n) => Number.isInteger(n) && n > 0),
+    sourceIds: (b.sourceIds || []).map((x) => Number(x)).filter((n) => Number.isInteger(n) && n > 0)
+  }));
+  localStorage.setItem('guided_filters', JSON.stringify(guidedPayload));
 
   const moduleIds = [...new Set(blocks.map((b) => String(b.moduleId)))];
   const courseIds = [...new Set(blocks.flatMap((b) => b.courseIds || []).map(String))];
@@ -584,6 +592,7 @@ function wbApplyAdvancedFilters() {
   const cors = [...libState.course];
   const srcs = [...libState.source];
   const favs = [...libState.favtag];
+  localStorage.removeItem('guided_filters');
   wbSetSelectedValues(sm, mods);
   const sig = mods.join(',');
   const changed = sig !== wbLastModuleSignature;
@@ -718,6 +727,7 @@ document.addEventListener('click',()=>libCloseAll(null));
 /* Mode switch */
 function wbSetMode(mode) {
   wbMode = mode==='advanced'?'advanced':'guided';
+  localStorage.setItem('wb_mode', wbMode);
   document.getElementById('wbGuidedBtn')?.classList.toggle('active',wbMode==='guided');
   document.getElementById('wbAdvancedBtn')?.classList.toggle('active',wbMode==='advanced');
   document.getElementById('wb-guided-mode')?.classList.toggle('hidden',wbMode!=='guided');
@@ -732,6 +742,7 @@ function wbWireCommonEvents() {
   document.getElementById('wb-add-btn')?.addEventListener('click',()=>wbStartWizard());
   document.getElementById('filterResetBtn')?.addEventListener('click',()=>{
     wbBlocks=[];wbWizard=null;wbEditingIndex=null;
+    localStorage.removeItem('guided_filters');
     LIB_KEYS.forEach(k=>{libState[k].clear();libRenderOpts(k);libRenderTrigger(k);libRenderAllbox(k);});
     wbRender();wbApplyActiveFilters();
     if (wbMode==='guided') wbStartWizard();

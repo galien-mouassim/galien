@@ -692,7 +692,8 @@ document.getElementById('flagsList')?.addEventListener('click', async (e) => {
   } catch (err) {
     if (err?.status === 404) {
       flagsCache = flagsCache.filter((r) => String(r.id) !== String(id));
-      renderFlags(flagsCache);
+      const list = document.getElementById('flagsList');
+      if (list) list.innerHTML = renderFlagList(flagsCache);
       return;
     }
     btn.innerHTML = '<i class="bi bi-x-circle"></i> Retirer';

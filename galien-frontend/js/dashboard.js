@@ -270,10 +270,16 @@ async function refreshQuestionCount() {
     const sourceIds = getSelectedValues(selSource);
     const favoriteTags = getSelectedValues(selFavTag);
     const reviewMode = getActiveReviewMode();
+    const wbMode = localStorage.getItem('wb_mode') || 'guided';
+    const guidedFiltersRaw = localStorage.getItem('guided_filters');
     const countParams = new URLSearchParams();
-    if (moduleIds.length) countParams.set('module', moduleIds.join(','));
-    if (courseIds.length) countParams.set('course', courseIds.join(','));
-    if (sourceIds.length) countParams.set('source', sourceIds.join(','));
+    if (wbMode === 'guided' && guidedFiltersRaw) {
+      countParams.set('guided_filters', guidedFiltersRaw);
+    } else {
+      if (moduleIds.length) countParams.set('module', moduleIds.join(','));
+      if (courseIds.length) countParams.set('course', courseIds.join(','));
+      if (sourceIds.length) countParams.set('source', sourceIds.join(','));
+    }
     if (reviewMode && reviewMode !== 'all') countParams.set('review_mode', reviewMode);
 
     let total = 0;

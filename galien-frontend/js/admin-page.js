@@ -406,10 +406,13 @@ async function loadReports() {
 
 async function loadUsersForMessages() {
   const token = localStorage.getItem('token');
-  const res = await fetch(`${API_URL}/admin/users`,{headers:{'Authorization':'Bearer '+token}});
-  const data = await res.json();
   const select = document.getElementById('message_user_id');
+  if (!select) return;
   select.innerHTML = '<option value="">-- Choisir un utilisateur --</option>';
+  const res = await fetch(`${API_URL}/admin/users`,{headers:{'Authorization':'Bearer '+token}});
+  if (!res.ok) return;
+  const data = await res.json();
+  if (!Array.isArray(data)) return;
   data.forEach(u=>{
     const opt = document.createElement('option'); opt.value=u.id;
     opt.textContent = u.display_name?`${u.display_name} (${u.email})`:u.email;

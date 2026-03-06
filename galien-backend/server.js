@@ -2880,13 +2880,36 @@ app.get('/api/admin/users', authMiddleware, async (req, res) => {
             return res.status(403).json({ message: 'Forbidden' });
         }
         const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 200, maxPageSize: 500 });
-        const result = await pool.query(
-            `SELECT id, email, display_name, role, is_active, active_until
-             FROM users
-             ORDER BY email
-             LIMIT $1 OFFSET $2`,
-            [pageSize, offset]
-        );
+        let result;
+        try {
+            result = await pool.query(
+                `SELECT id, email, display_name, role, is_active, active_until
+                 FROM users
+                 ORDER BY email
+                 LIMIT $1 OFFSET $2`,
+                [pageSize, offset]
+            );
+        } catch (err) {
+            // Backward compatibility for older DB schemas.
+            if (err && err.code === '42703') {
+                const legacy = await pool.query(
+                    `SELECT id, email, display_name, role
+                     FROM users
+                     ORDER BY email
+                     LIMIT $1 OFFSET $2`,
+                    [pageSize, offset]
+                );
+                result = {
+                    rows: (legacy.rows || []).map((r) => ({
+                        ...r,
+                        is_active: true,
+                        active_until: null
+                    }))
+                };
+            } else {
+                throw err;
+            }
+        }
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });

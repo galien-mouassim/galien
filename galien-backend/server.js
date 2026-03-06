@@ -1806,10 +1806,25 @@ app.delete('/api/sources/:id', authMiddleware, requireAdmin, async (req, res) =>
 // ----------------------
 app.get('/api/users/me', authMiddleware, async (req, res) => {
     try {
-        const result = await pool.query(
-            'SELECT id, email, role, display_name, profile_photo, active_until FROM users WHERE id = $1',
-            [req.user.id]
-        );
+        let result;
+        try {
+            result = await pool.query(
+                'SELECT id, email, role, display_name, profile_photo, active_until FROM users WHERE id = $1',
+                [req.user.id]
+            );
+        } catch (err) {
+            if (err && err.code === '42703') {
+                const legacy = await pool.query(
+                    'SELECT id, email, role, display_name, profile_photo FROM users WHERE id = $1',
+                    [req.user.id]
+                );
+                result = {
+                    rows: (legacy.rows || []).map((r) => ({ ...r, active_until: null }))
+                };
+            } else {
+                throw err;
+            }
+        }
         if (!result.rows.length) return res.status(404).json({ message: 'User not found' });
         const row = result.rows[0];
         row.profile_photo = sanitizeProfilePhotoForResponse(row.profile_photo);
@@ -1822,10 +1837,25 @@ app.get('/api/users/me', authMiddleware, async (req, res) => {
 app.put('/api/users/me', authMiddleware, async (req, res) => {
     try {
         const { display_name } = req.body;
-        const result = await pool.query(
-            'UPDATE users SET display_name = $1 WHERE id = $2 RETURNING id, email, role, display_name, profile_photo, active_until',
-            [display_name || null, req.user.id]
-        );
+        let result;
+        try {
+            result = await pool.query(
+                'UPDATE users SET display_name = $1 WHERE id = $2 RETURNING id, email, role, display_name, profile_photo, active_until',
+                [display_name || null, req.user.id]
+            );
+        } catch (err) {
+            if (err && err.code === '42703') {
+                const legacy = await pool.query(
+                    'UPDATE users SET display_name = $1 WHERE id = $2 RETURNING id, email, role, display_name, profile_photo',
+                    [display_name || null, req.user.id]
+                );
+                result = {
+                    rows: (legacy.rows || []).map((r) => ({ ...r, active_until: null }))
+                };
+            } else {
+                throw err;
+            }
+        }
         if (!result.rows.length) return res.status(404).json({ message: 'User not found' });
         const row = result.rows[0];
         row.profile_photo = sanitizeProfilePhotoForResponse(row.profile_photo);

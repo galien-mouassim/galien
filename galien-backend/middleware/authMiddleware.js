@@ -17,10 +17,30 @@ async function authMiddleware(req, res, next) {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        const result = await pool.query(
-            'SELECT session_id, is_active, active_until FROM users WHERE id = $1',
-            [decoded.id]
-        );
+        let result;
+        try {
+            result = await pool.query(
+                'SELECT session_id, is_active, active_until FROM users WHERE id = $1',
+                [decoded.id]
+            );
+        } catch (dbErr) {
+            // Backward compatibility for older DBs where these columns may not exist yet.
+            if (dbErr && dbErr.code === '42703') {
+                const legacy = await pool.query(
+                    'SELECT session_id FROM users WHERE id = $1',
+                    [decoded.id]
+                );
+                result = {
+                    rows: (legacy.rows || []).map((r) => ({
+                        session_id: r.session_id,
+                        is_active: true,
+                        active_until: null
+                    }))
+                };
+            } else {
+                throw dbErr;
+            }
+        }
 
         if (!result.rows.length) {
             return res.status(401).json({ message: 'Utilisateur introuvable' });
@@ -45,6 +65,9 @@ async function authMiddleware(req, res, next) {
         req.user = decoded;
         next();
     } catch (err) {
+        if (err && err.code && err.code !== '22P02') {
+            console.error('[AUTH_MIDDLEWARE_ERROR]', err.code, err.message || err);
+        }
         return res.status(401).json({ message: 'Invalid token' });
     }
 }

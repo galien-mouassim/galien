@@ -1,6 +1,8 @@
 ﻿const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 
+const enforceSingleSession = String(process.env.ENFORCE_SINGLE_SESSION || '').toLowerCase() === 'true';
+
 async function authMiddleware(req, res, next) {
     const authHeader = req.headers['authorization'];
 
@@ -14,18 +16,25 @@ async function authMiddleware(req, res, next) {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        if (!decoded.sid) {
-            return res.status(401).json({ message: 'Session invalide, reconnectez-vous' });
-        }
 
         const result = await pool.query(
             'SELECT session_id, is_active, active_until FROM users WHERE id = $1',
             [decoded.id]
         );
 
-        if (!result.rows.length || result.rows[0].session_id !== decoded.sid) {
-            return res.status(401).json({ message: 'Session expiree (connexion sur un autre appareil)' });
+        if (!result.rows.length) {
+            return res.status(401).json({ message: 'Utilisateur introuvable' });
         }
+
+        if (enforceSingleSession) {
+            if (!decoded.sid) {
+                return res.status(401).json({ message: 'Session invalide, reconnectez-vous' });
+            }
+            if (result.rows[0].session_id !== decoded.sid) {
+                return res.status(401).json({ message: 'Session expiree (connexion sur un autre appareil)' });
+            }
+        }
+
         if (result.rows[0].is_active === false) {
             return res.status(403).json({ message: 'Compte desactive' });
         }

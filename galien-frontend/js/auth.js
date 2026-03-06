@@ -1,9 +1,12 @@
-﻿async function login() {
+﻿let loginInFlight = false;
+
+async function login() {
   const emailInput = document.getElementById('email');
   const passwordInput = document.getElementById('password');
   const btn = document.getElementById('loginBtn') || document.querySelector('button[onclick="login()"]');
   const msg = document.getElementById('msg');
   if (!emailInput || !passwordInput || !btn || !msg) return;
+  if (loginInFlight || btn.disabled) return;
 
   const email = emailInput.value.trim();
   const password = passwordInput.value;
@@ -14,6 +17,7 @@
   }
 
   btn.disabled = true;
+  loginInFlight = true;
   btn.textContent = 'Connexion...';
   msg.textContent = '';
 
@@ -40,11 +44,15 @@
   } catch (err) {
     msg.textContent = 'Erreur reseau. Veuillez reessayer.';
   } finally {
+    loginInFlight = false;
     btn.disabled = false;
     btn.textContent = 'Se connecter';
   }
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') login();
+  if (e.key !== 'Enter' || e.repeat) return;
+  const active = document.activeElement;
+  const id = (active && active.id) || '';
+  if (id === 'email' || id === 'password') login();
 });

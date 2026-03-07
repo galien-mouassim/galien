@@ -504,7 +504,9 @@ async function loadProfile() {
     document.getElementById('display_name').value = me.display_name || '';
     const adminShortcutTab = document.getElementById('adminShortcutTab');
     if (adminShortcutTab) {
-      adminShortcutTab.classList.toggle('hidden', me.role !== 'admin');
+      const canManage = me.role === 'admin' || me.role === 'manager';
+      adminShortcutTab.classList.toggle('hidden', !canManage);
+      adminShortcutTab.textContent = me.role === 'manager' ? 'Panel manager' : 'Admin panel';
     }
 
     const photoUrl = me.profile_photo ? resolvePhotoUrl(me.profile_photo) : PROFILE_FALLBACK_SVG;

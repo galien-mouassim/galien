@@ -33,6 +33,7 @@
       Messages
       <span id="messageBadge" class="badge hidden">0</span>
     </button>
+    <button type="button" class="profile-tab" data-section="notes">Notes</button>
     <button type="button" class="profile-tab" data-section="favorites">Favoris</button>
     <button type="button" class="profile-tab" data-section="flags">Signalements</button>
     <button type="button" id="adminShortcutTab" class="profile-tab hidden">Admin panel</button>
@@ -160,6 +161,32 @@
       </div>
     </section>
 
+    <section id="section-notes" class="profile-section hidden">
+      <div class="card">
+        <div class="card-title between">
+          <h3>Notes</h3>
+          <button id="refreshNotesBtn" class="btn-inline">Rafraichir</button>
+        </div>
+        <div class="favorites-toolbar">
+          <select id="noteFilterModule"></select>
+          <select id="noteFilterCourse"></select>
+          <select id="noteFilterSource"></select>
+          <select id="noteFilterTag"></select>
+          <select id="noteSort">
+            <option value="recent">Plus recentes</option>
+            <option value="oldest">Plus anciennes</option>
+          </select>
+          <input id="noteSearch" type="text" placeholder="Rechercher dans question/note...">
+        </div>
+        <div id="notesList"></div>
+        <div class="result-header" style="margin-top:12px">
+          <div><button id="notesPrevBtn" class="btn-inline ghost">← Précédent</button></div>
+          <div id="notesPageInfo" class="muted">Page 1</div>
+          <div style="text-align:right"><button id="notesNextBtn" class="btn-inline ghost">Suivant →</button></div>
+        </div>
+      </div>
+    </section>
+
     <section id="section-favorites" class="profile-section hidden">
       <div class="card">
         <div class="card-title">
@@ -210,6 +237,20 @@
     <img id="photoViewerImage" src="" alt="Photo de profil agrandie" style="width:100%;border-radius:14px;object-fit:cover;max-height:70vh">
     <div class="modal-actions">
       <button type="button" class="btn ghost" id="photoViewerCloseBtn">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div id="noteEditorModal" class="modal hidden">
+  <div class="modal-content" style="max-width:700px">
+    <h3>Modifier la note</h3>
+    <label class="field">
+      <span>Note (max 1000 caractères)</span>
+      <textarea id="noteEditorInput" maxlength="1000" style="min-height:170px"></textarea>
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="noteEditorSaveBtn">Enregistrer</button>
+      <button type="button" class="btn ghost" id="noteEditorCancelBtn">Annuler</button>
     </div>
   </div>
 </div>

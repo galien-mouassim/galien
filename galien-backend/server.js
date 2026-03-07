@@ -2525,6 +2525,99 @@ app.get('/api/users/questions/:id/detail', authMiddleware, async (req, res) => {
 // ----------------------
 // USER: Personal notes per question
 // ----------------------
+app.get('/api/users/notes', authMiddleware, async (req, res) => {
+    try {
+        const moduleId = Number(req.query.module_id || 0);
+        const courseId = Number(req.query.course_id || 0);
+        const sourceId = Number(req.query.source_id || 0);
+        const favTag = String(req.query.fav_tag || '').trim().toLowerCase();
+        const search = String(req.query.search || '').trim().toLowerCase();
+        const sort = String(req.query.sort || 'recent').toLowerCase() === 'oldest' ? 'ASC' : 'DESC';
+        const { page, pageSize, offset } = getPagination(req, { page: 1, pageSize: 12, maxPageSize: 100 });
+
+        const params = [req.user.id];
+        const where = ['qn.user_id = $1'];
+
+        if (Number.isInteger(moduleId) && moduleId > 0) {
+            params.push(moduleId);
+            where.push(`q.module_id = $${params.length}`);
+        }
+        if (Number.isInteger(courseId) && courseId > 0) {
+            params.push(courseId);
+            where.push(`q.course_id = $${params.length}`);
+        }
+        if (Number.isInteger(sourceId) && sourceId > 0) {
+            params.push(sourceId);
+            where.push(`q.source_id = $${params.length}`);
+        }
+        if (search) {
+            params.push(`%${search}%`);
+            where.push(`(LOWER(q.question) LIKE $${params.length} OR LOWER(qn.note) LIKE $${params.length})`);
+        }
+        if (favTag) {
+            params.push(favTag);
+            where.push(`EXISTS (
+                SELECT 1
+                FROM question_flags f
+                WHERE f.user_id = qn.user_id
+                  AND f.question_id = qn.question_id
+                  AND f.flag_type = 'favorite'
+                  AND EXISTS (
+                    SELECT 1
+                    FROM unnest(string_to_array(lower(coalesce(f.tags, '')), ',')) AS t(tag)
+                    WHERE btrim(t.tag) = $${params.length}
+                  )
+            )`);
+        }
+
+        const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+        const countRes = await pool.query(
+            `SELECT COUNT(*)::int AS total
+             FROM question_notes qn
+             JOIN questions q ON q.id = qn.question_id
+             ${whereSql}`,
+            params
+        );
+        const total = Number(countRes.rows[0]?.total || 0);
+
+        params.push(pageSize, offset);
+        const rowsRes = await pool.query(
+            `SELECT qn.question_id, qn.note, qn.created_at, qn.updated_at,
+                    q.question, q.option_a, q.option_b, q.option_c, q.option_d, q.option_e,
+                    q.correct_options, q.explanation,
+                    q.module_id, q.course_id, q.source_id,
+                    m.name AS module_name, c.name AS course_name, s.name AS source_name,
+                    f.tags AS favorite_tags
+             FROM question_notes qn
+             JOIN questions q ON q.id = qn.question_id
+             LEFT JOIN modules m ON m.id = q.module_id
+             LEFT JOIN courses c ON c.id = q.course_id
+             LEFT JOIN sources s ON s.id = q.source_id
+             LEFT JOIN question_flags f
+                ON f.user_id = qn.user_id
+               AND f.question_id = qn.question_id
+               AND f.flag_type = 'favorite'
+             ${whereSql}
+             ORDER BY qn.updated_at ${sort}
+             LIMIT $${params.length - 1} OFFSET $${params.length}`,
+            params
+        );
+
+        res.json({
+            data: rowsRes.rows || [],
+            pagination: {
+                page,
+                page_size: pageSize,
+                total,
+                total_pages: Math.max(1, Math.ceil(total / pageSize))
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/users/questions/:id/note', authMiddleware, async (req, res) => {
     try {
         const questionId = Number(req.params.id);

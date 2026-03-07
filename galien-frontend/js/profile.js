@@ -23,6 +23,11 @@ let basicStatsCache = null;
 let referencesCache = { modules: [], courses: [], sources: [] };
 let failedFilterState = { module_id: '', course_id: '', source_id: '' };
 let failedOverrideRows = null;
+let notesCache = [];
+let notesPage = 1;
+let notesTotalPages = 1;
+let noteEditingQuestionId = null;
+const noteFilters = { module_id: '', course_id: '', source_id: '', fav_tag: '', search: '', sort: 'recent' };
 
 function setActiveSection(name) {
   document.querySelectorAll('.profile-section').forEach((s) => {
@@ -42,6 +47,7 @@ function initProfileTabs() {
     setActiveSection(tab.dataset.section);
     if (tab.dataset.section === 'messages') loadMessages();
     if (tab.dataset.section === 'favorites') applyFavoriteFilters();
+    if (tab.dataset.section === 'notes') loadNotes(1);
   });
 }
 
@@ -165,6 +171,10 @@ function escHtml(value) {
     .replace(/>/g, '&gt;');
 }
 
+function escAttr(value) {
+  return escHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function renderFavoriteDetail(detail) {
   const opts = ['A', 'B', 'C', 'D', 'E']
     .map((l) => {
@@ -236,6 +246,99 @@ function applyFavoriteFilters() {
   else rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   document.getElementById('favoritesList').innerHTML = renderFavoritesList(rows);
+}
+
+function parseCsvTags(tags) {
+  return String(tags || '').split(',').map((t) => t.trim()).filter(Boolean);
+}
+
+function syncNoteCourseFilterOptions() {
+  const select = document.getElementById('noteFilterCourse');
+  if (!select) return;
+  const moduleId = Number(noteFilters.module_id || 0);
+  const courses = referencesCache.courses || [];
+  const visible = moduleId ? courses.filter((c) => Number(c.module_id) === moduleId) : courses;
+  const opts = ['<option value="">Tous les cours</option>']
+    .concat(visible.map((c) => `<option value="${c.id}">${escHtml(c.name)}</option>`));
+  select.innerHTML = opts.join('');
+  if (noteFilters.course_id && visible.some((c) => String(c.id) === String(noteFilters.course_id))) {
+    select.value = String(noteFilters.course_id);
+  } else {
+    noteFilters.course_id = '';
+    select.value = '';
+  }
+}
+
+function buildNoteTagFilterOptions() {
+  const select = document.getElementById('noteFilterTag');
+  if (!select) return;
+  const tags = new Set();
+  favoritesCache.forEach((f) => parseCsvTags(f.tags).forEach((t) => tags.add(t)));
+  const list = Array.from(tags).sort((a, b) => a.localeCompare(b));
+  select.innerHTML = '<option value="">Tous les tags favoris</option>' + list.map((t) => `<option value="${escAttr(t)}">${escHtml(t)}</option>`).join('');
+  if (noteFilters.fav_tag && list.includes(noteFilters.fav_tag)) select.value = noteFilters.fav_tag;
+  else noteFilters.fav_tag = '';
+}
+
+function renderNotesList(rows) {
+  if (!rows.length) return '<p class="muted">Aucune note trouvée.</p>';
+  return rows.map((r) => {
+    const updated = r.updated_at ? new Date(r.updated_at).toLocaleString('fr-FR') : '-';
+    const favTags = parseCsvTags(r.favorite_tags);
+    const tagHtml = favTags.length ? `<div class="favorite-tags">${favTags.map((t) => `<span class="tag">${escHtml(t)}</span>`).join('')}</div>` : '<span class="muted">Aucun tag favori</span>';
+    return `
+      <article class="favorite-item modern note-card" data-note-qid="${r.question_id}">
+        <header class="favorite-head">
+          <div class="favorite-title">${escHtml(r.question || `Question #${r.question_id}`)}</div>
+          <span class="favorite-date">Maj ${updated}</span>
+        </header>
+        <div class="favorite-detail-grid">
+          <div><strong>Module:</strong> ${escHtml(r.module_name || '-')}</div>
+          <div><strong>Cours:</strong> ${escHtml(r.course_name || '-')}</div>
+          <div><strong>Source:</strong> ${escHtml(r.source_name || '-')}</div>
+          <div><strong>Tags:</strong> ${tagHtml}</div>
+        </div>
+        <div class="favorite-detail-block"><strong>Note</strong><div>${escHtml(r.note || '')}</div></div>
+        <div class="favorite-actions">
+          <button class="btn-inline" data-note-open="${r.question_id}"><i class="bi bi-box-arrow-up-right"></i> Ouvrir question</button>
+          <button class="btn-inline" data-note-edit="${r.question_id}"><i class="bi bi-pencil-square"></i> Modifier</button>
+          <button class="btn-inline" style="color:var(--red)" data-note-delete="${r.question_id}"><i class="bi bi-trash"></i> Supprimer</button>
+        </div>
+        <div id="note_detail_${r.question_id}" class="favorite-preview hidden"></div>
+      </article>
+    `;
+  }).join('');
+}
+
+async function loadNotes(page = 1) {
+  const list = document.getElementById('notesList');
+  if (!list) return;
+  notesPage = Math.max(1, Number(page || 1));
+  list.innerHTML = '<p class="muted">Chargement...</p>';
+  try {
+    const params = new URLSearchParams({
+      page: String(notesPage),
+      page_size: '10',
+      sort: noteFilters.sort || 'recent'
+    });
+    if (noteFilters.module_id) params.set('module_id', noteFilters.module_id);
+    if (noteFilters.course_id) params.set('course_id', noteFilters.course_id);
+    if (noteFilters.source_id) params.set('source_id', noteFilters.source_id);
+    if (noteFilters.fav_tag) params.set('fav_tag', noteFilters.fav_tag);
+    if (noteFilters.search) params.set('search', noteFilters.search);
+    const payload = await fetchJSON(`${API_URL}/users/notes?${params.toString()}`);
+    notesCache = payload.data || [];
+    notesTotalPages = Number(payload.pagination?.total_pages || 1);
+    list.innerHTML = renderNotesList(notesCache);
+    const info = document.getElementById('notesPageInfo');
+    if (info) info.textContent = `Page ${notesPage} / ${notesTotalPages}`;
+    const prev = document.getElementById('notesPrevBtn');
+    const next = document.getElementById('notesNextBtn');
+    if (prev) prev.disabled = notesPage <= 1;
+    if (next) next.disabled = notesPage >= notesTotalPages;
+  } catch (err) {
+    list.innerHTML = `<p class="muted">Erreur: ${escHtml(err.message || 'Chargement impossible')}</p>`;
+  }
 }
 
 function renderFlagList(rows) {
@@ -483,7 +586,7 @@ async function loadProfile() {
       fetchJSON(`${API_URL}/users/preferences`),
       fetchJSON(`${API_URL}/users/results?saved=all`),
       fetchJSON(`${API_URL}/users/results?saved=1`),
-      fetchJSON(`${API_URL}/users/flags?type=favorite`),
+      fetchJSON(`${API_URL}/users/flags?type=favorite&page_size=500`),
       fetchJSON(`${API_URL}/users/flags?type=flag`),
       fetchJSON(`${API_URL}/users/analytics`)
     ]);
@@ -546,6 +649,20 @@ async function loadProfile() {
     favoritesCache = favorites;
     fillFavoriteTagFilter(favoritesCache);
     applyFavoriteFilters();
+    const moduleSel = document.getElementById('noteFilterModule');
+    const sourceSel = document.getElementById('noteFilterSource');
+    if (moduleSel) {
+      moduleSel.innerHTML = '<option value="">Tous les modules</option>' +
+        (referencesCache.modules || []).map((m) => `<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
+      moduleSel.value = noteFilters.module_id || '';
+    }
+    if (sourceSel) {
+      sourceSel.innerHTML = '<option value="">Toutes les sources</option>' +
+        (referencesCache.sources || []).map((s) => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+      sourceSel.value = noteFilters.source_id || '';
+    }
+    syncNoteCourseFilterOptions();
+    buildNoteTagFilterOptions();
 
     flagsCache = flags;
     document.getElementById('flagsList').innerHTML = renderFlagList(flagsCache);
@@ -645,6 +762,7 @@ document.getElementById('saveProfileBtn').addEventListener('click', saveProfile)
 document.getElementById('savePrefsBtn').addEventListener('click', savePrefs);
 document.getElementById('uploadPhotoBtn').addEventListener('click', uploadPhoto);
 document.getElementById('refreshMessagesBtn')?.addEventListener('click', loadMessages);
+document.getElementById('refreshNotesBtn')?.addEventListener('click', () => loadNotes(1));
 document.getElementById('favoriteTagFilter')?.addEventListener('change', applyFavoriteFilters);
 document.getElementById('favoriteSort')?.addEventListener('change', applyFavoriteFilters);
 document.getElementById('favoriteSearch')?.addEventListener('input', applyFavoriteFilters);
@@ -659,6 +777,109 @@ document.getElementById('favoriteTagSaveBtn')?.addEventListener('click', async (
     fillFavoriteTagFilter(favoritesCache);
     applyFavoriteFilters();
     closeFavoriteTagModal();
+  } catch (_) {}
+});
+
+document.getElementById('noteFilterModule')?.addEventListener('change', (e) => {
+  noteFilters.module_id = e.target.value || '';
+  syncNoteCourseFilterOptions();
+  notesPage = 1;
+  loadNotes(1);
+});
+document.getElementById('noteFilterCourse')?.addEventListener('change', (e) => {
+  noteFilters.course_id = e.target.value || '';
+  notesPage = 1;
+  loadNotes(1);
+});
+document.getElementById('noteFilterSource')?.addEventListener('change', (e) => {
+  noteFilters.source_id = e.target.value || '';
+  notesPage = 1;
+  loadNotes(1);
+});
+document.getElementById('noteFilterTag')?.addEventListener('change', (e) => {
+  noteFilters.fav_tag = e.target.value || '';
+  notesPage = 1;
+  loadNotes(1);
+});
+document.getElementById('noteSort')?.addEventListener('change', (e) => {
+  noteFilters.sort = e.target.value || 'recent';
+  notesPage = 1;
+  loadNotes(1);
+});
+document.getElementById('noteSearch')?.addEventListener('input', (e) => {
+  noteFilters.search = (e.target.value || '').trim();
+  notesPage = 1;
+  loadNotes(1);
+});
+document.getElementById('notesPrevBtn')?.addEventListener('click', () => {
+  if (notesPage > 1) loadNotes(notesPage - 1);
+});
+document.getElementById('notesNextBtn')?.addEventListener('click', () => {
+  if (notesPage < notesTotalPages) loadNotes(notesPage + 1);
+});
+
+document.getElementById('notesList')?.addEventListener('click', async (e) => {
+  const openBtn = e.target.closest('[data-note-open]');
+  const editBtn = e.target.closest('[data-note-edit]');
+  const deleteBtn = e.target.closest('[data-note-delete]');
+
+  if (openBtn) {
+    const id = openBtn.getAttribute('data-note-open');
+    const panel = document.getElementById(`note_detail_${id}`);
+    if (!id || !panel) return;
+    const hidden = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden');
+    if (!hidden) return;
+    if (panel.dataset.loaded === '1') return;
+    panel.innerHTML = '<div class="muted">Chargement...</div>';
+    try {
+      const detail = await fetchJSON(`${API_URL}/users/questions/${id}/detail`);
+      panel.innerHTML = renderFavoriteDetail(detail);
+      panel.dataset.loaded = '1';
+    } catch (_) {
+      panel.innerHTML = '<div class="muted">Impossible de charger la question.</div>';
+    }
+    return;
+  }
+
+  if (editBtn) {
+    const id = Number(editBtn.getAttribute('data-note-edit'));
+    if (!Number.isInteger(id) || id <= 0) return;
+    const item = notesCache.find((n) => Number(n.question_id) === id);
+    noteEditingQuestionId = id;
+    document.getElementById('noteEditorInput').value = item?.note || '';
+    document.getElementById('noteEditorModal')?.classList.remove('hidden');
+    return;
+  }
+
+  if (deleteBtn) {
+    const id = Number(deleteBtn.getAttribute('data-note-delete'));
+    if (!Number.isInteger(id) || id <= 0) return;
+    const ok = window.confirm('Supprimer cette note ?');
+    if (!ok) return;
+    try {
+      await fetchJSON(`${API_URL}/users/questions/${id}/note`, { method: 'DELETE' });
+      loadNotes(notesPage);
+    } catch (_) {}
+  }
+});
+
+document.getElementById('noteEditorCancelBtn')?.addEventListener('click', () => {
+  noteEditingQuestionId = null;
+  document.getElementById('noteEditorModal')?.classList.add('hidden');
+});
+document.getElementById('noteEditorSaveBtn')?.addEventListener('click', async () => {
+  if (!noteEditingQuestionId) return;
+  const note = (document.getElementById('noteEditorInput')?.value || '').trim();
+  if (!note) return;
+  try {
+    await fetchJSON(`${API_URL}/users/questions/${noteEditingQuestionId}/note`, {
+      method: 'PUT',
+      body: JSON.stringify({ note })
+    });
+    document.getElementById('noteEditorModal')?.classList.add('hidden');
+    noteEditingQuestionId = null;
+    loadNotes(notesPage);
   } catch (_) {}
 });
 

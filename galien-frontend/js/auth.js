@@ -36,7 +36,7 @@ async function login() {
       if (next) {
         window.location.href = next;
       } else {
-        window.location.href = (data.role === 'admin') ? 'admin.html' : 'dashboard.html';
+        window.location.href = (data.role === 'admin' || data.role === 'manager' || data.role === 'worker') ? 'admin.html' : 'dashboard.html';
       }
     } else {
       msg.textContent = data.message || 'Identifiants incorrects.';

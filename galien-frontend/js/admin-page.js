@@ -1,7 +1,8 @@
 ﻿const currentRole = localStorage.getItem('role');
 const isAdmin = currentRole === 'admin';
+const isManager = currentRole === 'manager';
 const isWorker = currentRole === 'worker';
-if (!isAdmin && !isWorker) {
+if (!isAdmin && !isManager && !isWorker) {
   window.location.href = 'dashboard.html';
 }
 
@@ -61,6 +62,18 @@ if (isWorker) {
   document.getElementById('pendingApproveAllBtn')?.classList.add('hidden');
   const topbarSub = document.getElementById('topbarSub');
   if (topbarSub) topbarSub.textContent = 'Ajoutez des questions (validation admin requise)';
+}
+
+if (isManager) {
+  document.getElementById('exportCsvCard')?.classList.add('hidden');
+  document.querySelector('.adm-nav-item[data-panel="login-alerts"]')?.classList.add('hidden');
+  document.getElementById('panel-login-alerts')?.classList.add('hidden');
+}
+
+if (!isAdmin) {
+  document.querySelectorAll('#new_user_role option').forEach((opt) => {
+    if (opt.value === 'admin' || opt.value === 'manager') opt.remove();
+  });
 }
 
 // Mobile sidebar
@@ -486,7 +499,7 @@ function renderUsersAdminList(rows){
           <select data-user-role="${u.id}">
             <option value="user" ${u.role==='user'?'selected':''}>user</option>
             <option value="worker" ${u.role==='worker'?'selected':''}>worker</option>
-            <option value="admin" ${u.role==='admin'?'selected':''}>admin</option>
+            ${isAdmin ? `<option value="manager" ${u.role==='manager'?'selected':''}>manager</option><option value="admin" ${u.role==='admin'?'selected':''}>admin</option>` : ''}
           </select>
         </label>
         <label class="field" style="margin:0">
@@ -507,7 +520,7 @@ function renderUsersAdminList(rows){
       </div>
       <div class="question-item-actions">
         <button class="btn-inline btn-sm" data-user-save="${u.id}"><i class="bi bi-floppy"></i> Enregistrer</button>
-        <button class="btn-inline btn-sm" style="color:var(--red)" data-user-delete="${u.id}"><i class="bi bi-trash"></i> Supprimer</button>
+        ${isAdmin ? `<button class="btn-inline btn-sm" style="color:var(--red)" data-user-delete="${u.id}"><i class="bi bi-trash"></i> Supprimer</button>` : ''}
       </div>
     </div>
   `).join('');
@@ -838,12 +851,14 @@ document.getElementById('saveEditBtn').addEventListener('click',async()=>{
 // Load on init
 loadQuestionsAdmin();
 loadSimilarityQuestionsPool();
-if (isAdmin) {
+if (isAdmin || isManager) {
   loadReports();
   loadUsersForMessages();
   loadAdminInbox();
   loadUsersAdminManagement();
   loadPendingQuestions();
+}
+if (isAdmin) {
   loadLoginAlertSettings();
 }
 if (isWorker) {

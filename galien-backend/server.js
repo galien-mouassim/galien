@@ -517,9 +517,17 @@ function requireAdmin(req, res, next) {
     return next();
 }
 
+function requireAdminOrManager(req, res, next) {
+    const role = req.user?.role;
+    if (role !== 'admin' && role !== 'manager') {
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+    return next();
+}
+
 function requireAdminOrWorker(req, res, next) {
     const role = req.user?.role;
-    if (role !== 'admin' && role !== 'worker') {
+    if (role !== 'admin' && role !== 'manager' && role !== 'worker') {
         return res.status(403).json({ message: 'Forbidden' });
     }
     return next();
@@ -568,7 +576,7 @@ async function ensureCoreSchema() {
     await pool.query(`
         ALTER TABLE users
         ADD CONSTRAINT users_role_check
-        CHECK (role IN ('admin', 'user', 'worker'))
+        CHECK (role IN ('admin', 'manager', 'user', 'worker'))
     `);
 
     await pool.query(`
@@ -1547,7 +1555,7 @@ app.post('/api/questions', authMiddleware, requireAdminOrWorker, async (req, res
 // ----------------------
 // ADMIN: Supprimer question
 // ----------------------
-app.delete('/api/questions/:id', authMiddleware, requireAdmin, async (req, res) => {
+app.delete('/api/questions/:id', authMiddleware, requireAdminOrManager, async (req, res) => {
     const id = req.params.id;
     try {
         await pool.query('DELETE FROM questions WHERE id=$1', [id]);
@@ -1577,7 +1585,7 @@ app.get('/api/modules', async (req, res) => {
     }
 });
 
-app.post('/api/modules', authMiddleware, requireAdmin, async (req, res) => {
+app.post('/api/modules', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const { name } = req.body || {};
         if (!name || !String(name).trim()) {
@@ -1599,7 +1607,7 @@ app.post('/api/modules', authMiddleware, requireAdmin, async (req, res) => {
 // ----------------------
 // ADMIN: Check duplicate/similar questions
 // ----------------------
-app.post('/api/questions/check-duplicate', authMiddleware, requireAdmin, async (req, res) => {
+app.post('/api/questions/check-duplicate', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const {
             question,
@@ -1737,7 +1745,7 @@ app.get('/api/sources', async (req, res) => {
     }
 });
 
-app.post('/api/sources', authMiddleware, requireAdmin, async (req, res) => {
+app.post('/api/sources', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const { name, module_id } = req.body || {};
         if (!name || !String(name).trim()) {
@@ -1769,7 +1777,7 @@ app.post('/api/sources', authMiddleware, requireAdmin, async (req, res) => {
     }
 });
 
-app.delete('/api/sources/:id', authMiddleware, requireAdmin, async (req, res) => {
+app.delete('/api/sources/:id', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const sourceId = Number(req.params.id);
         if (!Number.isInteger(sourceId) || sourceId <= 0) {
@@ -2619,7 +2627,7 @@ app.post('/api/users/questions/:id/report', authMiddleware, async (req, res) => 
 // ----------------------
 app.get('/api/admin/reports', authMiddleware, async (req, res) => {
     try {
-        if (req.user.role !== 'admin') {
+        if (!['admin', 'manager'].includes(req.user.role)) {
             return res.status(403).json({ message: 'Forbidden' });
         }
         const showResolved = req.query.resolved === '1';
@@ -2646,7 +2654,7 @@ app.get('/api/admin/reports', authMiddleware, async (req, res) => {
 
 app.put('/api/admin/reports/:id/resolve', authMiddleware, async (req, res) => {
     try {
-        if (req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+        if (!['admin', 'manager'].includes(req.user.role)) return res.status(403).json({ message: 'Forbidden' });
         const reportId = Number.parseInt(req.params.id, 10);
         if (!Number.isInteger(reportId) || reportId <= 0) {
             return res.status(400).json({ message: 'Invalid report id' });
@@ -2906,7 +2914,7 @@ app.post('/api/messages/mark-read', authMiddleware, async (req, res) => {
 // ----------------------
 app.get('/api/admin/users', authMiddleware, async (req, res) => {
     try {
-        if (req.user.role !== 'admin') {
+        if (!['admin', 'manager'].includes(req.user.role)) {
             return res.status(403).json({ message: 'Forbidden' });
         }
         const { pageSize, offset } = getPagination(req, { page: 1, pageSize: 200, maxPageSize: 500 });
@@ -2946,13 +2954,16 @@ app.get('/api/admin/users', authMiddleware, async (req, res) => {
     }
 });
 
-app.post('/api/admin/users', authMiddleware, requireAdmin, async (req, res) => {
+app.post('/api/admin/users', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const email = String(req.body?.email || '').trim().toLowerCase();
         const password = String(req.body?.password || '');
         const displayName = String(req.body?.display_name || '').trim() || null;
         const roleRaw = String(req.body?.role || 'user').trim().toLowerCase();
-        const role = ['admin', 'worker', 'user'].includes(roleRaw) ? roleRaw : 'user';
+        const allowedRoles = req.user.role === 'admin'
+            ? ['admin', 'manager', 'worker', 'user']
+            : ['worker', 'user'];
+        const role = allowedRoles.includes(roleRaw) ? roleRaw : 'user';
         const activeUntil = req.body?.active_until ? toTimestampOrNull(req.body.active_until) : null;
 
         if (req.body?.active_until && !activeUntil) {
@@ -2979,7 +2990,7 @@ app.post('/api/admin/users', authMiddleware, requireAdmin, async (req, res) => {
     }
 });
 
-app.put('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res) => {
+app.put('/api/admin/users/:id', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const targetId = Number(req.params.id);
         if (!Number.isInteger(targetId) || targetId <= 0) {
@@ -2988,6 +2999,11 @@ app.put('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res) =
 
         const current = await pool.query('SELECT id, role FROM users WHERE id = $1', [targetId]);
         if (!current.rows.length) return res.status(404).json({ message: 'user not found' });
+        const targetRole = current.rows[0].role;
+        const isManager = req.user.role === 'manager';
+        if (isManager && (targetRole === 'admin' || targetRole === 'manager')) {
+            return res.status(403).json({ message: 'forbidden for this account' });
+        }
 
         const updates = [];
         const params = [];
@@ -3007,7 +3023,10 @@ app.put('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res) =
 
         if (req.body.role !== undefined) {
             const requestedRole = String(req.body.role || '').trim().toLowerCase();
-            const role = ['admin', 'worker', 'user'].includes(requestedRole) ? requestedRole : 'user';
+            const allowedRoles = req.user.role === 'admin'
+                ? ['admin', 'manager', 'worker', 'user']
+                : ['worker', 'user'];
+            const role = allowedRoles.includes(requestedRole) ? requestedRole : 'user';
             if (req.user.id === targetId && role !== 'admin') {
                 return res.status(400).json({ message: 'you cannot remove your own admin role' });
             }
@@ -3017,6 +3036,9 @@ app.put('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res) =
 
         if (req.body.is_active !== undefined) {
             const isActive = !!req.body.is_active;
+            if (isManager && targetRole === 'admin') {
+                return res.status(403).json({ message: 'forbidden for this account' });
+            }
             if (req.user.id === targetId && !isActive) {
                 return res.status(400).json({ message: 'you cannot deactivate your own account' });
             }
@@ -3091,7 +3113,7 @@ app.delete('/api/admin/users/:id', authMiddleware, requireAdmin, async (req, res
 
 app.post('/api/admin/messages', authMiddleware, async (req, res) => {
     try {
-        if (req.user.role !== 'admin') {
+        if (!['admin', 'manager'].includes(req.user.role)) {
             return res.status(403).json({ message: 'Forbidden' });
         }
         const { recipient_id, body } = req.body;
@@ -3163,7 +3185,7 @@ app.put('/api/admin/login-alert-settings', authMiddleware, requireAdmin, async (
     }
 });
 
-app.get('/api/admin/pending-questions', authMiddleware, requireAdmin, async (req, res) => {
+app.get('/api/admin/pending-questions', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         await ensurePendingQuestionsSchema();
         const status = String(req.query.status || 'pending').trim().toLowerCase();
@@ -3283,7 +3305,7 @@ app.get('/api/worker/pending-questions', authMiddleware, async (req, res) => {
     }
 });
 
-app.post('/api/admin/pending-questions/:id/approve', authMiddleware, requireAdmin, async (req, res) => {
+app.post('/api/admin/pending-questions/:id/approve', authMiddleware, requireAdminOrManager, async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid id' });
 
@@ -3334,7 +3356,7 @@ app.post('/api/admin/pending-questions/:id/approve', authMiddleware, requireAdmi
     }
 });
 
-app.post('/api/admin/pending-questions/:id/reject', authMiddleware, requireAdmin, async (req, res) => {
+app.post('/api/admin/pending-questions/:id/reject', authMiddleware, requireAdminOrManager, async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid id' });
     try {
@@ -3407,7 +3429,7 @@ app.get('/api/admin/questions/export-csv', authMiddleware, requireAdmin, async (
 // ----------------------
 // ADMIN: Update question
 // ----------------------
-app.put('/api/questions/:id', authMiddleware, requireAdmin, async (req, res) => {
+app.put('/api/questions/:id', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const id = req.params.id;
         const {
@@ -3521,7 +3543,7 @@ app.get('/api/courses', async (req, res) => {
     }
 });
 
-app.post('/api/courses', authMiddleware, requireAdmin, async (req, res) => {
+app.post('/api/courses', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const { name, module_id } = req.body;
         if (!name || !name.trim()) {
@@ -3539,7 +3561,7 @@ app.post('/api/courses', authMiddleware, requireAdmin, async (req, res) => {
     }
 });
 
-app.delete('/api/courses/:id', authMiddleware, requireAdmin, async (req, res) => {
+app.delete('/api/courses/:id', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const courseId = Number(req.params.id);
         if (!Number.isInteger(courseId) || courseId <= 0) {
@@ -3574,7 +3596,7 @@ app.delete('/api/courses/:id', authMiddleware, requireAdmin, async (req, res) =>
 // ----------------------
 // ADMIN: Bulk import questions (CSV -> JSON rows)
 // ----------------------
-app.post('/api/questions/import', authMiddleware, requireAdmin, async (req, res) => {
+app.post('/api/questions/import', authMiddleware, requireAdminOrManager, async (req, res) => {
     const { rows } = req.body;
 
     if (!Array.isArray(rows) || rows.length === 0) {

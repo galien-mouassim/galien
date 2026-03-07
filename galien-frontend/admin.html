@@ -68,7 +68,7 @@
     <span class="adm-nav-badge" id="reportsBadge" style="display:none">0</span>
   </div>
 
-  <div class="adm-nav-item" data-panel="login-alerts">
+  <div class="adm-nav-item" data-panel="login-alerts" data-admin-only="1">
     <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><circle cx="12" cy="16" r="1"/>
     </svg>
@@ -121,7 +121,9 @@
       <div class="adm-topbar-title" id="topbarTitle">Questions</div>
       <div class="adm-topbar-sub" id="topbarSub">Gérez la base de questions</div>
     </div>
-    <div class="adm-topbar-actions"></div>
+    <div class="adm-topbar-actions">
+      <span id="topbarRoleBadge" class="adm-role-badge hidden"></span>
+    </div>
   </div>
 
   <div class="adm-content">
@@ -256,7 +258,7 @@
         <button type="button" id="nextQuestionsPageBtn" class="btn ghost btn-sm">Suivant →</button>
       </div>
 
-      <div class="adm-card" id="exportCsvCard" style="margin-top:12px">
+      <div class="adm-card" id="exportCsvCard" data-admin-only="1" style="margin-top:12px">
         <div class="adm-card-title">Export CSV</div>
         <div class="grid-3">
           <label class="field" style="grid-column:span 2;margin:0">
@@ -448,7 +450,7 @@
     </div>
 
     <!-- ═══ PANEL: LOGIN ALERTS ═══ -->
-    <div class="adm-panel" id="panel-login-alerts">
+    <div class="adm-panel" id="panel-login-alerts" data-admin-only="1">
       <div class="adm-section-header">
         <div>
           <div class="adm-section-title">Alertes de connexion non-admin</div>
@@ -611,6 +613,7 @@
 <script src="js/profile-link.js" defer></script>
 </body>
 </html>
+
 
 
 

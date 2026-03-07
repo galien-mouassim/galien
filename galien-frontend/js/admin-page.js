@@ -6,6 +6,33 @@ if (!isAdmin && !isManager && !isWorker) {
   window.location.href = 'dashboard.html';
 }
 
+function initTopbarRoleBadge() {
+  const el = document.getElementById('topbarRoleBadge');
+  if (!el) return;
+  if (isManager) {
+    el.textContent = 'Manager';
+    el.classList.add('manager');
+    el.classList.remove('hidden');
+    return;
+  }
+  if (isAdmin) {
+    el.textContent = 'Admin';
+    el.classList.remove('hidden');
+    return;
+  }
+  if (isWorker) {
+    el.textContent = 'Worker';
+    el.classList.remove('hidden');
+  }
+}
+
+function hideAdminOnlyUiForManager() {
+  if (!isManager) return;
+  document.querySelectorAll('[data-admin-only="1"]').forEach((el) => {
+    el.classList.add('hidden');
+  });
+}
+
 /* ══ Sidebar Navigation ══ */
 const panelMeta = {
   questions: { title: 'Questions',      sub: 'Gérez la base de questions' },
@@ -75,6 +102,9 @@ if (!isAdmin) {
     if (opt.value === 'admin' || opt.value === 'manager') opt.remove();
   });
 }
+
+initTopbarRoleBadge();
+hideAdminOnlyUiForManager();
 
 // Mobile sidebar
 document.getElementById('menuToggle').addEventListener('click', () => {

@@ -400,6 +400,36 @@
           <div class="adm-section-desc">Validation en lot avec analyse de similarité.</div>
         </div>
       </div>
+
+      <div class="adm-card" id="pendingMyStatsCard">
+        <div class="adm-card-title">Mes statistiques d'envoi</div>
+        <div class="grid-4 pending-stats-grid">
+          <div class="pending-stat">
+            <div class="pending-stat-label">En attente</div>
+            <div class="pending-stat-value" id="pendingMyStatPending">—</div>
+          </div>
+          <div class="pending-stat">
+            <div class="pending-stat-label">Approuvées</div>
+            <div class="pending-stat-value" id="pendingMyStatApproved">—</div>
+          </div>
+          <div class="pending-stat">
+            <div class="pending-stat-label">Rejetées</div>
+            <div class="pending-stat-value" id="pendingMyStatRejected">—</div>
+          </div>
+          <div class="pending-stat">
+            <div class="pending-stat-label">Total</div>
+            <div class="pending-stat-value" id="pendingMyStatTotal">—</div>
+          </div>
+        </div>
+        <div class="muted" style="margin-top:8px;font-size:.82rem">Compteur global (tous modules/cours/sources).</div>
+      </div>
+
+      <div class="adm-card" id="pendingWorkersStatsCard">
+        <div class="adm-card-title">Contributions des workers</div>
+        <div class="muted" style="margin-top:-6px;font-size:.82rem">Vue d'ensemble par compte worker.</div>
+        <div id="pendingWorkersStatsTable" style="margin-top:10px"></div>
+      </div>
+
       <div class="filter-bar">
         <label class="field"><span>Module</span><select id="pending_filter_module_id"></select></label>
         <label class="field"><span>Cours</span><select id="pending_filter_course_id"></select></label>

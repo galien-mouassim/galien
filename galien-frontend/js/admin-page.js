@@ -61,6 +61,7 @@ function switchPanel(name) {
     loadLoginAlertSettings();
   }
   if (name === 'worker-submissions') {
+    loadPendingSubmissionStats();
     loadPendingQuestions();
   }
 }
@@ -87,6 +88,7 @@ if (isWorker) {
   document.getElementById('panel-users')?.classList.add('hidden');
   document.getElementById('pendingApproveSelectedBtn')?.classList.add('hidden');
   document.getElementById('pendingApproveAllBtn')?.classList.add('hidden');
+  document.getElementById('pendingWorkersStatsCard')?.classList.add('hidden');
   const topbarSub = document.getElementById('topbarSub');
   if (topbarSub) topbarSub.textContent = 'Ajoutez des questions (validation admin requise)';
 }
@@ -570,6 +572,94 @@ async function loadUsersAdminManagement(){
   }
 }
 
+function setPendingMyStats(stats) {
+  const set = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(v);
+  };
+  set('pendingMyStatPending', stats?.pending ?? 0);
+  set('pendingMyStatApproved', stats?.approved ?? 0);
+  set('pendingMyStatRejected', stats?.rejected ?? 0);
+  set('pendingMyStatTotal', stats?.total ?? ((stats?.pending ?? 0) + (stats?.approved ?? 0) + (stats?.rejected ?? 0)));
+}
+
+async function loadPendingSubmissionStats() {
+  await loadMyPendingSubmissionStats();
+  if (!isWorker) await loadWorkersPendingSubmissionStats();
+}
+
+async function loadMyPendingSubmissionStats() {
+  const card = document.getElementById('pendingMyStatsCard');
+  if (!card) return;
+  setPendingMyStats({ pending: '…', approved: '…', rejected: '…', total: '…' });
+  try {
+    const res = await fetch(`${API_URL}/users/pending-questions/stats`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('load failed');
+    const data = await res.json();
+    setPendingMyStats(data.stats || {});
+  } catch (_) {
+    setPendingMyStats({ pending: '—', approved: '—', rejected: '—', total: '—' });
+  }
+}
+
+function renderWorkersPendingStatsTable(payload) {
+  const wrap = document.getElementById('pendingWorkersStatsTable');
+  if (!wrap) return;
+  const rows = payload?.by_user || [];
+  const totals = payload?.totals || { pending: 0, approved: 0, rejected: 0, total: 0 };
+
+  if (!rows.length) {
+    wrap.innerHTML = '<div class="adm-empty"><p>Aucune donnée.</p></div>';
+    return;
+  }
+
+  const fmt = (v) => String(Number(v || 0));
+  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.82rem">
+    <thead><tr style="background:var(--surface-2);text-align:left">
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Worker</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">En attente</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Approuvées</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Rejetées</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Total</th>
+    </tr></thead>
+    <tbody>
+      <tr style="border-bottom:1px solid var(--border);font-weight:800">
+        <td style="padding:8px 10px">Total workers</td>
+        <td style="padding:8px 10px">${fmt(totals.pending)}</td>
+        <td style="padding:8px 10px">${fmt(totals.approved)}</td>
+        <td style="padding:8px 10px">${fmt(totals.rejected)}</td>
+        <td style="padding:8px 10px">${fmt(totals.total)}</td>
+      </tr>
+      ${rows.map((r) => {
+        const name = r.display_name || r.email || `#${r.user_id}`;
+        const email = r.email ? `<div class="muted" style="font-size:.78rem">${esc(r.email)}</div>` : '';
+        return `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px 10px">${esc(name)}${email}</td>
+          <td style="padding:8px 10px">${fmt(r.pending)}</td>
+          <td style="padding:8px 10px">${fmt(r.approved)}</td>
+          <td style="padding:8px 10px">${fmt(r.rejected)}</td>
+          <td style="padding:8px 10px;font-weight:800">${fmt(r.total)}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
+}
+
+async function loadWorkersPendingSubmissionStats() {
+  const card = document.getElementById('pendingWorkersStatsCard');
+  const wrap = document.getElementById('pendingWorkersStatsTable');
+  if (!card || !wrap) return;
+  wrap.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
+  try {
+    const res = await fetch(`${API_URL}/admin/pending-questions/stats?role=worker`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('load failed');
+    const data = await res.json();
+    renderWorkersPendingStatsTable(data);
+  } catch (_) {
+    wrap.innerHTML = '<div class="muted">Impossible de charger les statistiques.</div>';
+  }
+}
+
 async function loadPendingQuestions() {
   const wrap = document.getElementById('pendingQuestionsList');
   if (!wrap) return;
@@ -726,6 +816,7 @@ async function approvePendingQuestion(id) {
   });
   if (!res.ok) return alert('Erreur lors de l’approbation.');
   await loadPendingQuestions();
+  await loadPendingSubmissionStats();
   await loadQuestionsAdmin();
   await loadSimilarityQuestionsPool();
 }
@@ -739,6 +830,7 @@ async function rejectPendingQuestion(id) {
   });
   if (!res.ok) return alert('Erreur lors du rejet.');
   await loadPendingQuestions();
+  await loadPendingSubmissionStats();
 }
 window.rejectPendingQuestion = rejectPendingQuestion;
 
@@ -784,6 +876,7 @@ form.addEventListener('submit', async e => {
     renderSimilarityUI(0,[]);
     loadQuestionsAdmin();
     loadPendingQuestions();
+    loadPendingSubmissionStats();
     if (res.status === 202) {
       workerSessionSubmittedCount += 1;
       const status = document.getElementById('workerSubmitStatus');
@@ -887,12 +980,14 @@ if (isAdmin || isManager) {
   loadAdminInbox();
   loadUsersAdminManagement();
   loadPendingQuestions();
+  loadPendingSubmissionStats();
 }
 if (isAdmin) {
   loadLoginAlertSettings();
 }
 if (isWorker) {
   loadPendingQuestions();
+  loadPendingSubmissionStats();
 }
 
 document.getElementById('pendingRefreshBtn')?.addEventListener('click', () => loadPendingQuestions());
@@ -927,6 +1022,7 @@ document.getElementById('pendingApproveSelectedBtn')?.addEventListener('click', 
   await loadQuestionsAdmin();
   await loadSimilarityQuestionsPool();
   await loadPendingQuestions();
+  await loadPendingSubmissionStats();
 });
 
 document.getElementById('pendingApproveAllBtn')?.addEventListener('click', async () => {
@@ -943,6 +1039,7 @@ document.getElementById('pendingApproveAllBtn')?.addEventListener('click', async
   await loadQuestionsAdmin();
   await loadSimilarityQuestionsPool();
   await loadPendingQuestions();
+  await loadPendingSubmissionStats();
 });
 
 async function loadModules() {

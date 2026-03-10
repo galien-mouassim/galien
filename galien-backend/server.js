@@ -3419,6 +3419,73 @@ app.get('/api/worker/pending-questions', authMiddleware, async (req, res) => {
     }
 });
 
+function emptyPendingStats() {
+    return { pending: 0, approved: 0, rejected: 0, total: 0 };
+}
+
+app.get('/api/users/pending-questions/stats', authMiddleware, async (req, res) => {
+    try {
+        await ensurePendingQuestionsSchema();
+        const stats = emptyPendingStats();
+        const q = await pool.query(
+            `SELECT status, COUNT(*)::int AS count
+             FROM pending_questions
+             WHERE submitted_by = $1
+             GROUP BY status`,
+            [req.user.id]
+        );
+        q.rows.forEach((r) => {
+            const key = String(r.status || '').toLowerCase();
+            const count = Number(r.count || 0);
+            if (key === 'pending' || key === 'approved' || key === 'rejected') stats[key] = count;
+        });
+        stats.total = stats.pending + stats.approved + stats.rejected;
+        return res.json({ stats });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/admin/pending-questions/stats', authMiddleware, requireAdminOrManager, async (req, res) => {
+    try {
+        await ensurePendingQuestionsSchema();
+
+        const role = String(req.query.role || 'worker').trim().toLowerCase();
+        const roleFilter = ['worker', 'admin', 'manager'].includes(role) ? role : 'worker';
+
+        const q = await pool.query(
+            `SELECT
+                u.id AS user_id,
+                u.email,
+                u.display_name,
+                u.role,
+                COALESCE(COUNT(pq.id) FILTER (WHERE pq.status = 'pending'), 0)::int AS pending,
+                COALESCE(COUNT(pq.id) FILTER (WHERE pq.status = 'approved'), 0)::int AS approved,
+                COALESCE(COUNT(pq.id) FILTER (WHERE pq.status = 'rejected'), 0)::int AS rejected,
+                COALESCE(COUNT(pq.id), 0)::int AS total,
+                MAX(pq.created_at) AS last_submitted_at
+             FROM users u
+             LEFT JOIN pending_questions pq ON pq.submitted_by = u.id
+             WHERE u.role = $1
+             GROUP BY u.id, u.email, u.display_name, u.role
+             ORDER BY total DESC, last_submitted_at DESC NULLS LAST, u.email ASC`,
+            [roleFilter]
+        );
+
+        const totals = emptyPendingStats();
+        q.rows.forEach((r) => {
+            totals.pending += Number(r.pending || 0);
+            totals.approved += Number(r.approved || 0);
+            totals.rejected += Number(r.rejected || 0);
+        });
+        totals.total = totals.pending + totals.approved + totals.rejected;
+
+        return res.json({ role: roleFilter, totals, by_user: q.rows });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/admin/pending-questions/:id/approve', authMiddleware, requireAdminOrManager, async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid id' });

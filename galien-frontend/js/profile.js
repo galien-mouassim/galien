@@ -361,6 +361,7 @@ function renderMessages(rows) {
 
 function renderAnalytics(analytics, basicStats) {
   const profileStats = document.getElementById('profileStats');
+  const chartsRow = document.getElementById('statsChartsRow');
   const insights = document.getElementById('statsInsights');
   const moduleWrap = document.getElementById('moduleScoresWrap');
   const courseWrap = document.getElementById('courseScoresWrap');
@@ -368,130 +369,276 @@ function renderAnalytics(analytics, basicStats) {
   const timelineWrap = document.getElementById('timelineWrap');
   if (!profileStats || !insights || !moduleWrap || !courseWrap || !failedWrap || !timelineWrap) return;
 
+  // Destroy any existing Chart.js instances before re-rendering
+  if (window._galienCharts) {
+    Object.values(window._galienCharts).forEach((c) => { try { c.destroy(); } catch (_) {} });
+  }
+  window._galienCharts = {};
+
   const sessions = analytics?.sessions || {};
   const qp = analytics?.questions_progress || {};
   const timeline = analytics?.progression_timeline || {};
   const avgPercent = basicStats?.avg_percent ? Math.round(Number(basicStats.avg_percent)) : 0;
+  const avgColor = avgPercent >= 70 ? '#22c55e' : avgPercent >= 50 ? '#f59e0b' : '#ef4444';
 
-  profileStats.innerHTML = `
-    <div class="stat-item"><div class="stat-val">${sessions.total || 0}</div><div class="stat-lbl">Sessions</div></div>
-    <div class="stat-item"><div class="stat-val">${sessions.training || 0}</div><div class="stat-lbl">Entrainement</div></div>
-    <div class="stat-item"><div class="stat-val">${sessions.exam || 0}</div><div class="stat-lbl">Examen</div></div>
-    <div class="stat-item"><div class="stat-val">${avgPercent}%</div><div class="stat-lbl">Moyenne globale</div></div>
-    <div class="stat-item"><div class="stat-val">${qp.unique_done || 0} / ${qp.total_questions || 0}</div><div class="stat-lbl">Questions uniques faites</div></div>
-    <div class="stat-item"><div class="stat-val">${qp.done_with_duplicates || 0}</div><div class="stat-lbl">Questions faites (doublons inclus)</div></div>
-  `;
+  // ── Stat cards ──────────────────────────────────────────────────────────
+  const statItems = [
+    { val: sessions.total || 0,   lbl: 'Sessions totales',   icon: '📊', bg: '#6366f1' },
+    { val: sessions.training || 0, lbl: 'Entraînement',      icon: '📖', bg: '#0d9488' },
+    { val: sessions.exam || 0,     lbl: 'Examens',           icon: '🎓', bg: '#f59e0b' },
+    { val: `${avgPercent}%`,        lbl: 'Moyenne globale',  icon: '🎯', bg: avgColor  },
+    { val: `${qp.unique_done || 0} / ${qp.total_questions || 0}`, lbl: 'Questions uniques', icon: '✅', bg: '#0d9488' },
+    { val: qp.done_with_duplicates || 0, lbl: 'Tentatives totales', icon: '🔁', bg: '#64748b' },
+  ];
+  profileStats.innerHTML = statItems.map((s) => `
+    <div class="stat-item">
+      <div class="stat-item-icon" style="background:${s.bg}18">${s.icon}</div>
+      <div class="stat-val">${s.val}</div>
+      <div class="stat-lbl">${s.lbl}</div>
+    </div>
+  `).join('');
 
+  // ── Donut charts row ────────────────────────────────────────────────────
+  if (chartsRow) {
+    chartsRow.innerHTML = `
+      <div class="analytics-block chart-donut-wrap">
+        <h4>Répartition des sessions</h4>
+        <canvas id="chartSessions" width="180" height="180"></canvas>
+        <div id="chartSessionsLegend" class="chart-legend"></div>
+      </div>
+      <div class="analytics-block chart-donut-wrap">
+        <h4>Questions réalisées</h4>
+        <canvas id="chartProgress" width="180" height="180"></canvas>
+        <div id="chartProgressLegend" class="chart-legend"></div>
+      </div>
+    `;
+    requestAnimationFrame(() => {
+      const trainCount = Number(sessions.training || 0);
+      const examCount  = Number(sessions.exam || 0);
+      const ctxSessions = document.getElementById('chartSessions')?.getContext('2d');
+      if (ctxSessions && (trainCount + examCount) > 0) {
+        window._galienCharts.sessions = new Chart(ctxSessions, {
+          type: 'doughnut',
+          data: {
+            labels: ['Entraînement', 'Examens'],
+            datasets: [{ data: [trainCount, examCount], backgroundColor: ['#0d9488', '#f59e0b'], borderWidth: 0, hoverOffset: 4 }]
+          },
+          options: { responsive: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.parsed}` } } } }
+        });
+        document.getElementById('chartSessionsLegend').innerHTML = `
+          <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#0d9488"></div>Entraînement (${trainCount})</div>
+          <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#f59e0b"></div>Examens (${examCount})</div>
+        `;
+      } else if (ctxSessions) {
+        document.getElementById('chartSessionsLegend').innerHTML = '<span class="muted">Aucune session.</span>';
+      }
+
+      const done      = Number(qp.unique_done || 0);
+      const total     = Number(qp.total_questions || 0);
+      const remaining = Math.max(0, total - done);
+      const ctxProgress = document.getElementById('chartProgress')?.getContext('2d');
+      if (ctxProgress && total > 0) {
+        window._galienCharts.progress = new Chart(ctxProgress, {
+          type: 'doughnut',
+          data: {
+            labels: ['Faites', 'Restantes'],
+            datasets: [{ data: [done, remaining], backgroundColor: ['#22c55e', '#e2e8f0'], borderWidth: 0, hoverOffset: 4 }]
+          },
+          options: { responsive: false, cutout: '70%', plugins: { legend: { display: false } } }
+        });
+        const pct = Math.round(done / total * 100);
+        document.getElementById('chartProgressLegend').innerHTML = `
+          <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#22c55e"></div>Faites (${done} · ${pct}%)</div>
+          <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#e2e8f0"></div>Restantes (${remaining})</div>
+        `;
+      } else if (ctxProgress) {
+        document.getElementById('chartProgressLegend').innerHTML = '<span class="muted">Aucune donnée.</span>';
+      }
+    });
+  }
+
+  // ── Insights pills ──────────────────────────────────────────────────────
+  const improving = timeline.improving;
+  const trendIcon = improving == null ? '—' : (improving ? '📈' : '📉');
+  const trendText = improving == null ? '—' : (improving ? 'En progression' : 'À retravailler');
   insights.innerHTML = `
-    <div class="analytics-pill"><div class="k">Temps total revise</div><div class="v">${formatDuration(analytics?.total_revision_seconds || 0)}</div></div>
-    <div class="analytics-pill"><div class="k">Streak</div><div class="v">${analytics?.streak_days || 0} jours</div></div>
-    <div class="analytics-pill"><div class="k">Favoris</div><div class="v">${analytics?.favorites_count || 0}</div></div>
-    <div class="analytics-pill"><div class="k">Cours le plus maitrise</div><div class="v">${analytics?.strongest_course?.course_name || '-'}</div></div>
-    <div class="analytics-pill"><div class="k">Cours le plus faible</div><div class="v">${analytics?.weakest_course?.course_name || '-'}</div></div>
-    <div class="analytics-pill"><div class="k">Tendance</div><div class="v">${timeline.improving == null ? '-' : (timeline.improving ? 'En progression' : 'A retravailler')}</div></div>
+    <div class="analytics-pill"><div class="pill-icon">⏱️</div><div class="k">Temps révisé</div><div class="v">${formatDuration(analytics?.total_revision_seconds || 0)}</div></div>
+    <div class="analytics-pill"><div class="pill-icon">🔥</div><div class="k">Streak</div><div class="v">${analytics?.streak_days || 0} jours</div></div>
+    <div class="analytics-pill"><div class="pill-icon">⭐</div><div class="k">Favoris</div><div class="v">${analytics?.favorites_count || 0}</div></div>
+    <div class="analytics-pill"><div class="pill-icon">💪</div><div class="k">Cours le plus maîtrisé</div><div class="v">${escHtml(analytics?.strongest_course?.course_name || '—')}</div></div>
+    <div class="analytics-pill"><div class="pill-icon">⚠️</div><div class="k">Cours le plus faible</div><div class="v">${escHtml(analytics?.weakest_course?.course_name || '—')}</div></div>
+    <div class="analytics-pill"><div class="pill-icon">${trendIcon}</div><div class="k">Tendance</div><div class="v">${trendText}</div></div>
   `;
 
+  // ── Module scores — interactive bar rows ────────────────────────────────
   const modules = analytics?.avg_score_by_module || [];
-  moduleWrap.innerHTML = `<h4>Score moyen par module (cliquer pour voir les cours)</h4>
-    <div class="score-list">
+  const maxPct   = modules.length ? Math.max(...modules.map((m) => Number(m.avg_percent || 0)), 1) : 1;
+  moduleWrap.innerHTML = `
+    <div class="block-header">
+      <h4>Score par module</h4>
+      <span class="muted" style="font-size:.75rem">Cliquer pour filtrer les cours</span>
+    </div>
+    <div class="module-bar-list">
       ${modules.length
         ? modules.map((m) => {
-            const id = m.module_id == null ? 'none' : String(m.module_id);
+            const id     = m.module_id == null ? 'none' : String(m.module_id);
             const active = selectedModuleForCourses === id;
-            return `<button type="button" class="score-chip ${active ? 'active' : ''}" data-module-score="${id}">
-              <strong>${m.module_name || 'Sans module'}</strong>
-              <small>${Number(m.avg_percent || 0).toFixed(1)}% · ${m.attempts} tentatives</small>
-            </button>`;
+            const pct    = Number(m.avg_percent || 0);
+            const fill   = pct >= 70 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
+            const barW   = maxPct > 0 ? (pct / maxPct * 100).toFixed(1) : 0;
+            return `<div class="module-bar-row ${active ? 'active' : ''}" data-module-score="${id}" role="button" tabindex="0">
+              <div class="module-bar-label" title="${escHtml(m.module_name || 'Sans module')}">${escHtml(m.module_name || 'Sans module')}</div>
+              <div class="module-bar-track"><div class="module-bar-fill" style="width:${barW}%;background:${fill}"></div></div>
+              <div class="module-bar-pct" style="color:${fill}">${pct.toFixed(1)}%</div>
+              <div class="module-bar-attempts">${m.attempts} tent.</div>
+            </div>`;
           }).join('')
-        : '<span class="muted">Aucune donnee.</span>'}
-    </div>`;
+        : '<span class="muted">Aucune donnée.</span>'}
+    </div>
+  `;
 
+  // ── Course scores ───────────────────────────────────────────────────────
   const courses = analytics?.avg_score_by_course || [];
   const filteredCourses = selectedModuleForCourses == null
     ? courses
     : courses.filter((c) => String(c.module_id == null ? 'none' : c.module_id) === selectedModuleForCourses);
-  courseWrap.innerHTML = `<h4>Scores par cours${selectedModuleForCourses == null ? '' : ' (module selectionne)'}</h4>
-    <div class="mini-table">
+  courseWrap.innerHTML = `
+    <div class="block-header">
+      <h4>Scores par cours</h4>
+      ${selectedModuleForCourses != null ? '<span class="label" style="font-size:.7rem">module filtré</span>' : ''}
+    </div>
+    <div class="course-list">
       ${filteredCourses.length
-        ? filteredCourses.slice(0, 20).map((c) => `
-          <div class="mini-row">
-            <div>${c.course_name || 'Sans cours'} <div class="muted">${c.attempts} tentatives</div></div>
-            <div class="pct ${Number(c.avg_percent || 0) >= 60 ? 'good' : 'bad'}">${Number(c.avg_percent || 0).toFixed(1)}%</div>
-            <div></div>
-          </div>
-        `).join('')
+        ? filteredCourses.slice(0, 20).map((c) => {
+            const pct  = Number(c.avg_percent || 0);
+            const fill = pct >= 70 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
+            return `<div class="course-row">
+              <div class="course-row-name">${escHtml(c.course_name || 'Sans cours')}<span class="muted"> · ${c.attempts} tent.</span></div>
+              <div class="course-row-bar"><div class="course-row-bar-fill" style="width:${pct}%;background:${fill}"></div></div>
+              <div class="course-row-pct" style="color:${fill}">${pct.toFixed(1)}%</div>
+            </div>`;
+          }).join('')
         : '<span class="muted">Aucun cours pour ce module.</span>'}
-    </div>`;
+    </div>
+  `;
 
-  const failedRows = Array.isArray(failedOverrideRows) ? failedOverrideRows : (analytics?.most_failed_questions_top10 || []);
-  const moduleValue = String(failedFilterState.module_id || '');
-  const courseValue = String(failedFilterState.course_id || '');
-  const sourceValue = String(failedFilterState.source_id || '');
+  // ── Progression timeline — line chart + daily list ─────────────────────
+  const trendDelta = timeline.trend_delta_percent;
+  const daily      = Array.isArray(timeline.by_day) ? timeline.by_day : [];
+  const last10     = daily.slice(-10);
+  timelineWrap.innerHTML = `
+    <div class="block-header">
+      <h4>Progression dans le temps</h4>
+      ${trendDelta != null ? `<span class="trend-badge" style="color:${trendDelta >= 0 ? '#22c55e' : '#ef4444'};background:${trendDelta >= 0 ? '#f0fdf4' : '#fef2f2'}">
+        ${trendDelta >= 0 ? '▲' : '▼'} ${trendDelta > 0 ? '+' : ''}${trendDelta}%
+      </span>` : ''}
+    </div>
+    ${last10.length > 1 ? '<div class="timeline-chart-wrap"><canvas id="chartTimeline"></canvas></div>' : '<p class="muted">Pas assez de données pour la tendance.</p>'}
+    <div class="timeline-list">
+      ${last10.map((d) => {
+        const p = Number(d.avg_percent || 0);
+        const c = p >= 70 ? '#22c55e' : p >= 50 ? '#f59e0b' : '#ef4444';
+        return `<div class="timeline-day">
+          <span>${new Date(d.day).toLocaleDateString('fr-FR')}</span>
+          <div class="timeline-bar-track"><div class="timeline-bar-fill" style="width:${p}%;background:${c}"></div></div>
+          <strong style="color:${c};min-width:40px;text-align:right">${p.toFixed(1)}%</strong>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+  if (last10.length > 1) {
+    requestAnimationFrame(() => {
+      const ctxTl = document.getElementById('chartTimeline')?.getContext('2d');
+      if (!ctxTl) return;
+      window._galienCharts.timeline = new Chart(ctxTl, {
+        type: 'line',
+        data: {
+          labels: last10.map((d) => new Date(d.day).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })),
+          datasets: [{
+            data: last10.map((d) => Number(d.avg_percent || 0).toFixed(1)),
+            borderColor: '#0d9488',
+            backgroundColor: 'rgba(13,148,136,.1)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#0d9488',
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.y}%` } } },
+          scales: {
+            y: { min: 0, max: 100, grid: { color: 'rgba(100,116,139,.08)' }, ticks: { callback: (v) => `${v}%`, font: { size: 11 } } },
+            x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+          }
+        }
+      });
+    });
+  }
+
+  // ── Top 10 failed questions ─────────────────────────────────────────────
+  const failedRows     = Array.isArray(failedOverrideRows) ? failedOverrideRows : (analytics?.most_failed_questions_top10 || []);
+  const moduleValue    = String(failedFilterState.module_id || '');
+  const courseValue    = String(failedFilterState.course_id || '');
+  const sourceValue    = String(failedFilterState.source_id || '');
   const coursesFiltered = moduleValue
     ? referencesCache.courses.filter((c) => String(c.module_id || '') === moduleValue)
     : referencesCache.courses;
   const sourcesFiltered = moduleValue
     ? referencesCache.sources.filter((s) => !s.module_id || String(s.module_id) === moduleValue)
     : referencesCache.sources;
-  failedWrap.innerHTML = `<h4>Top 10 questions les plus ratees</h4>
-    <div class="muted" style="margin-bottom:8px">Developper pour voir details + filtrer par module, cours et reference.</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:10px">
-      <label class="field" style="margin:0">
-        <span>Module</span>
+  failedWrap.innerHTML = `
+    <div class="block-header" style="margin-bottom:12px">
+      <h4>Top 10 questions les plus ratées</h4>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px">
+      <label class="field" style="margin:0"><span>Module</span>
         <select id="failedFilterModule">
           <option value="">Tous</option>
           ${referencesCache.modules.map((m) => `<option value="${m.id}" ${String(m.id)===moduleValue?'selected':''}>${escHtml(m.name)}</option>`).join('')}
         </select>
       </label>
-      <label class="field" style="margin:0">
-        <span>Cours</span>
+      <label class="field" style="margin:0"><span>Cours</span>
         <select id="failedFilterCourse">
           <option value="">Tous</option>
           ${coursesFiltered.map((c) => `<option value="${c.id}" ${String(c.id)===courseValue?'selected':''}>${escHtml(c.name)}</option>`).join('')}
         </select>
       </label>
-      <label class="field" style="margin:0">
-        <span>Reference</span>
+      <label class="field" style="margin:0"><span>Référence</span>
         <select id="failedFilterSource">
           <option value="">Toutes</option>
           ${sourcesFiltered.map((s) => `<option value="${s.id}" ${String(s.id)===sourceValue?'selected':''}>${escHtml(s.name)}</option>`).join('')}
         </select>
       </label>
     </div>
-    <div class="mini-table">
+    <div class="failed-list">
       ${failedRows.length
         ? failedRows.map((r) => `
-          <div class="mini-row" style="align-items:flex-start;grid-template-columns:1fr auto auto auto">
-            <div>
-              ${escHtml(r.question || '')}
-              <div class="muted" style="margin-top:2px">${escHtml(r.module_name || '-')}${r.course_name ? ` · ${escHtml(r.course_name)}` : ''}${r.source_name ? ` · ${escHtml(r.source_name)}` : ''}</div>
+          <div class="failed-card">
+            <div class="failed-card-header" data-failed-toggle="${r.question_id}">
+              <div class="failed-card-main">
+                <div class="failed-card-q">${escHtml(r.question || '')}</div>
+                <div class="failed-card-meta">${escHtml(r.module_name || '—')}${r.course_name ? ` · ${escHtml(r.course_name)}` : ''}${r.source_name ? ` · ${escHtml(r.source_name)}` : ''}</div>
+              </div>
+              <div class="failed-card-rate">${Number(r.fail_rate_percent || 0).toFixed(0)}<span>%</span></div>
+              <div class="failed-card-count">${r.fail_count}/${r.attempts}<div class="muted" style="font-size:.68rem">raté/tent.</div></div>
+              <button class="btn-inline" type="button" data-failed-toggle="${r.question_id}">Détails</button>
             </div>
-            <div class="pct bad">${Number(r.fail_rate_percent || 0).toFixed(1)}%</div>
-            <div class="muted">${r.fail_count}/${r.attempts}</div>
-            <button class="btn-inline" type="button" data-failed-toggle="${r.question_id}">Details</button>
-          </div>
-          <div class="mini-row hidden" id="failedDetail-${r.question_id}" style="display:grid;grid-template-columns:1fr;gap:6px">
-            <div><strong>A:</strong> ${escHtml(r.option_a || '')}</div>
-            <div><strong>B:</strong> ${escHtml(r.option_b || '')}</div>
-            <div><strong>C:</strong> ${escHtml(r.option_c || '')}</div>
-            <div><strong>D:</strong> ${escHtml(r.option_d || '')}</div>
-            <div><strong>E:</strong> ${escHtml(r.option_e || '')}</div>
-            <div><strong>Correction:</strong> ${escHtml(r.correct_options || '-')}</div>
-            <div><strong>Explication:</strong> ${escHtml(r.explanation || '-')}</div>
+            <div class="failed-card-detail hidden" id="failedDetail-${r.question_id}">
+              ${['a','b','c','d','e'].filter((l) => r[`option_${l}`]).map((l) => `
+                <div class="failed-opt"><strong>${l.toUpperCase()}</strong><span>${escHtml(r[`option_${l}`] || '')}</span></div>
+              `).join('')}
+              <div class="failed-answer"><span>✓ Correction :</span> ${escHtml(r.correct_options || '—')}</div>
+              ${r.explanation ? `<div class="failed-explication">${escHtml(r.explanation)}</div>` : ''}
+            </div>
           </div>
         `).join('')
         : '<span class="muted">Pas assez de tentatives.</span>'}
-    </div>`;
-
-  const trend = timeline.trend_delta_percent;
-  const daily = Array.isArray(timeline.by_day) ? timeline.by_day : [];
-  timelineWrap.innerHTML = `<h4>Progression dans le temps</h4>
-    <div class="timeline-note">
-      ${trend == null ? 'Pas assez de donnees pour la tendance.' : `Variation recente: ${trend > 0 ? '+' : ''}${trend}%`}
     </div>
-    <div class="timeline-list">
-      ${daily.slice(-10).map((d) => `<div class="timeline-day"><span>${new Date(d.day).toLocaleDateString('fr-FR')}</span><strong>${Number(d.avg_percent || 0).toFixed(1)}%</strong></div>`).join('')}
-    </div>`;
+  `;
 }
 
 async function loadReferencesForStats() {

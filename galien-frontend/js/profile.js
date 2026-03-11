@@ -1366,16 +1366,12 @@ document.getElementById('flagsList')?.addEventListener('click', async (e) => {
   if (!window.confirm('Retirer ce signalement ?')) return;
   btn.textContent = '...';
   try {
-    await fetchJSON(`${API_URL}/users/reports/${id}`, { method: 'DELETE' });
-    loadProfile();
+    await fetchJSON(`${API_URL}/users/questions/${id}/flag?type=flag`, { method: 'DELETE' });
+    flagsCache = flagsCache.filter((r) => String(r.id) !== String(id));
+    const list = document.getElementById('flagsList');
+    if (list) list.innerHTML = renderFlagList(flagsCache);
   } catch (err) {
-    if (err?.status === 404) {
-      flagsCache = flagsCache.filter((r) => String(r.id) !== String(id));
-      const list = document.getElementById('flagsList');
-      if (list) list.innerHTML = renderFlagList(flagsCache);
-      return;
-    }
-    btn.innerHTML = '<i class="bi bi-x-circle"></i> Retirer';
+    btn.textContent = '✕ Retirer le signalement';
   }
 });
 

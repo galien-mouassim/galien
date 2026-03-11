@@ -29,6 +29,12 @@ let notesTotalPages = 1;
 let noteEditingQuestionId = null;
 const noteFilters = { module_id: '', course_id: '', source_id: '', fav_tag: '', search: '', sort: 'recent' };
 
+let historyPage = 1;
+let historyLoaded = false;
+let savedPage = 1;
+let savedLoaded = false;
+const RESULTS_PAGE_SIZE = 20;
+
 function setActiveSection(name) {
   document.querySelectorAll('.profile-section').forEach((s) => {
     const active = s.id === `section-${name}`;
@@ -48,6 +54,8 @@ function initProfileTabs() {
     if (tab.dataset.section === 'messages') loadMessages();
     if (tab.dataset.section === 'favorites') applyFavoriteFilters();
     if (tab.dataset.section === 'notes') loadNotes(1);
+    if (tab.dataset.section === 'history' && !historyLoaded) loadHistoryPage(1);
+    if (tab.dataset.section === 'saved' && !savedLoaded) loadSavedPage(1);
   });
 }
 
@@ -882,20 +890,60 @@ function bindPhotoFallback(el) {
   };
 }
 
+function renderPagination(page, count, fnName) {
+  if (page === 1 && count < RESULTS_PAGE_SIZE) return '';
+  const hasPrev = page > 1;
+  const hasNext = count === RESULTS_PAGE_SIZE;
+  return `<div class="pagination-bar">
+    <button class="btn-inline" onclick="${fnName}(${page - 1})" ${hasPrev ? '' : 'disabled'}>← Précédent</button>
+    <span class="muted">Page ${page}</span>
+    <button class="btn-inline" onclick="${fnName}(${page + 1})" ${hasNext ? '' : 'disabled'}>Suivant →</button>
+  </div>`;
+}
+
+async function loadHistoryPage(page) {
+  const wrap = document.getElementById('resultsTable');
+  if (!wrap) return;
+  wrap.innerHTML = '<p class="muted">Chargement...</p>';
+  historyPage = page;
+  historyLoaded = true;
+  try {
+    const rows = await fetchJSON(`${API_URL}/users/results?saved=all&page=${page}&page_size=${RESULTS_PAGE_SIZE}`);
+    wrap.innerHTML = renderResults(Array.isArray(rows) ? rows : []) + renderPagination(page, rows.length, 'loadHistoryPage');
+  } catch (_) {
+    wrap.innerHTML = '<p class="muted">Erreur de chargement.</p>';
+  }
+}
+
+async function loadSavedPage(page) {
+  const wrap = document.getElementById('savedSessionsTable');
+  if (!wrap) return;
+  wrap.innerHTML = '<p class="muted">Chargement...</p>';
+  savedPage = page;
+  savedLoaded = true;
+  try {
+    const rows = await fetchJSON(`${API_URL}/users/results?saved=1&page=${page}&page_size=${RESULTS_PAGE_SIZE}`);
+    wrap.innerHTML = renderSavedSessions(Array.isArray(rows) ? rows : []) + renderPagination(page, rows.length, 'loadSavedPage');
+  } catch (_) {
+    wrap.innerHTML = '<p class="muted">Erreur de chargement.</p>';
+  }
+}
+
 async function loadProfile() {
   if (!localStorage.getItem('token')) { window.location.href = 'login.html'; return; }
 
   try {
-    const [me, stats, prefs, results, savedResults, favorites, flags, analytics] = await Promise.all([
+    const [me, stats, prefs, favorites, flags, analytics] = await Promise.all([
       fetchJSON(`${API_URL}/users/me`),
       fetchJSON(`${API_URL}/users/stats`),
       fetchJSON(`${API_URL}/users/preferences`),
-      fetchJSON(`${API_URL}/users/results?saved=all`),
-      fetchJSON(`${API_URL}/users/results?saved=1`),
       fetchJSON(`${API_URL}/users/flags?type=favorite&page_size=500`),
       fetchJSON(`${API_URL}/users/flags?type=flag`),
       fetchJSON(`${API_URL}/users/analytics`)
     ]);
+    // Reset lazy-load state so tab switches re-fetch fresh data
+    historyLoaded = false;
+    savedLoaded = false;
     await loadReferencesForStats();
 
     await loadUnreadCount();
@@ -948,9 +996,6 @@ async function loadProfile() {
     if (themePref === 'system') localStorage.removeItem('theme');
     else localStorage.setItem('theme', themePref);
     if (window.__applyThemePreference) window.__applyThemePreference();
-
-    document.getElementById('resultsTable').innerHTML = renderResults(results);
-    document.getElementById('savedSessionsTable').innerHTML = renderSavedSessions(savedResults);
 
     favoritesCache = favorites;
     fillFavoriteTagFilter(favoritesCache);
@@ -1271,7 +1316,7 @@ document.getElementById('savedSessionsTable')?.addEventListener('click', async (
       body: JSON.stringify({ session_name: name, is_saved: true })
     });
     btn.innerHTML = '<i class="bi bi-check2"></i> OK';
-    setTimeout(() => loadProfile(), 350);
+    setTimeout(() => loadSavedPage(savedPage), 350);
   } catch (_) {
     btn.innerHTML = '<i class="bi bi-pencil"></i> Renommer';
   }

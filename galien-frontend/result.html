@@ -138,41 +138,55 @@ async function saveResultIfRequested() {
   const msg = document.getElementById('saveResultMsg');
   const sessionNameInput = document.getElementById('saveSessionName');
 
+  // Already submitted (reopened from history) or nothing to submit
   if (sessionId || !pendingPayloadRaw) {
     box.classList.add('hidden');
     return;
   }
 
+  // Pre-fill default session name
   if (sessionNameInput) {
     const now = new Date();
     const modeLabel = mode === 'exam' ? 'Examen' : 'Entrainement';
     sessionNameInput.value = `${modeLabel} ${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
   }
 
-  box.classList.remove('hidden');
-  btn.addEventListener('click', async () => {
-    btn.disabled = true;
-    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Enregistrement...';
-    msg.textContent = '';
-    try {
-      const payload = JSON.parse(pendingPayloadRaw);
-      payload.is_saved = true;
-      payload.session_name = (sessionNameInput?.value || '').trim();
-      const res = await fetch(`${API_URL}/results`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) throw new Error('save failed');
+  // Auto-submit with is_saved: false so it always appears in history
+  try {
+    const payload = JSON.parse(pendingPayloadRaw);
+    payload.is_saved = false;
+    const res = await fetch(`${API_URL}/results`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
       const saved = await res.json();
       if (saved?.id) {
         sessionId = String(saved.id);
         localStorage.setItem('last_session_id', sessionId);
         localStorage.removeItem('pending_result_payload');
-        msg.textContent = 'Resultat enregistre.';
-        btn.innerHTML = '<i class="bi bi-check2"></i> Enregistre';
-        await loadReview();
       }
+    }
+  } catch (_) {}
+
+  // Show box so user can explicitly save with a name (sets is_saved: true)
+  box.classList.remove('hidden');
+  btn.addEventListener('click', async () => {
+    if (!sessionId) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Enregistrement...';
+    msg.textContent = '';
+    try {
+      const sessionName = (sessionNameInput?.value || '').trim();
+      const res = await fetch(`${API_URL}/results/${sessionId}/meta`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ is_saved: true, session_name: sessionName })
+      });
+      if (!res.ok) throw new Error('save failed');
+      msg.textContent = 'Session sauvegardee.';
+      btn.innerHTML = '<i class="bi bi-check2"></i> Sauvegardee';
     } catch (_) {
       msg.textContent = 'Echec de l\'enregistrement.';
       btn.disabled = false;

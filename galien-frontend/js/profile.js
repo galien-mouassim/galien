@@ -983,14 +983,20 @@ async function loadProfile() {
     renderAnalytics(analyticsCache, basicStatsCache);
 
     document.getElementById('default_exam_minutes').value = prefs.default_exam_minutes || '';
+    document.getElementById('pref_question_limit').value = prefs.question_limit || '';
     document.getElementById('default_correction_system').value = prefs.correction_system || 'tout_ou_rien';
-    document.getElementById('pref_auto_next_enabled').value = prefs.auto_next_enabled ? '1' : '0';
+    document.getElementById('pref_auto_next_enabled').checked = !!prefs.auto_next_enabled;
     document.getElementById('pref_auto_next_delay_sec').value = Number(prefs.auto_next_delay_sec || 2);
-    document.getElementById('pref_show_explanation_auto').value = prefs.show_explanation_auto === false ? '0' : '1';
-    document.getElementById('pref_show_notes_inline').value = prefs.show_notes_inline ? '1' : '0';
-    document.getElementById('pref_theme_preference').value = prefs.theme_preference || 'system';
+    document.getElementById('pref_show_explanation_auto').checked = prefs.show_explanation_auto !== false;
+    document.getElementById('pref_show_notes_inline').checked = !!prefs.show_notes_inline;
+    document.getElementById('pref_hide_question_meta').checked = !!prefs.hide_question_meta;
+    applyThemePicker(prefs.theme_preference || 'system');
+    applyAutoNextDelayVisibility();
     localStorage.setItem('show_notes_inline', prefs.show_notes_inline ? '1' : '0');
     localStorage.setItem('show_explanation_auto', prefs.show_explanation_auto === false ? '0' : '1');
+    localStorage.setItem('hide_question_meta', prefs.hide_question_meta ? '1' : '0');
+    if (prefs.question_limit) localStorage.setItem('question_limit', String(prefs.question_limit));
+    else localStorage.removeItem('question_limit');
     const themePref = prefs.theme_preference || 'system';
     localStorage.setItem('theme_preference', themePref);
     if (themePref === 'system') localStorage.removeItem('theme');
@@ -1036,16 +1042,33 @@ async function saveProfile() {
   }
 }
 
+function applyThemePicker(theme) {
+  document.querySelectorAll('[data-theme-pick]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.themePick === theme);
+  });
+}
+
+function applyAutoNextDelayVisibility() {
+  const checked = document.getElementById('pref_auto_next_enabled')?.checked;
+  const row = document.getElementById('autoNextDelayRow');
+  if (row) row.classList.toggle('hidden', !checked);
+}
+
 async function savePrefs() {
   const btn = document.getElementById('savePrefsBtn');
+  const msg = document.getElementById('prefsSavedMsg');
   const defaultExam = document.getElementById('default_exam_minutes').value || null;
+  const questionLimit = document.getElementById('pref_question_limit').value || null;
   const correction = document.getElementById('default_correction_system').value;
-  const autoNextEnabled = document.getElementById('pref_auto_next_enabled').value === '1';
+  const autoNextEnabled = document.getElementById('pref_auto_next_enabled').checked;
   const autoNextDelaySec = Number(document.getElementById('pref_auto_next_delay_sec').value || 2);
-  const showExplanationAuto = document.getElementById('pref_show_explanation_auto').value === '1';
-  const showNotesInline = document.getElementById('pref_show_notes_inline').value === '1';
-  const themePreference = document.getElementById('pref_theme_preference').value || 'system';
-  btn.textContent = '...';
+  const showExplanationAuto = document.getElementById('pref_show_explanation_auto').checked;
+  const showNotesInline = document.getElementById('pref_show_notes_inline').checked;
+  const hideQuestionMeta = document.getElementById('pref_hide_question_meta').checked;
+  const themePreference = document.querySelector('[data-theme-pick].active')?.dataset.themePick || 'system';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Enregistrement...';
+  if (msg) msg.textContent = '';
   try {
     await fetchJSON(`${API_URL}/users/preferences`, {
       method: 'PUT',
@@ -1056,19 +1079,31 @@ async function savePrefs() {
         auto_next_delay_sec: autoNextDelaySec,
         show_explanation_auto: showExplanationAuto,
         show_notes_inline: showNotesInline,
-        theme_preference: themePreference
+        theme_preference: themePreference,
+        question_limit: questionLimit,
+        hide_question_meta: hideQuestionMeta
       })
     });
     localStorage.setItem('show_notes_inline', showNotesInline ? '1' : '0');
     localStorage.setItem('show_explanation_auto', showExplanationAuto ? '1' : '0');
+    localStorage.setItem('hide_question_meta', hideQuestionMeta ? '1' : '0');
+    if (questionLimit) localStorage.setItem('question_limit', String(questionLimit));
+    else localStorage.removeItem('question_limit');
     localStorage.setItem('theme_preference', themePreference);
     if (themePreference === 'system') localStorage.removeItem('theme');
     else localStorage.setItem('theme', themePreference);
     if (window.__applyThemePreference) window.__applyThemePreference();
-    btn.innerHTML = '<i class="bi bi-check2"></i> Enregistre';
-    setTimeout(() => { btn.textContent = 'Enregistrer'; }, 1400);
+    btn.innerHTML = '<i class="bi bi-check2"></i> Enregistré';
+    if (msg) { msg.textContent = 'Préférences sauvegardées.'; msg.className = 'prefs-msg ok'; }
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = 'Enregistrer les préférences';
+      if (msg) { msg.textContent = ''; msg.className = 'prefs-msg'; }
+    }, 2500);
   } catch (_) {
-    btn.textContent = 'Enregistrer';
+    btn.disabled = false;
+    btn.innerHTML = 'Enregistrer les préférences';
+    if (msg) { msg.textContent = 'Erreur lors de la sauvegarde.'; msg.className = 'prefs-msg err'; }
   }
 }
 
@@ -1111,6 +1146,14 @@ function closeFavoriteTagModal() {
 
 document.getElementById('saveProfileBtn').addEventListener('click', saveProfile);
 document.getElementById('savePrefsBtn').addEventListener('click', savePrefs);
+
+document.getElementById('themePicker')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-theme-pick]');
+  if (!btn) return;
+  applyThemePicker(btn.dataset.themePick);
+});
+
+document.getElementById('pref_auto_next_enabled')?.addEventListener('change', applyAutoNextDelayVisibility);
 document.getElementById('uploadPhotoBtn').addEventListener('click', uploadPhoto);
 document.getElementById('refreshMessagesBtn')?.addEventListener('click', loadMessages);
 document.getElementById('refreshNotesBtn')?.addEventListener('click', () => loadNotes(1));

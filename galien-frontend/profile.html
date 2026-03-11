@@ -84,56 +84,135 @@
     </section>
 
     <section id="section-prefs" class="profile-section hidden">
-      <div class="card soft">
-        <div class="card-title">
-          <h3>Pr&eacute;f&eacute;rences</h3>
+      <div class="prefs-page">
+
+        <!-- Apparence -->
+        <div class="pref-card">
+          <div class="pref-card-header">
+            <div class="pref-card-icon">🎨</div>
+            <div><h4>Apparence</h4><p>Thème de l'interface</p></div>
+          </div>
+          <div class="pref-card-body">
+            <div class="pref-row">
+              <div class="pref-row-label">
+                <strong>Thème</strong>
+                <span>Choisissez le thème de l'application</span>
+              </div>
+              <div class="theme-picker" id="themePicker">
+                <button type="button" class="theme-btn" data-theme-pick="system">💻 Système</button>
+                <button type="button" class="theme-btn" data-theme-pick="light">☀️ Clair</button>
+                <button type="button" class="theme-btn" data-theme-pick="dark">🌙 Sombre</button>
+              </div>
+            </div>
+          </div>
         </div>
-        <label class="field">
-          <span>Temps d'examen par d&eacute;faut (minutes)</span>
-          <input type="number" id="default_exam_minutes" min="1" placeholder="Ex: 30">
-        </label>
-        <label class="field">
-          <span>Entrainement: passage auto &agrave; la question suivante</span>
-          <select id="pref_auto_next_enabled">
-            <option value="0">Non</option>
-            <option value="1">Oui</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>D&eacute;lai auto-next (secondes)</span>
-          <input type="number" id="pref_auto_next_delay_sec" min="1" max="60" placeholder="Ex: 2">
-        </label>
-        <label class="field">
-          <span>Syst&egrave;me de correction</span>
-          <select id="default_correction_system">
-            <option value="tout_ou_rien">Tout ou rien</option>
-            <option value="partiel_positive">Partiel positif</option>
-            <option value="partiel_negative">Partiel n&eacute;gatif</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Afficher l'explication automatiquement</span>
-          <select id="pref_show_explanation_auto">
-            <option value="1">Oui</option>
-            <option value="0">Non</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Afficher les notes sous la question</span>
-          <select id="pref_show_notes_inline">
-            <option value="0">Non</option>
-            <option value="1">Oui</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Th&egrave;me</span>
-          <select id="pref_theme_preference">
-            <option value="system">Systeme</option>
-            <option value="light">Clair</option>
-            <option value="dark">Sombre</option>
-          </select>
-        </label>
-        <button id="savePrefsBtn" class="btn">Enregistrer</button>
+
+        <!-- Session -->
+        <div class="pref-card">
+          <div class="pref-card-header">
+            <div class="pref-card-icon">🎓</div>
+            <div><h4>Session</h4><p>Paramètres communs à tous les modes</p></div>
+          </div>
+          <div class="pref-card-body">
+            <div class="pref-row">
+              <div class="pref-row-label">
+                <strong>Durée d'examen par défaut</strong>
+                <span>En minutes (laisser vide pour illimité)</span>
+              </div>
+              <input type="number" id="default_exam_minutes" class="pref-input-short" min="1" max="300" placeholder="Illimitée">
+            </div>
+            <div class="pref-row">
+              <div class="pref-row-label">
+                <strong>Nombre de questions par défaut</strong>
+                <span>Laisser vide pour prendre toutes les questions</span>
+              </div>
+              <input type="number" id="pref_question_limit" class="pref-input-short" min="1" max="999" placeholder="Toutes">
+            </div>
+            <div class="pref-row">
+              <div class="pref-row-label">
+                <strong>Système de correction</strong>
+                <span>Mode de calcul du score</span>
+              </div>
+              <select id="default_correction_system" class="pref-select">
+                <option value="tout_ou_rien">Tout ou rien</option>
+                <option value="partiel_positive">Partiel positif</option>
+                <option value="partiel_negative">Partiel négatif</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Entraînement -->
+        <div class="pref-card">
+          <div class="pref-card-header">
+            <div class="pref-card-icon">📖</div>
+            <div><h4>Entraînement</h4><p>Comportement pendant les sessions d'entraînement</p></div>
+          </div>
+          <div class="pref-card-body">
+            <div class="pref-row">
+              <div class="pref-row-label">
+                <strong>Passage automatique</strong>
+                <span>Passer à la question suivante automatiquement</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="pref_auto_next_enabled">
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+            <div class="pref-row pref-row-sub" id="autoNextDelayRow">
+              <div class="pref-row-label">
+                <strong>Délai avant passage</strong>
+                <span>Secondes d'attente (1 – 60)</span>
+              </div>
+              <input type="number" id="pref_auto_next_delay_sec" class="pref-input-short" min="1" max="60" placeholder="2">
+            </div>
+          </div>
+        </div>
+
+        <!-- Affichage -->
+        <div class="pref-card">
+          <div class="pref-card-header">
+            <div class="pref-card-icon">📋</div>
+            <div><h4>Affichage</h4><p>Ce qui est visible pendant les sessions</p></div>
+          </div>
+          <div class="pref-card-body">
+            <div class="pref-row">
+              <div class="pref-row-label">
+                <strong>Afficher l'explication automatiquement</strong>
+                <span>Révéler l'explication après chaque réponse</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="pref_show_explanation_auto">
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+            <div class="pref-row">
+              <div class="pref-row-label">
+                <strong>Afficher les notes sous la question</strong>
+                <span>Vos notes personnelles affichées sous chaque question</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="pref_show_notes_inline">
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+            <div class="pref-row">
+              <div class="pref-row-label">
+                <strong>Masquer les métadonnées</strong>
+                <span>Cacher module, cours et référence pendant la session</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="pref_hide_question_meta">
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="pref-footer">
+          <button id="savePrefsBtn" class="btn">Enregistrer les préférences</button>
+          <span id="prefsSavedMsg" class="prefs-msg"></span>
+        </div>
       </div>
     </section>
 

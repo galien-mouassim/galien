@@ -884,7 +884,9 @@ async function ensureUserPreferencesSchema() {
         ADD COLUMN IF NOT EXISTS auto_next_delay_sec INTEGER NOT NULL DEFAULT 2,
         ADD COLUMN IF NOT EXISTS show_explanation_auto BOOLEAN NOT NULL DEFAULT TRUE,
         ADD COLUMN IF NOT EXISTS show_notes_inline BOOLEAN NOT NULL DEFAULT FALSE,
-        ADD COLUMN IF NOT EXISTS theme_preference TEXT NOT NULL DEFAULT 'system'
+        ADD COLUMN IF NOT EXISTS theme_preference TEXT NOT NULL DEFAULT 'system',
+        ADD COLUMN IF NOT EXISTS question_limit INTEGER DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS hide_question_meta BOOLEAN NOT NULL DEFAULT FALSE
     `);
 }
 
@@ -1900,7 +1902,7 @@ app.get('/api/users/preferences', authMiddleware, async (req, res) => {
             `SELECT default_exam_minutes, correction_system,
                     auto_next_enabled, auto_next_delay_sec,
                     show_explanation_auto, show_notes_inline,
-                    theme_preference
+                    theme_preference, question_limit, hide_question_meta
              FROM user_preferences
              WHERE user_id = $1`,
             [req.user.id]
@@ -1912,7 +1914,9 @@ app.get('/api/users/preferences', authMiddleware, async (req, res) => {
             auto_next_delay_sec: 2,
             show_explanation_auto: true,
             show_notes_inline: false,
-            theme_preference: 'system'
+            theme_preference: 'system',
+            question_limit: null,
+            hide_question_meta: false
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -1928,7 +1932,9 @@ app.put('/api/users/preferences', authMiddleware, async (req, res) => {
             auto_next_delay_sec,
             show_explanation_auto,
             show_notes_inline,
-            theme_preference
+            theme_preference,
+            question_limit,
+            hide_question_meta
         } = req.body || {};
 
         const safeDelay = Number.isFinite(Number(auto_next_delay_sec))
@@ -1943,9 +1949,9 @@ app.put('/api/users/preferences', authMiddleware, async (req, res) => {
                  user_id, default_exam_minutes, correction_system,
                  auto_next_enabled, auto_next_delay_sec,
                  show_explanation_auto, show_notes_inline,
-                 theme_preference, updated_at
+                 theme_preference, question_limit, hide_question_meta, updated_at
              )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
              ON CONFLICT (user_id)
              DO UPDATE SET default_exam_minutes = EXCLUDED.default_exam_minutes,
                            correction_system = EXCLUDED.correction_system,
@@ -1954,11 +1960,13 @@ app.put('/api/users/preferences', authMiddleware, async (req, res) => {
                            show_explanation_auto = EXCLUDED.show_explanation_auto,
                            show_notes_inline = EXCLUDED.show_notes_inline,
                            theme_preference = EXCLUDED.theme_preference,
+                           question_limit = EXCLUDED.question_limit,
+                           hide_question_meta = EXCLUDED.hide_question_meta,
                            updated_at = NOW()
              RETURNING default_exam_minutes, correction_system,
                        auto_next_enabled, auto_next_delay_sec,
                        show_explanation_auto, show_notes_inline,
-                       theme_preference`,
+                       theme_preference, question_limit, hide_question_meta`,
             [
                 req.user.id,
                 default_exam_minutes || null,
@@ -1967,7 +1975,9 @@ app.put('/api/users/preferences', authMiddleware, async (req, res) => {
                 safeDelay,
                 show_explanation_auto !== false,
                 !!show_notes_inline,
-                safeTheme
+                safeTheme,
+                Number.isFinite(Number(question_limit)) && Number(question_limit) > 0 ? Number(question_limit) : null,
+                !!hide_question_meta
             ]
         );
         res.json(result.rows[0]);

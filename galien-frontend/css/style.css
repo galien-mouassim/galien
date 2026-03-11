@@ -899,6 +899,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .stat-item-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:1.15rem}
 .stat-val{font-size:1.45rem;font-weight:800;color:var(--ink);line-height:1}
 .stat-lbl{font-size:.68rem;color:var(--ink-3);margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+/* Extra stat row (secondary, smaller cards) */
+.stat-grid-extra{grid-template-columns:repeat(5,1fr);margin-top:10px}
+.stat-item-sm{padding:12px 10px}
+.stat-val-sm{font-size:1.1rem}
+/* Radar + weekly charts */
+.radar-chart-wrap{height:280px;padding:8px 0}
+.weekly-chart-wrap{height:200px;padding:4px 0}
 /* Donut chart row */
 .stats-charts-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
 .chart-donut-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px}
@@ -1079,6 +1086,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   .profile-sidebar{width:200px;padding:14px 8px}
   .profile-sections{padding:20px}
   .stat-grid{grid-template-columns:1fr 1fr}
+  .stat-grid-extra{grid-template-columns:repeat(3,1fr)}
   .analytics-grid{grid-template-columns:1fr 1fr}
   .stats-charts-row{grid-template-columns:1fr 1fr}
   .module-bar-row{grid-template-columns:minmax(0,130px) 1fr auto auto}
@@ -1134,8 +1142,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   .profile-tab-logout{margin-top:0;padding-top:6px;border-top:none;border-left:1px solid var(--border);padding-left:10px;margin-left:auto}
   .profile-sections{padding:13px}
   .stat-grid{grid-template-columns:1fr 1fr}
+  .stat-grid-extra{grid-template-columns:repeat(2,1fr)}
   .analytics-grid{grid-template-columns:1fr}
   .stats-charts-row{grid-template-columns:1fr}
+  .radar-chart-wrap{height:220px}
   .module-bar-row{grid-template-columns:1fr auto auto}
   .module-bar-label{max-width:none}
   .failed-card-header{grid-template-columns:1fr auto auto}

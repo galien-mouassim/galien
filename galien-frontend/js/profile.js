@@ -398,6 +398,41 @@ function renderAnalytics(analytics, basicStats) {
     </div>
   `).join('');
 
+  // ── Extra stat cards ─────────────────────────────────────────────────────
+  const daily = Array.isArray(timeline.by_day) ? timeline.by_day : [];
+  const daysStudied = daily.length;
+  const bestDay = daily.reduce((best, d) => {
+    const p = Number(d.avg_percent || 0);
+    return p > best ? p : best;
+  }, 0);
+  const avgQPerSession = (sessions.total || 0) > 0
+    ? Math.round((qp.done_with_duplicates || 0) / sessions.total)
+    : 0;
+  const lastActivity = basicStats?.last_exam_at
+    ? new Date(basicStats.last_exam_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '—';
+  // Sessions this week (Mon→Sun)
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - ((now.getDay() + 6) % 7)); weekStart.setHours(0,0,0,0);
+  const sessionsThisWeek = daily.filter((d) => new Date(d.day) >= weekStart).reduce((s, d) => s + (Number(d.sessions) || 0), 0);
+  const extraItems = [
+    { val: daysStudied,      lbl: 'Jours de révision', icon: '📅', bg: '#6366f1' },
+    { val: avgQPerSession,   lbl: 'Questions / session', icon: '🔢', bg: '#0891b2' },
+    { val: `${bestDay.toFixed(1)}%`, lbl: 'Meilleur jour', icon: '🏆', bg: '#f59e0b' },
+    { val: sessionsThisWeek, lbl: 'Sessions cette semaine', icon: '📆', bg: '#8b5cf6' },
+    { val: lastActivity,     lbl: 'Dernière activité', icon: '🕐', bg: '#64748b' },
+  ];
+  const statsExtra = document.getElementById('statsExtra');
+  if (statsExtra) {
+    statsExtra.innerHTML = extraItems.map((s) => `
+      <div class="stat-item stat-item-sm">
+        <div class="stat-item-icon" style="background:${s.bg}18;width:30px;height:30px;font-size:.95rem">${s.icon}</div>
+        <div class="stat-val stat-val-sm">${s.val}</div>
+        <div class="stat-lbl">${s.lbl}</div>
+      </div>
+    `).join('');
+  }
+
   // ── Donut charts row ────────────────────────────────────────────────────
   if (chartsRow) {
     chartsRow.innerHTML = `
@@ -497,6 +532,58 @@ function renderAnalytics(analytics, basicStats) {
     </div>
   `;
 
+  // ── Radar chart — module mastery ─────────────────────────────────────────
+  const chartRadarWrap = document.getElementById('chartRadarWrap');
+  if (chartRadarWrap) {
+    if (modules.length >= 3) {
+      chartRadarWrap.innerHTML = `
+        <div class="block-header"><h4>Maîtrise par module</h4></div>
+        <div class="radar-chart-wrap"><canvas id="chartRadar"></canvas></div>
+      `;
+      requestAnimationFrame(() => {
+        const ctxRadar = document.getElementById('chartRadar')?.getContext('2d');
+        if (!ctxRadar) return;
+        window._galienCharts.radar = new Chart(ctxRadar, {
+          type: 'radar',
+          data: {
+            labels: modules.map((m) => m.module_name || 'Sans module'),
+            datasets: [{
+              data: modules.map((m) => Number(m.avg_percent || 0).toFixed(1)),
+              backgroundColor: 'rgba(13,148,136,.15)',
+              borderColor: '#0d9488',
+              borderWidth: 2,
+              pointBackgroundColor: modules.map((m) => {
+                const p = Number(m.avg_percent || 0);
+                return p >= 70 ? '#22c55e' : p >= 50 ? '#f59e0b' : '#ef4444';
+              }),
+              pointRadius: 5,
+              pointHoverRadius: 7,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              r: {
+                min: 0, max: 100,
+                ticks: { stepSize: 25, callback: (v) => `${v}%`, font: { size: 10 } },
+                grid: { color: 'rgba(100,116,139,.12)' },
+                angleLines: { color: 'rgba(100,116,139,.12)' },
+                pointLabels: { font: { size: 11 }, color: '#334155' },
+              }
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: (ctx) => ` ${ctx.raw}%` } }
+            }
+          }
+        });
+      });
+    } else {
+      chartRadarWrap.innerHTML = '';
+    }
+  }
+
   // ── Course scores ───────────────────────────────────────────────────────
   const courses = analytics?.avg_score_by_course || [];
   const filteredCourses = selectedModuleForCourses == null
@@ -524,7 +611,6 @@ function renderAnalytics(analytics, basicStats) {
 
   // ── Progression timeline — line chart + daily list ─────────────────────
   const trendDelta = timeline.trend_delta_percent;
-  const daily      = Array.isArray(timeline.by_day) ? timeline.by_day : [];
   const last10     = daily.slice(-10);
   timelineWrap.innerHTML = `
     <div class="block-header">
@@ -577,6 +663,79 @@ function renderAnalytics(analytics, basicStats) {
         }
       });
     });
+  }
+
+  // ── Weekly activity bar chart ────────────────────────────────────────────
+  const chartWeeklyWrap = document.getElementById('chartWeeklyWrap');
+  if (chartWeeklyWrap) {
+    // Aggregate sessions + avg score by ISO day of week (1=Mon … 7=Sun)
+    const dayLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    const weeklyBuckets = Array.from({ length: 7 }, () => ({ sessions: 0, scoreSum: 0, scoreDays: 0 }));
+    daily.forEach((d) => {
+      const dow = (new Date(d.day).getDay() + 6) % 7; // 0=Mon
+      weeklyBuckets[dow].sessions += Number(d.sessions) || 0;
+      if (d.avg_percent != null) { weeklyBuckets[dow].scoreSum += Number(d.avg_percent); weeklyBuckets[dow].scoreDays++; }
+    });
+    const weeklyScores = weeklyBuckets.map((b) => b.scoreDays > 0 ? (b.scoreSum / b.scoreDays).toFixed(1) : null);
+    const weeklySessions = weeklyBuckets.map((b) => b.sessions);
+    const hasData = weeklySessions.some((v) => v > 0);
+    if (hasData) {
+      chartWeeklyWrap.innerHTML = `
+        <div class="block-header"><h4>Activité par jour de la semaine</h4><span class="muted" style="font-size:.75rem">Sessions cumulées</span></div>
+        <div class="weekly-chart-wrap"><canvas id="chartWeekly"></canvas></div>
+      `;
+      requestAnimationFrame(() => {
+        const ctxW = document.getElementById('chartWeekly')?.getContext('2d');
+        if (!ctxW) return;
+        window._galienCharts.weekly = new Chart(ctxW, {
+          type: 'bar',
+          data: {
+            labels: dayLabels,
+            datasets: [
+              {
+                label: 'Sessions',
+                data: weeklySessions,
+                backgroundColor: weeklySessions.map((v) => v > 0 ? 'rgba(13,148,136,.75)' : 'rgba(226,232,240,.6)'),
+                borderRadius: 6,
+                yAxisID: 'ySessions',
+              },
+              {
+                label: 'Score moyen',
+                data: weeklyScores,
+                type: 'line',
+                borderColor: '#f59e0b',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                pointBackgroundColor: '#f59e0b',
+                pointRadius: 4,
+                tension: 0.3,
+                yAxisID: 'yScore',
+                spanGaps: true,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 12 } },
+              tooltip: { callbacks: {
+                label: (ctx) => ctx.dataset.label === 'Sessions'
+                  ? ` ${ctx.parsed.y} session${ctx.parsed.y !== 1 ? 's' : ''}`
+                  : ctx.parsed.y != null ? ` Score moy. ${ctx.parsed.y}%` : ''
+              }}
+            },
+            scales: {
+              ySessions: { position: 'left',  beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: 'rgba(100,116,139,.08)' } },
+              yScore:    { position: 'right', min: 0, max: 100, ticks: { callback: (v) => `${v}%`, font: { size: 10 } }, grid: { display: false } },
+              x:         { grid: { display: false }, ticks: { font: { size: 11 } } }
+            }
+          }
+        });
+      });
+    } else {
+      chartWeeklyWrap.innerHTML = '';
+    }
   }
 
   // ── Top 10 failed questions ─────────────────────────────────────────────

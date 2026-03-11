@@ -1,37 +1,63 @@
-const express = require('express');
-const router = express.Router();
-const pool = require('../config/database');
+const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const pool = require('../config/database');
+const { loginLimiter } = require('../middleware/rateLimiter');
+const { notifyAdminsOfNonAdminLogin } = require('../lib/notifications');
 
-// Login route
-router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+router.post('/login', loginLimiter, async (req, res) => {
+    const { email, password } = req.body || {};
+
     try {
         const result = await pool.query(
             'SELECT * FROM users WHERE email = $1',
             [email]
         );
 
-        if (result.rows.length === 0)
-            return res.status(400).json({ message: 'User not found' });
+        if (result.rows.length === 0) {
+            return res.status(400).json({ message: 'Utilisateur introuvable' });
+        }
 
         const user = result.rows[0];
+        if (user.is_active === false) {
+            return res.status(403).json({ message: 'Compte desactive. Contactez un administrateur.' });
+        }
+        if (user.active_until && new Date(user.active_until).getTime() <= Date.now()) {
+            return res.status(403).json({ message: 'Compte expire. Contactez un administrateur.' });
+        }
         const valid = await bcrypt.compare(password, user.password);
 
-        if (!valid)
-            return res.status(400).json({ message: 'Wrong password' });
+        if (!valid) {
+            return res.status(400).json({ message: 'Mot de passe incorrect' });
+        }
+
+        const sessionId = crypto.randomUUID();
+        await pool.query(
+            'UPDATE users SET session_id = $1 WHERE id = $2',
+            [sessionId, user.id]
+        );
 
         const token = jwt.sign(
-            { id: user.id, role: user.role },
+            { id: user.id, role: user.role, sid: sessionId },
             process.env.JWT_SECRET,
             { expiresIn: '1d' }
         );
 
-        res.json({ token, role: user.role });
+        // Fire-and-forget admin notification when a non-admin account logs in.
+        setImmediate(() => {
+            notifyAdminsOfNonAdminLogin({ user, req }).catch(() => {});
+        });
+
+        res.json({
+            token,
+            role: user.role
+        });
+
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error' });
+        const msg = err?.message || String(err) || 'Login failed';
+        console.error('[LOGIN_ERROR]', msg, err?.code || '');
+        res.status(500).json({ error: msg });
     }
 });
 

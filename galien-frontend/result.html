@@ -415,8 +415,10 @@ if (correctionModeSelect) {
   });
 }
 
-saveResultIfRequested();
-loadReview();
+document.addEventListener('DOMContentLoaded', () => {
+  saveResultIfRequested();
+  loadReview();
+});
 </script>
 <script src="js/theme.js" defer></script>
 <script src="js/profile-link.js" defer></script>

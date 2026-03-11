@@ -1314,7 +1314,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 }
 
 .auth-card button,
-.profile-section button:not(.btn-inline):not(.profile-tab):not(.profile-tab-logout),
+.profile-section button:not(.btn-inline):not(.profile-tab):not(.profile-tab-logout):not(.fav-expand-btn),
 .dashboard-card > button {
   display: inline-flex;
   align-items: center;
@@ -1332,7 +1332,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 }
 
 .auth-card button:hover,
-.profile-section button:not(.btn-inline):not(.profile-tab):not(.profile-tab-logout):hover,
+.profile-section button:not(.btn-inline):not(.profile-tab):not(.profile-tab-logout):not(.fav-expand-btn):hover,
 .dashboard-card > button:hover {
   background: var(--accent-2);
 }

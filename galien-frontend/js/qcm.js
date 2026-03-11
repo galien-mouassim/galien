@@ -1,6 +1,9 @@
 ﻿if (localStorage.getItem('role') === 'worker') {
   window.location.href = 'admin.html';
 }
+if (localStorage.getItem('is_active') === 'false') {
+  window.location.href = 'profile.html';
+}
 
 let questions = [];
 let index = 0;

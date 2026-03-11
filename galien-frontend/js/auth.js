@@ -31,9 +31,12 @@ async function login() {
     if (data.token) {
       localStorage.setItem('token', data.token);
       localStorage.setItem('role', data.role || '');
+      localStorage.setItem('is_active', data.is_active === false ? 'false' : 'true');
       const params = new URLSearchParams(window.location.search);
       const next = params.get('next');
-      if (next) {
+      if (data.is_active === false) {
+        window.location.href = 'profile.html';
+      } else if (next) {
         window.location.href = next;
       } else {
         window.location.href = (data.role === 'admin' || data.role === 'manager' || data.role === 'worker') ? 'admin.html' : 'dashboard.html';

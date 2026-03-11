@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const pool = require('../config/database');
+const requireActive = require('../middleware/requireActive');
 const { requireAdminOrManager, requireAdminOrWorker, requireAdmin } = require('../middleware/roleMiddleware');
 const { parseIntList, getPagination, parseGuidedBlocks, pushGuidedBlocksFilter, toIntOrNull } = require('../lib/helpers');
 const { normalizeQuestionText, buildOptionSignature, questionSimilarity, optionsSimilarity, weightedSimilarity } = require('../lib/similarity');
@@ -9,7 +10,7 @@ const { ensurePendingQuestionsSchema } = require('../lib/schema');
 // ----------------------
 // GET QUESTIONS (training/exam)
 // ----------------------
-router.get('/questions', async (req, res) => {
+router.get('/questions', requireActive, async (req, res) => {
     try {
         const moduleIds = parseIntList(req.query.module);
         const sourceIds = parseIntList(req.query.source);
@@ -319,7 +320,7 @@ router.get('/questions/count', async (req, res) => {
 // ----------------------
 // SUBMIT ANSWERS
 // ----------------------
-router.post('/questions/submit', async (req, res) => {
+router.post('/questions/submit', requireActive, async (req, res) => {
     const { answers } = req.body;
     let score = 0;
     const corrections = [];

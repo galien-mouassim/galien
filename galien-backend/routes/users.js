@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const pool = require('../config/database');
+const requireActive = require('../middleware/requireActive');
 const { upload, saveProfilePhoto, sanitizeProfilePhotoForResponse } = require('../lib/upload');
 const { getPagination, parseIntList, emptyPendingStats } = require('../lib/helpers');
 const { cacheGet, cacheSet, invalidateUserAnalyticsCache, USER_ANALYTICS_CACHE_TTL_MS } = require('../lib/cache');
@@ -14,7 +15,7 @@ router.get('/users/me', async (req, res) => {
         let result;
         try {
             result = await pool.query(
-                'SELECT id, email, role, display_name, profile_photo, active_until FROM users WHERE id = $1',
+                'SELECT id, email, role, display_name, profile_photo, active_until, is_active FROM users WHERE id = $1',
                 [req.user.id]
             );
         } catch (err) {
@@ -24,7 +25,7 @@ router.get('/users/me', async (req, res) => {
                     [req.user.id]
                 );
                 result = {
-                    rows: (legacy.rows || []).map((r) => ({ ...r, active_until: null }))
+                    rows: (legacy.rows || []).map((r) => ({ ...r, active_until: null, is_active: true }))
                 };
             } else {
                 throw err;
@@ -33,6 +34,7 @@ router.get('/users/me', async (req, res) => {
         if (!result.rows.length) return res.status(404).json({ message: 'User not found' });
         const row = result.rows[0];
         row.profile_photo = sanitizeProfilePhotoForResponse(row.profile_photo);
+        row.is_active = row.is_active !== false;
         res.json(row);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -201,7 +203,7 @@ router.put('/users/preferences', async (req, res) => {
 // ----------------------
 // USER: Results + Stats
 // ----------------------
-router.post('/results', async (req, res) => {
+router.post('/results', requireActive, async (req, res) => {
     const client = await pool.connect();
     try {
         await ensureResultsSavedSchema();

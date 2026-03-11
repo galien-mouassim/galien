@@ -39,6 +39,7 @@ function clearAuthState() {
   const keys = [
     'token',
     'role',
+    'is_active',
     'module_id',
     'favorite_tags',
     'question_limit',

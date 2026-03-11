@@ -124,10 +124,11 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Mount routers
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api', authMiddleware, apiLimiter, require('./routes/questions'));
+// Public GET routes must be mounted before auth-gated routers
 app.use('/api', apiLimiter, require('./routes/modules'));
 app.use('/api', apiLimiter, require('./routes/sources'));
 app.use('/api', apiLimiter, require('./routes/courses'));
+app.use('/api', authMiddleware, apiLimiter, require('./routes/questions'));
 app.use('/api', authMiddleware, apiLimiter, require('./routes/users'));
 app.use('/api', authMiddleware, apiLimiter, require('./routes/admin'));
 

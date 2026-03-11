@@ -42,27 +42,83 @@
 
   <main class="profile-sections">
     <section id="section-profile" class="profile-section active">
-      <div class="card soft">
-        <div class="card-title">
-          <h3>Informations personnelles</h3>
-        </div>
-        <div class="avatar-stack">
-          <img id="profilePhoto" class="avatar xl" src="" alt="Photo de profil">
-          <div class="avatar-actions vertical">
-            <label class="file-btn">
+
+      <!-- Hero -->
+      <div class="prof-hero">
+        <div class="prof-hero-gradient"></div>
+        <div class="prof-hero-body">
+          <div class="prof-avatar-wrap">
+            <img id="profilePhoto" class="avatar prof-avatar" src="" alt="Photo de profil">
+            <label class="prof-avatar-edit" title="Changer la photo">
               <input type="file" id="photoInput" accept="image/*">
-              Changer la photo
+              <span>&#9998;</span>
             </label>
-            <button id="uploadPhotoBtn" class="btn-inline">Mettre &agrave; jour</button>
           </div>
+          <div class="prof-hero-info">
+            <div class="prof-hero-name" id="heroDisplayName">Chargement&hellip;</div>
+            <div class="prof-hero-meta">
+              <span id="heroRoleBadge" class="role-badge"></span>
+              <span id="heroStatusPill" class="status-pill"></span>
+            </div>
+            <div class="prof-hero-email" id="heroEmail"></div>
+          </div>
+          <button id="uploadPhotoBtn" class="btn-inline prof-photo-btn">&#128247; Mettre &agrave; jour la photo</button>
         </div>
-        <div id="profileInfo" class="info-grid"></div>
+      </div>
+
+      <!-- Quick stats -->
+      <div class="prof-stats-bar" id="profileQuickStats">
+        <div class="prof-stat-item">
+          <span class="prof-stat-val" id="qsSessions">—</span>
+          <span class="prof-stat-label">Sessions</span>
+        </div>
+        <div class="prof-stat-sep"></div>
+        <div class="prof-stat-item">
+          <span class="prof-stat-val" id="qsAvg">—</span>
+          <span class="prof-stat-label">Score moyen</span>
+        </div>
+        <div class="prof-stat-sep"></div>
+        <div class="prof-stat-item">
+          <span class="prof-stat-val" id="qsLast">—</span>
+          <span class="prof-stat-label">Derni&egrave;re activit&eacute;</span>
+        </div>
+      </div>
+
+      <!-- Edit display name -->
+      <div class="card soft">
+        <div class="card-title"><h3>&#9998; Modifier le profil</h3></div>
         <label class="field">
           <span>Nom affich&eacute;</span>
           <input id="display_name" placeholder="Votre nom">
         </label>
         <button id="saveProfileBtn" class="btn">Enregistrer</button>
       </div>
+
+      <!-- Account info -->
+      <div class="card soft">
+        <div class="card-title"><h3>&#128274; Informations du compte</h3></div>
+        <div id="profileInfo" class="prof-info-list"></div>
+      </div>
+
+      <!-- Change password -->
+      <div class="card soft">
+        <div class="card-title"><h3>&#128273; Changer le mot de passe</h3></div>
+        <label class="field">
+          <span>Mot de passe actuel</span>
+          <input type="password" id="currentPassword" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password">
+        </label>
+        <label class="field">
+          <span>Nouveau mot de passe</span>
+          <input type="password" id="newPassword" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="new-password">
+        </label>
+        <label class="field">
+          <span>Confirmer le nouveau mot de passe</span>
+          <input type="password" id="confirmPassword" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="new-password">
+        </label>
+        <div id="passwordMsg" class="prefs-msg hidden"></div>
+        <button id="changePasswordBtn" class="btn">Changer le mot de passe</button>
+      </div>
+
     </section>
 
     <section id="section-stats" class="profile-section hidden">

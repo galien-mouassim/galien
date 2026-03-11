@@ -984,14 +984,72 @@ async function loadProfile() {
 
     const nowTs = Date.now();
     const activeUntilTs = me.active_until ? new Date(me.active_until).getTime() : null;
-    const accountStatus = activeUntilTs && activeUntilTs <= nowTs ? 'Expire' : 'Actif';
-    const statusClass = accountStatus === 'Expire' ? 'color:var(--red);font-weight:700' : 'color:var(--ok);font-weight:700';
+    const isExpired = activeUntilTs && activeUntilTs <= nowTs;
+    const daysLeft = activeUntilTs ? Math.ceil((activeUntilTs - nowTs) / 86400000) : null;
+    const nearExpiry = !isExpired && daysLeft !== null && daysLeft <= 14;
+
+    // Hero section
+    const displayName = me.display_name || me.email || 'Utilisateur';
+    const heroName = document.getElementById('heroDisplayName');
+    if (heroName) heroName.textContent = displayName;
+    const heroEmail = document.getElementById('heroEmail');
+    if (heroEmail) heroEmail.textContent = me.email;
+    const heroRoleBadge = document.getElementById('heroRoleBadge');
+    if (heroRoleBadge) {
+      const roleLabels = { admin: 'Administrateur', manager: 'Manager', worker: 'Correcteur', user: 'Étudiant' };
+      heroRoleBadge.textContent = roleLabels[me.role] || me.role;
+      heroRoleBadge.className = `role-badge role-${me.role}`;
+    }
+    const heroStatusPill = document.getElementById('heroStatusPill');
+    if (heroStatusPill) {
+      heroStatusPill.textContent = isExpired ? 'Expiré' : 'Actif';
+      heroStatusPill.className = `status-pill ${isExpired ? 'pill-expired' : 'pill-active'}`;
+    }
+
+    // Quick stats bar
+    const qs = stats || {};
+    const qsSessions = document.getElementById('qsSessions');
+    const qsAvg = document.getElementById('qsAvg');
+    const qsLast = document.getElementById('qsLast');
+    if (qsSessions) qsSessions.textContent = qs.total_exams ?? '0';
+    if (qsAvg) qsAvg.textContent = qs.avg_percent != null ? Math.round(Number(qs.avg_percent)) + '%' : '—';
+    if (qsLast) {
+      if (qs.last_exam_at) {
+        const d = new Date(qs.last_exam_at);
+        const diffDays = Math.floor((nowTs - d.getTime()) / 86400000);
+        qsLast.textContent = diffDays === 0 ? "Aujourd'hui" : diffDays === 1 ? 'Hier' : `Il y a ${diffDays}j`;
+      } else {
+        qsLast.textContent = '—';
+      }
+    }
+
+    // Account info list
+    const roleLabels2 = { admin: 'Administrateur', manager: 'Manager', worker: 'Correcteur', user: 'Étudiant' };
+    const expiryText = me.active_until ? formatActiveUntil(me.active_until) : 'Illimité';
+    const expiryWarn = nearExpiry ? `<span class="prof-expiry-warn">⚠ ${daysLeft}j restants</span>` : '';
     document.getElementById('profileInfo').innerHTML = `
-      <p><strong>Email</strong><br>${me.email}</p>
-      <p><strong>Role</strong><br><span style="text-transform:capitalize">${me.role}</span></p>
-      <p><strong>Statut du compte</strong><br><span style="${statusClass}">${accountStatus}</span></p>
-      <p><strong>Actif jusqu'au</strong><br>${formatActiveUntil(me.active_until)}</p>
+      <div class="prof-info-row">
+        <span class="prof-info-icon">✉</span>
+        <span class="prof-info-label">Email</span>
+        <span class="prof-info-value">${escHtml(me.email)}</span>
+      </div>
+      <div class="prof-info-row">
+        <span class="prof-info-icon">🎓</span>
+        <span class="prof-info-label">Rôle</span>
+        <span class="prof-info-value">${roleLabels2[me.role] || me.role}</span>
+      </div>
+      <div class="prof-info-row">
+        <span class="prof-info-icon">${isExpired ? '🔴' : '🟢'}</span>
+        <span class="prof-info-label">Statut</span>
+        <span class="prof-info-value">${isExpired ? 'Expiré' : 'Actif'}</span>
+      </div>
+      <div class="prof-info-row">
+        <span class="prof-info-icon">📅</span>
+        <span class="prof-info-label">Accès jusqu'au</span>
+        <span class="prof-info-value">${expiryText}${expiryWarn}</span>
+      </div>
     `;
+
     document.getElementById('display_name').value = me.display_name || '';
     const adminShortcutTab = document.getElementById('adminShortcutTab');
     if (adminShortcutTab) {
@@ -1074,6 +1132,32 @@ async function saveProfile() {
   } catch (_) {
     btn.textContent = 'Enregistrer';
   }
+}
+
+async function changePassword() {
+  const btn = document.getElementById('changePasswordBtn');
+  const msg = document.getElementById('passwordMsg');
+  const current = document.getElementById('currentPassword').value;
+  const next = document.getElementById('newPassword').value;
+  const confirm = document.getElementById('confirmPassword').value;
+  msg.className = 'prefs-msg hidden';
+  if (!current || !next || !confirm) { msg.textContent = 'Veuillez remplir tous les champs.'; msg.className = 'prefs-msg err'; return; }
+  if (next !== confirm) { msg.textContent = 'Les mots de passe ne correspondent pas.'; msg.className = 'prefs-msg err'; return; }
+  if (next.length < 6) { msg.textContent = 'Le mot de passe doit faire au moins 6 caractères.'; msg.className = 'prefs-msg err'; return; }
+  btn.textContent = '...';
+  try {
+    await fetchJSON(`${API_URL}/users/password`, { method: 'PUT', body: JSON.stringify({ current_password: current, new_password: next }) });
+    document.getElementById('currentPassword').value = '';
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmPassword').value = '';
+    msg.textContent = 'Mot de passe mis à jour avec succès.';
+    msg.className = 'prefs-msg ok';
+    setTimeout(() => { msg.className = 'prefs-msg hidden'; }, 3000);
+  } catch (err) {
+    msg.textContent = err?.message || 'Erreur lors du changement de mot de passe.';
+    msg.className = 'prefs-msg err';
+  }
+  btn.textContent = 'Changer le mot de passe';
 }
 
 function applyThemePicker(theme) {
@@ -1179,6 +1263,7 @@ function closeFavoriteTagModal() {
 }
 
 document.getElementById('saveProfileBtn').addEventListener('click', saveProfile);
+document.getElementById('changePasswordBtn')?.addEventListener('click', changePassword);
 document.getElementById('savePrefsBtn').addEventListener('click', savePrefs);
 
 document.getElementById('themePicker')?.addEventListener('click', (e) => {

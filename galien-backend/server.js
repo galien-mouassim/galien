@@ -1875,6 +1875,23 @@ app.put('/api/users/me', authMiddleware, async (req, res) => {
     }
 });
 
+app.put('/api/users/password', authMiddleware, async (req, res) => {
+    try {
+        const { current_password, new_password } = req.body || {};
+        if (!current_password || !new_password) return res.status(400).json({ message: 'Champs requis' });
+        if (new_password.length < 6) return res.status(400).json({ message: 'Le nouveau mot de passe doit faire au moins 6 caractères' });
+        const result = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+        if (!result.rows.length) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        const valid = await bcrypt.compare(current_password, result.rows[0].password);
+        if (!valid) return res.status(400).json({ message: 'Mot de passe actuel incorrect' });
+        const hashed = await bcrypt.hash(new_password, 10);
+        await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, req.user.id]);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/users/me/photo', authMiddleware, upload.single('photo'), async (req, res) => {
     try {
         if (!req.file || !req.file.buffer) {

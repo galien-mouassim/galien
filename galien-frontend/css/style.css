@@ -892,6 +892,53 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .file-btn input[type="file"]{display:none}
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:13px;background:var(--surface-2);border-radius:var(--radius);margin-bottom:12px}
 .info-grid p{margin:0;font-size:.84rem}
+/* ── Profile Tab ────────────────────────────────────────────────────────── */
+.prof-hero{position:relative;border-radius:var(--radius);overflow:hidden;border:1.5px solid var(--border);background:var(--surface-2)}
+.prof-hero-gradient{position:absolute;inset:0;height:90px;background:linear-gradient(135deg,rgba(13,148,136,.18) 0%,rgba(99,102,241,.13) 100%);pointer-events:none}
+.prof-hero-body{position:relative;display:flex;align-items:center;gap:18px;padding:22px 22px 18px;flex-wrap:wrap}
+.prof-avatar-wrap{position:relative;flex-shrink:0}
+.prof-avatar{width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid var(--surface);box-shadow:0 4px 16px rgba(13,148,136,.18);cursor:zoom-in}
+.prof-avatar-edit{position:absolute;bottom:2px;right:2px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.72rem;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.22);transition:background var(--t)}
+.prof-avatar-edit:hover{background:var(--accent-2)}
+.prof-avatar-edit input[type="file"]{display:none}
+.prof-hero-info{flex:1;min-width:0}
+.prof-hero-name{font-size:1.25rem;font-weight:800;color:var(--ink);line-height:1.2;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prof-hero-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:6px}
+.prof-hero-email{font-size:.8rem;color:var(--ink-3)}
+.prof-photo-btn{margin-left:auto;flex-shrink:0}
+/* role badges */
+.role-badge{display:inline-flex;align-items:center;padding:2px 10px;border-radius:99px;font-size:.7rem;font-weight:700;letter-spacing:.02em}
+.role-badge.role-admin{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+.role-badge.role-manager{background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);color:#f97316}
+.role-badge.role-worker{background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);color:#3b82f6}
+.role-badge.role-user{background:rgba(13,148,136,.1);border:1px solid rgba(13,148,136,.25);color:var(--accent)}
+/* status pill */
+.status-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:99px;font-size:.7rem;font-weight:700}
+.status-pill.pill-active{background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);color:#16a34a}
+.status-pill.pill-expired{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+.status-pill.pill-active::before{content:"●";font-size:.5rem;color:#16a34a}
+.status-pill.pill-expired::before{content:"●";font-size:.5rem;color:#ef4444}
+/* quick stats bar */
+.prof-stats-bar{display:flex;align-items:center;background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.prof-stat-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:16px 8px;gap:4px}
+.prof-stat-val{font-size:1.35rem;font-weight:800;color:var(--ink);line-height:1}
+.prof-stat-label{font-size:.71rem;color:var(--ink-3);text-align:center}
+.prof-stat-sep{width:1px;height:40px;background:var(--border);flex-shrink:0}
+/* account info list */
+.prof-info-list{display:flex;flex-direction:column;gap:0}
+.prof-info-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.prof-info-row:last-child{border-bottom:none}
+.prof-info-icon{font-size:1rem;flex-shrink:0;width:22px;text-align:center;color:var(--ink-3)}
+.prof-info-label{font-size:.78rem;color:var(--ink-3);width:130px;flex-shrink:0}
+.prof-info-value{font-size:.86rem;font-weight:600;color:var(--ink);flex:1}
+.prof-expiry-warn{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:700;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:#d97706;margin-left:8px}
+@media(max-width:600px){
+  .prof-hero-body{flex-direction:column;align-items:flex-start;gap:12px}
+  .prof-photo-btn{margin-left:0}
+  .prof-stats-bar{flex-direction:column;gap:0}
+  .prof-stat-sep{width:80%;height:1px;background:var(--border)}
+  .prof-info-label{width:90px}
+}
 /* ── Statistics Tab ─────────────────────────────────────────────────────── */
 .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .stat-item{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 14px;text-align:center;transition:var(--t)}

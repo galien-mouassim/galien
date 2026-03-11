@@ -175,39 +175,30 @@ function renderSavedSessions(rows) {
   }).join('')}</div>`;
 }
 
-function renderFavoriteTags(tags) {
-  if (!tags.length) return '';
-  return `<div class="favorite-tags">${tags.map((t) => `<span class="tag">${t}</span>`).join('')}</div>`;
-}
-
 function renderFavoritesList(rows) {
-  if (!rows.length) return '<p class="muted">Aucun favori.</p>';
+  if (!rows.length) return '<div class="empty-state"><div class="empty-icon">⭐</div><p class="muted">Aucun favori pour le moment.</p></div>';
   return rows.map((r) => {
     const tags = normalizeTags(r.tags);
-    const date = r.created_at ? new Date(r.created_at).toLocaleDateString('fr-FR') : '';
+    const date = r.created_at ? new Date(r.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+    const tagsHtml = tags.length
+      ? tags.map((t) => `<span class="fav-tag">${escHtml(t)}</span>`).join('')
+      : '<span class="fav-no-tags">Aucun tag</span>';
     return `
-      <article class="favorite-item modern" data-favorite-id="${r.id}">
-        <header class="favorite-head">
-          <button type="button" class="favorite-title-btn" data-toggle-fav="${r.id}">
-            <span class="favorite-title">${r.question}</span>
-            <span class="favorite-chevron"><i class="bi bi-chevron-down"></i></span>
+      <article class="fav-card favorite-item" data-favorite-id="${r.id}">
+        <div class="fav-card-top">
+          <button type="button" class="fav-expand-btn" data-toggle-fav="${r.id}">
+            <span class="fav-heart">♥</span>
+            <span class="fav-question">${escHtml(r.question)}</span>
+            <span class="fav-chevron">▾</span>
           </button>
-          <span class="favorite-date">${date}</span>
-        </header>
-        <div class="favorite-meta-line">
-          ${renderFavoriteTags(tags) || '<span class="muted">Aucun tag</span>'}
+          <span class="fav-date">${date}</span>
         </div>
-        <div class="favorite-preview hidden" id="fav_preview_${r.id}">
-          <div class="favorite-preview-q">${r.question}</div>
+        <div class="fav-card-meta">${tagsHtml}</div>
+        <div class="fav-detail hidden" id="fav_preview_${r.id}"></div>
+        <div class="fav-card-actions">
+          <button class="btn-inline favorite-edit" data-id="${r.id}" data-tags="${escAttr(r.tags || '')}">🏷️ Modifier tags</button>
+          <button class="btn-inline favorite-remove" data-id="${r.id}" style="color:var(--red)">✕ Retirer</button>
         </div>
-        <footer class="favorite-actions">
-          <button class="btn-inline favorite-edit" data-id="${r.id}" data-tags="${r.tags || ''}">
-            <i class="bi bi-tags"></i> Modifier tags
-          </button>
-          <button class="btn-inline favorite-remove" data-id="${r.id}" style="color:var(--red)">
-            <i class="bi bi-heartbreak"></i> Retirer
-          </button>
-        </footer>
       </article>
     `;
   }).join('');
@@ -225,52 +216,47 @@ function escAttr(value) {
 }
 
 function renderFavoriteDetail(detail) {
-  const opts = ['A', 'B', 'C', 'D', 'E']
-    .map((l) => {
-      const key = `option_${l.toLowerCase()}`;
-      const val = detail[key];
-      if (!val) return '';
-      return `<div class="favorite-opt"><strong>${l}.</strong> ${escHtml(val)}</div>`;
-    })
-    .filter(Boolean)
-    .join('');
+  const correctSet = new Set(Array.isArray(detail.correct_options) ? detail.correct_options : []);
+  const opts = ['A', 'B', 'C', 'D', 'E'].map((l) => {
+    const val = detail[`option_${l.toLowerCase()}`];
+    if (!val) return '';
+    const ok = correctSet.has(l);
+    return `<div class="fav-opt ${ok ? 'fav-opt-correct' : ''}">
+      <span class="fav-opt-letter ${ok ? 'fav-opt-letter-correct' : ''}">${l}</span>
+      <span class="fav-opt-text">${escHtml(val)}</span>
+      ${ok ? '<span class="fav-opt-check">✓</span>' : ''}
+    </div>`;
+  }).filter(Boolean).join('');
+
+  const chips = [
+    detail.module_name ? `<span class="note-chip note-chip-module">${escHtml(detail.module_name)}</span>` : '',
+    detail.course_name ? `<span class="note-chip">${escHtml(detail.course_name)}</span>` : '',
+    detail.source_name ? `<span class="note-chip note-chip-source">${escHtml(detail.source_name)}</span>` : '',
+  ].filter(Boolean).join('');
 
   const comments = Array.isArray(detail.comments) ? detail.comments : [];
   const commentsHtml = comments.length
     ? comments.slice(0, 8).map((c) => {
         const author = c.display_name || c.email || 'Utilisateur';
-        const date = c.created_at ? new Date(c.created_at).toLocaleString('fr-FR') : '';
-        return `<div class="favorite-comment"><div><strong>${escHtml(author)}</strong> <span class="muted">${date}</span></div><div>${escHtml(c.body)}</div></div>`;
+        const date = c.created_at ? new Date(c.created_at).toLocaleDateString('fr-FR') : '';
+        return `<div class="fav-comment">
+          <div class="fav-comment-header"><strong>${escHtml(author)}</strong><span class="muted">${date}</span></div>
+          <div class="fav-comment-body">${escHtml(c.body)}</div>
+        </div>`;
       }).join('')
-    : '<div class="muted">Aucun commentaire.</div>';
+    : '<p class="muted" style="margin:0">Aucun commentaire.</p>';
 
-  const correct = Array.isArray(detail.correct_options) ? detail.correct_options.join(', ') : '-';
-  const note = detail.user_note ? escHtml(detail.user_note) : '<span class="muted">Aucune note personnelle.</span>';
+  const noteHtml = detail.user_note
+    ? `<div class="fav-note-text">${escHtml(detail.user_note)}</div>`
+    : '<span class="muted">Aucune note personnelle.</span>';
 
-  return `
-    <div class="favorite-detail-grid">
-      <div><strong>Module:</strong> ${escHtml(detail.module_name || '-')}</div>
-      <div><strong>Cours:</strong> ${escHtml(detail.course_name || '-')}</div>
-      <div><strong>Source:</strong> ${escHtml(detail.source_name || '-')}</div>
-      <div><strong>Correction:</strong> ${escHtml(correct)}</div>
-    </div>
-    <div class="favorite-detail-block">
-      <strong>Propositions</strong>
-      ${opts || '<div class="muted">-</div>'}
-    </div>
-    <div class="favorite-detail-block">
-      <strong>Explication</strong>
-      <div>${detail.explanation ? escHtml(detail.explanation) : '<span class="muted">Aucune explication.</span>'}</div>
-    </div>
-    <div class="favorite-detail-block">
-      <strong>Ma note</strong>
-      <div>${note}</div>
-    </div>
-    <div class="favorite-detail-block">
-      <strong>Commentaires (${comments.length})</strong>
-      ${commentsHtml}
-    </div>
-  `;
+  return `<div class="fav-detail-inner">
+    ${chips ? `<div class="fav-detail-chips">${chips}</div>` : ''}
+    ${opts ? `<div class="fav-detail-section"><div class="fav-section-label">Propositions</div><div class="fav-opts">${opts}</div></div>` : ''}
+    ${detail.explanation ? `<div class="fav-detail-section"><div class="fav-section-label">Explication</div><div class="fav-explanation">${escHtml(detail.explanation)}</div></div>` : ''}
+    <div class="fav-detail-section"><div class="fav-section-label">Ma note</div>${noteHtml}</div>
+    <div class="fav-detail-section"><div class="fav-section-label">Commentaires (${comments.length})</div>${commentsHtml}</div>
+  </div>`;
 }
 
 function fillFavoriteTagFilter(rows) {

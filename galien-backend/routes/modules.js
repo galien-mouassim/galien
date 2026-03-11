@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const pool = require('../config/database');
+const authMiddleware = require('../middleware/authMiddleware');
 const { requireAdminOrManager } = require('../middleware/roleMiddleware');
 const { cacheGet, cacheSet, invalidateMetadataCache } = require('../lib/cache');
 
@@ -23,7 +24,7 @@ router.get('/modules', async (req, res) => {
     }
 });
 
-router.post('/modules', requireAdminOrManager, async (req, res) => {
+router.post('/modules', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const { name } = req.body || {};
         if (!name || !String(name).trim()) {

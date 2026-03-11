@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const pool = require('../config/database');
+const authMiddleware = require('../middleware/authMiddleware');
 const { requireAdminOrManager } = require('../middleware/roleMiddleware');
 const { cacheGet, cacheSet, invalidateMetadataCache } = require('../lib/cache');
 const { parseIntList } = require('../lib/helpers');
@@ -42,7 +43,7 @@ router.get('/sources', async (req, res) => {
     }
 });
 
-router.post('/sources', requireAdminOrManager, async (req, res) => {
+router.post('/sources', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const { name, module_id } = req.body || {};
         if (!name || !String(name).trim()) {
@@ -74,7 +75,7 @@ router.post('/sources', requireAdminOrManager, async (req, res) => {
     }
 });
 
-router.delete('/sources/:id', requireAdminOrManager, async (req, res) => {
+router.delete('/sources/:id', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const sourceId = Number(req.params.id);
         if (!Number.isInteger(sourceId) || sourceId <= 0) {

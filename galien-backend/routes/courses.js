@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const pool = require('../config/database');
+const authMiddleware = require('../middleware/authMiddleware');
 const { requireAdminOrManager } = require('../middleware/roleMiddleware');
 const { cacheGet, cacheSet, invalidateMetadataCache } = require('../lib/cache');
 const { getPagination } = require('../lib/helpers');
@@ -44,7 +45,7 @@ router.get('/courses', async (req, res) => {
     }
 });
 
-router.post('/courses', requireAdminOrManager, async (req, res) => {
+router.post('/courses', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const { name, module_id } = req.body;
         if (!name || !name.trim()) {
@@ -62,7 +63,7 @@ router.post('/courses', requireAdminOrManager, async (req, res) => {
     }
 });
 
-router.delete('/courses/:id', requireAdminOrManager, async (req, res) => {
+router.delete('/courses/:id', authMiddleware, requireAdminOrManager, async (req, res) => {
     try {
         const courseId = Number(req.params.id);
         if (!Number.isInteger(courseId) || courseId <= 0) {

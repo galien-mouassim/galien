@@ -100,10 +100,13 @@ function formatActiveUntil(value) {
 }
 
 function renderResults(rows) {
-  if (!rows.length) return '<p class="muted">Aucun resultat pour le moment.</p>';
-  return `<div class="result-header"><div>Session</div><div>Score</div><div>Temps</div><div>Correction</div></div>${rows.map((r) => {
+  if (!rows.length) return '<div class="empty-state"><div class="empty-icon">📋</div><p class="muted">Aucun résultat pour le moment.</p></div>';
+  return `<div class="session-list">${rows.map((r) => {
     const pct = r.total ? Math.round((Number(r.score || 0) / Number(r.total || 1)) * 100) : 0;
-    const date = new Date(r.created_at).toLocaleString('fr-FR');
+    const scoreClass = pct >= 70 ? 'score-ok' : pct >= 50 ? 'score-mid' : 'score-low';
+    const date = new Date(r.created_at).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const modeLabel = r.mode === 'exam' ? 'Examen' : 'Entraînement';
+    const modeClass = r.mode === 'exam' ? 'badge-exam' : 'badge-train';
     const qs = new URLSearchParams({
       session_id: String(r.id),
       score: String(Number(r.score || 0)),
@@ -112,16 +115,33 @@ function renderResults(rows) {
       mode: String(r.mode || 'training'),
       correction_system: String(r.correction_system || 'tout_ou_rien')
     });
-    return `<a class="result-row" href="result.html?${qs.toString()}" style="text-decoration:none;color:inherit;cursor:pointer"><div><strong style="text-transform:capitalize">${r.mode}</strong> <span class="muted">· ${date}</span></div><div><strong>${Number(r.score || 0).toFixed(2)}</strong> / ${r.total} <span class="muted">(${pct}%)</span></div><div>${formatTime(r.elapsed_seconds)}</div><div>${formatCorrection(r.correction_system || 'tout_ou_rien')}</div></a>`;
-  }).join('')}`;
+    return `<a class="session-card" href="result.html?${qs.toString()}">
+      <div class="session-card-body">
+        <div class="session-card-top">
+          <span class="session-badge ${modeClass}">${modeLabel}</span>
+          <span class="session-card-date">${date}</span>
+        </div>
+        <div class="session-card-bottom">
+          <span class="session-info-label">${formatCorrection(r.correction_system || 'tout_ou_rien')}</span>
+          <span class="session-info-label">⏱ ${formatTime(r.elapsed_seconds)}</span>
+        </div>
+      </div>
+      <div class="session-score-block ${scoreClass}">
+        <span class="session-pct">${pct}%</span>
+        <span class="session-raw">${Number(r.score || 0).toFixed(1)} / ${r.total}</span>
+      </div>
+    </a>`;
+  }).join('')}</div>`;
 }
 
 function renderSavedSessions(rows) {
-  if (!rows.length) return '<p class="muted">Aucune session sauvegardee.</p>';
-  return `<div class="result-header"><div>Session</div><div>Score</div><div>Temps</div><div>Actions</div></div>${rows.map((r) => {
+  if (!rows.length) return '<div class="empty-state"><div class="empty-icon">🔖</div><p class="muted">Aucune session sauvegardée.</p></div>';
+  return `<div class="session-list">${rows.map((r) => {
     const pct = r.total ? Math.round((Number(r.score || 0) / Number(r.total || 1)) * 100) : 0;
-    const date = new Date(r.created_at).toLocaleString('fr-FR');
-    const name = r.session_name || `${r.mode === 'exam' ? 'Examen' : 'Entrainement'} ${date}`;
+    const scoreClass = pct >= 70 ? 'score-ok' : pct >= 50 ? 'score-mid' : 'score-low';
+    const date = new Date(r.created_at).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const name = r.session_name || `${r.mode === 'exam' ? 'Examen' : 'Entraînement'} · ${date}`;
+    const modeClass = r.mode === 'exam' ? 'badge-exam' : 'badge-train';
     const qs = new URLSearchParams({
       session_id: String(r.id),
       score: String(Number(r.score || 0)),
@@ -130,8 +150,29 @@ function renderSavedSessions(rows) {
       mode: String(r.mode || 'training'),
       correction_system: String(r.correction_system || 'tout_ou_rien')
     });
-    return `<div class="result-row saved-row"><div><a href="result.html?${qs.toString()}" style="text-decoration:none;color:inherit"><strong>${escHtml(name)}</strong></a><div class="muted">${date}</div></div><div><strong>${Number(r.score || 0).toFixed(2)}</strong> / ${r.total} <span class="muted">(${pct}%)</span></div><div>${formatTime(r.elapsed_seconds)}</div><div class="saved-edit"><input type="text" value="${escHtml(name)}" data-save-name="${r.id}" maxlength="120"><button class="btn-inline" data-save-rename="${r.id}"><i class="bi bi-pencil"></i> Renommer</button></div></div>`;
-  }).join('')}`;
+    return `<div class="session-card saved-session-card">
+      <div class="session-card-main">
+        <div class="session-card-body">
+          <div class="session-card-top">
+            <span class="session-badge ${modeClass}">${r.mode === 'exam' ? 'Examen' : 'Entraînement'}</span>
+            <a href="result.html?${qs.toString()}" class="session-name-link">${escHtml(name)}</a>
+          </div>
+          <div class="session-card-bottom">
+            <span class="session-card-date">${date}</span>
+            <span class="session-info-label">⏱ ${formatTime(r.elapsed_seconds)}</span>
+          </div>
+        </div>
+        <div class="session-score-block ${scoreClass}">
+          <span class="session-pct">${pct}%</span>
+          <span class="session-raw">${Number(r.score || 0).toFixed(1)} / ${r.total}</span>
+        </div>
+      </div>
+      <div class="session-rename-row">
+        <input type="text" value="${escHtml(name)}" data-save-name="${r.id}" maxlength="120" placeholder="Nom de la session">
+        <button class="btn-inline" data-save-rename="${r.id}">✏️ Renommer</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function renderFavoriteTags(tags) {
@@ -289,28 +330,27 @@ function buildNoteTagFilterOptions() {
 }
 
 function renderNotesList(rows) {
-  if (!rows.length) return '<p class="muted">Aucune note trouvée.</p>';
+  if (!rows.length) return '<div class="empty-state"><div class="empty-icon">📝</div><p class="muted">Aucune note trouvée.</p></div>';
   return rows.map((r) => {
-    const updated = r.updated_at ? new Date(r.updated_at).toLocaleString('fr-FR') : '-';
+    const updated = r.updated_at ? new Date(r.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
     const favTags = parseCsvTags(r.favorite_tags);
-    const tagHtml = favTags.length ? `<div class="favorite-tags">${favTags.map((t) => `<span class="tag">${escHtml(t)}</span>`).join('')}</div>` : '<span class="muted">Aucun tag favori</span>';
+    const tagHtml = favTags.length ? `<div class="note-tags">${favTags.map((t) => `<span class="tag">${escHtml(t)}</span>`).join('')}</div>` : '';
+    const notePreview = (r.note || '').length > 200 ? escHtml(r.note.slice(0, 200)) + '…' : escHtml(r.note || '');
     return `
-      <article class="favorite-item modern note-card" data-note-qid="${r.question_id}">
-        <header class="favorite-head">
-          <div class="favorite-title">${escHtml(r.question || `Question #${r.question_id}`)}</div>
-          <span class="favorite-date">Maj ${updated}</span>
-        </header>
-        <div class="favorite-detail-grid">
-          <div><strong>Module:</strong> ${escHtml(r.module_name || '-')}</div>
-          <div><strong>Cours:</strong> ${escHtml(r.course_name || '-')}</div>
-          <div><strong>Source:</strong> ${escHtml(r.source_name || '-')}</div>
-          <div><strong>Tags:</strong> ${tagHtml}</div>
+      <article class="note-card-v2" data-note-qid="${r.question_id}">
+        <div class="note-card-meta">
+          ${r.module_name ? `<span class="note-chip note-chip-module">${escHtml(r.module_name)}</span>` : ''}
+          ${r.course_name ? `<span class="note-chip">${escHtml(r.course_name)}</span>` : ''}
+          ${r.source_name ? `<span class="note-chip note-chip-source">${escHtml(r.source_name)}</span>` : ''}
+          <span class="note-updated">Mis à jour ${updated}</span>
         </div>
-        <div class="favorite-detail-block"><strong>Note</strong><div>${escHtml(r.note || '')}</div></div>
-        <div class="favorite-actions">
-          <button class="btn-inline" data-note-open="${r.question_id}"><i class="bi bi-box-arrow-up-right"></i> Ouvrir question</button>
-          <button class="btn-inline" data-note-edit="${r.question_id}"><i class="bi bi-pencil-square"></i> Modifier</button>
-          <button class="btn-inline" style="color:var(--red)" data-note-delete="${r.question_id}"><i class="bi bi-trash"></i> Supprimer</button>
+        <div class="note-card-question">${escHtml(r.question || `Question #${r.question_id}`)}</div>
+        ${tagHtml}
+        ${notePreview ? `<div class="note-card-text">${notePreview}</div>` : ''}
+        <div class="note-card-actions">
+          <button class="btn-inline" data-note-open="${r.question_id}">↗ Ouvrir question</button>
+          <button class="btn-inline" data-note-edit="${r.question_id}">✏️ Modifier</button>
+          <button class="btn-inline" style="color:var(--red)" data-note-delete="${r.question_id}">🗑 Supprimer</button>
         </div>
         <div id="note_detail_${r.question_id}" class="favorite-preview hidden"></div>
       </article>
@@ -350,11 +390,19 @@ async function loadNotes(page = 1) {
 }
 
 function renderFlagList(rows) {
-  if (!rows.length) return '<p class="muted">Aucun signalement.</p>';
+  if (!rows.length) return '<div class="empty-state"><div class="empty-icon">🚩</div><p class="muted">Aucun signalement.</p></div>';
   return rows.map((r) => {
-    const date = r.created_at ? new Date(r.created_at).toLocaleString('fr-FR') : '';
+    const date = r.created_at ? new Date(r.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
     const isResolved = !!r.resolved;
-    return `<div class="flag-item ${isResolved ? 'resolved' : ''}"><div class="flag-question">${r.question || 'Question non disponible'}</div>${r.reason ? `<div class="flag-reason"><strong>Votre signalement :</strong> ${r.reason}</div>` : ''}<div class="flag-meta"><span class="flag-status ${isResolved ? 'resolved' : 'pending'}">${isResolved ? 'Resolu' : 'En attente'}</span><span>${date}</span></div><div class="flag-actions">${!isResolved ? `<button class="btn-inline report-remove" data-id="${r.id}" style="color:var(--red)"><i class="bi bi-x-circle"></i> Retirer</button>` : ''}</div></div>`;
+    return `<div class="flag-card ${isResolved ? 'flag-resolved' : 'flag-pending'}">
+      <div class="flag-card-header">
+        <span class="flag-status-pill ${isResolved ? 'pill-ok' : 'pill-warn'}">${isResolved ? '✓ Résolu' : '⏳ En attente'}</span>
+        <span class="flag-card-date">${date}</span>
+      </div>
+      <div class="flag-card-question">${escHtml(r.question || 'Question non disponible')}</div>
+      ${r.reason ? `<div class="flag-card-reason"><strong>Votre signalement :</strong> ${escHtml(r.reason)}</div>` : ''}
+      ${!isResolved ? `<div class="flag-card-actions"><button class="btn-inline report-remove" data-id="${r.id}" style="color:var(--red)">✕ Retirer le signalement</button></div>` : ''}
+    </div>`;
   }).join('');
 }
 

@@ -585,19 +585,25 @@ function renderAnalytics(analytics, basicStats) {
       requestAnimationFrame(() => {
         const ctxRadar = document.getElementById('chartRadar')?.getContext('2d');
         if (!ctxRadar) return;
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const radarLabelColor = isDark ? '#94a3b8' : '#475569';
+        const radarGridColor = isDark ? 'rgba(148,163,184,.25)' : 'rgba(100,116,139,.2)';
+        const radarTickColor = isDark ? 'rgba(148,163,184,.7)' : 'rgba(71,85,105,.7)';
         window._galienCharts.radar = new Chart(ctxRadar, {
           type: 'radar',
           data: {
             labels: modules.map((m) => m.module_name || 'Sans module'),
             datasets: [{
               data: modules.map((m) => Number(m.avg_percent || 0).toFixed(1)),
-              backgroundColor: 'rgba(13,148,136,.15)',
-              borderColor: '#0d9488',
-              borderWidth: 2,
+              backgroundColor: 'rgba(45,212,191,.18)',
+              borderColor: '#2dd4bf',
+              borderWidth: 2.5,
               pointBackgroundColor: modules.map((m) => {
                 const p = Number(m.avg_percent || 0);
-                return p >= 70 ? '#22c55e' : p >= 50 ? '#f59e0b' : '#ef4444';
+                return p >= 70 ? '#4ade80' : p >= 50 ? '#fbbf24' : '#f87171';
               }),
+              pointBorderColor: '#fff',
+              pointBorderWidth: 1.5,
               pointRadius: 5,
               pointHoverRadius: 7,
             }]
@@ -608,10 +614,10 @@ function renderAnalytics(analytics, basicStats) {
             scales: {
               r: {
                 min: 0, max: 100,
-                ticks: { stepSize: 25, callback: (v) => `${v}%`, font: { size: 10 } },
-                grid: { color: 'rgba(100,116,139,.12)' },
-                angleLines: { color: 'rgba(100,116,139,.12)' },
-                pointLabels: { font: { size: 11 }, color: '#334155' },
+                ticks: { stepSize: 25, callback: (v) => `${v}%`, font: { size: 10 }, color: radarTickColor, backdropColor: 'transparent' },
+                grid: { color: radarGridColor },
+                angleLines: { color: radarGridColor },
+                pointLabels: { font: { size: 11 }, color: radarLabelColor },
               }
             },
             plugins: {

@@ -43,6 +43,7 @@ const panelMeta = {
   messages:  { title: 'Messages',       sub: 'Contactez vos utilisateurs' },
   users:     { title: 'Utilisateurs',   sub: 'Créez et gérez les comptes' },
   'worker-submissions': { title: 'Questions workers', sub: 'Validation en lot avec score de similarité' },
+  feedback:  { title: 'Feedbacks',      sub: 'Retours envoyés par les utilisateurs' },
 };
 
 function switchPanel(name) {
@@ -63,6 +64,9 @@ function switchPanel(name) {
   if (name === 'worker-submissions') {
     loadPendingSubmissionStats();
     loadPendingQuestions();
+  }
+  if (name === 'feedback') {
+    loadFeedback();
   }
 }
 
@@ -86,6 +90,7 @@ if (isWorker) {
   document.getElementById('panel-login-alerts')?.classList.add('hidden');
   document.getElementById('panel-messages')?.classList.add('hidden');
   document.getElementById('panel-users')?.classList.add('hidden');
+  document.getElementById('panel-feedback')?.classList.add('hidden');
   document.getElementById('pendingApproveSelectedBtn')?.classList.add('hidden');
   document.getElementById('pendingApproveAllBtn')?.classList.add('hidden');
   document.getElementById('pendingWorkersStatsCard')?.classList.add('hidden');
@@ -1649,6 +1654,56 @@ document.getElementById('importSelectedBtn')?.addEventListener('click',()=>runIm
 document.getElementById('importAllBtn')?.addEventListener('click',()=>{analyzedImportRows.forEach(r=>{r.include=!r.validationError;});runImport(analyzedImportRows.filter(r=>!r.validationError));});
 document.getElementById('prevImportPageBtn')?.addEventListener('click',()=>{if(importPage>1){importPage--;renderImportPreviewPage();}});
 document.getElementById('nextImportPageBtn')?.addEventListener('click',()=>{const t=Math.max(1,Math.ceil(analyzedImportRows.length/importPageSize));if(importPage<t){importPage++;renderImportPreviewPage();}});
+
+async function loadFeedback() {
+  const list = document.getElementById('feedbackList');
+  if (!list) return;
+  list.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
+  try {
+    const res = await fetch(`${API_URL}/admin/feedback`, { headers: getAuthHeaders() });
+    if (!res.ok) { list.innerHTML = '<p class="muted">Impossible de charger les feedbacks.</p>'; return; }
+    const data = await res.json();
+
+    const unreadCount = data.filter(f => !f.read_at).length;
+    const badge = document.getElementById('feedbackBadge');
+    if (badge) { badge.textContent = unreadCount; badge.style.display = unreadCount ? '' : 'none'; }
+
+    if (!data.length) {
+      list.innerHTML = '<div class="adm-empty"><div class="adm-empty-icon"><i class="bi bi-chat-square-text"></i></div><p>Aucun feedback pour le moment.</p></div>';
+      return;
+    }
+
+    const typeLabel = { bug: 'Bug', suggestion: 'Suggestion', autre: 'Autre' };
+    const typeClass = { bug: 'feedback-tag-bug', suggestion: 'feedback-tag-suggestion', autre: 'feedback-tag-autre' };
+
+    list.innerHTML = '';
+    data.forEach(f => {
+      const date = new Date(f.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const item = document.createElement('div');
+      item.className = `adm-card feedback-item${f.read_at ? '' : ' feedback-item--unread'}`;
+      item.dataset.id = f.id;
+      item.innerHTML = `
+        <div class="feedback-item-header">
+          <span class="feedback-tag ${typeClass[f.type] || ''}">${typeLabel[f.type] || f.type}</span>
+          <span class="feedback-item-user">${f.user_name || f.user_email || 'Utilisateur supprimé'}</span>
+          <span class="feedback-item-date">${date}</span>
+          ${!f.read_at ? '<span class="feedback-unread-dot"></span>' : ''}
+        </div>
+        <div class="feedback-item-message">${f.message.replace(/</g, '&lt;')}</div>`;
+      if (!f.read_at) {
+        item.addEventListener('click', async () => {
+          await fetch(`${API_URL}/admin/feedback/${f.id}/read`, { method: 'PUT', headers: getAuthHeaders() });
+          item.classList.remove('feedback-item--unread');
+          item.querySelector('.feedback-unread-dot')?.remove();
+          f.read_at = new Date().toISOString();
+          const remaining = data.filter(d => !d.read_at).length;
+          if (badge) { badge.textContent = remaining; badge.style.display = remaining ? '' : 'none'; }
+        });
+      }
+      list.appendChild(item);
+    });
+  } catch (_) { list.innerHTML = '<p class="muted">Erreur lors du chargement.</p>'; }
+}
 
 
 

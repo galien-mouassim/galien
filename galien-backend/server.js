@@ -21,7 +21,8 @@ const {
     ensureSessionResultsSchema,
     ensureUserPreferencesSchema,
     ensureAuthSchema,
-    ensureRequestedCourses
+    ensureRequestedCourses,
+    ensureFeedbackSchema
 } = require('./lib/schema');
 
 const app = express();
@@ -151,7 +152,8 @@ function initApp() {
                     ensureQuestionNotesSchema(),
                     ensureSessionResultsSchema(),
                     ensureUserPreferencesSchema(),
-                    ensureRequestedCourses()
+                    ensureRequestedCourses(),
+                    ensureFeedbackSchema()
                 ]))
                 .then(() => initAdmin());
     }

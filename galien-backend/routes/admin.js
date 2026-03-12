@@ -544,4 +544,37 @@ router.put('/admin/reports/:id/resolve', async (req, res) => {
     }
 });
 
+// ----------------------
+// ADMIN: Feedback
+// ----------------------
+router.get('/admin/feedback', requireAdminOrManager, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT f.id, f.type, f.message, f.read_at, f.created_at,
+                    u.email AS user_email, u.display_name AS user_name
+             FROM user_feedback f
+             LEFT JOIN users u ON u.id = f.user_id
+             ORDER BY f.created_at DESC
+             LIMIT 200`
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.put('/admin/feedback/:id/read', requireAdminOrManager, async (req, res) => {
+    try {
+        const id = Number.parseInt(req.params.id, 10);
+        if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid id' });
+        await pool.query(
+            `UPDATE user_feedback SET read_at = NOW() WHERE id = $1 AND read_at IS NULL`,
+            [id]
+        );
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

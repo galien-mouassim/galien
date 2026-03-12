@@ -948,6 +948,29 @@ router.delete('/users/reports/:id', async (req, res) => {
 });
 
 // ----------------------
+// USER: Feedback
+// ----------------------
+router.post('/users/feedback', async (req, res) => {
+    try {
+        const { type, message } = req.body;
+        const validTypes = ['bug', 'suggestion', 'autre'];
+        const feedbackType = validTypes.includes(type) ? type : 'autre';
+        if (!message || !message.trim()) {
+            return res.status(400).json({ message: 'Message requis.' });
+        }
+        const result = await pool.query(
+            `INSERT INTO user_feedback (user_id, type, message)
+             VALUES ($1, $2, $3)
+             RETURNING id, type, created_at`,
+            [req.user.id, feedbackType, message.trim()]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ----------------------
 // USER: Messages (admin -> user)
 // ----------------------
 router.get('/messages', async (req, res) => {

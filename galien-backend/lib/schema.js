@@ -510,5 +510,19 @@ module.exports = {
     ensureSessionResultsSchema,
     ensureUserPreferencesSchema,
     ensureAuthSchema,
-    ensureRequestedCourses
+    ensureRequestedCourses,
+    ensureFeedbackSchema
 };
+
+async function ensureFeedbackSchema() {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS user_feedback (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            type VARCHAR(20) NOT NULL DEFAULT 'general',
+            message TEXT NOT NULL,
+            read_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `);
+}

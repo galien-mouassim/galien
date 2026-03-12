@@ -404,6 +404,9 @@ async function loadUser() {
             <a href="profile.html" class="topbar-dropdown-item">
               <i class="bi bi-person"></i> Mon profil
             </a>
+            <button type="button" class="topbar-dropdown-item" id="topbarFeedbackBtn">
+              <i class="bi bi-chat-square-text"></i> Envoyer un retour
+            </button>
             <div class="topbar-dropdown-divider"></div>
             <button type="button" class="topbar-dropdown-item topbar-dropdown-item--danger" id="topbarLogoutBtn">
               <i class="bi bi-box-arrow-right"></i> Déconnexion
@@ -426,12 +429,105 @@ async function loadUser() {
       avatarBtn?.setAttribute('aria-expanded', 'false');
     });
 
+    // Feedback
+    document.getElementById('topbarFeedbackBtn')?.addEventListener('click', () => {
+      dropdown.classList.add('hidden');
+      openFeedbackModal();
+    });
+
     // Logout
     document.getElementById('topbarLogoutBtn')?.addEventListener('click', () => {
       clearAuthState();
       window.location.href = 'login.html';
     });
   } catch (_) {}
+}
+
+function openFeedbackModal() {
+  let modal = document.getElementById('feedbackModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'feedbackModal';
+    modal.className = 'modal hidden';
+    modal.innerHTML = `
+      <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="feedbackModalTitle">
+        <h3 id="feedbackModalTitle">Envoyer un retour</h3>
+        <p class="muted">Un bug, une suggestion ou une remarque ? On lit tout.</p>
+        <div class="feedback-type-row">
+          <button type="button" class="feedback-type-btn active" data-type="bug">
+            <i class="bi bi-bug"></i> Bug
+          </button>
+          <button type="button" class="feedback-type-btn" data-type="suggestion">
+            <i class="bi bi-lightbulb"></i> Suggestion
+          </button>
+          <button type="button" class="feedback-type-btn" data-type="autre">
+            <i class="bi bi-chat"></i> Autre
+          </button>
+        </div>
+        <textarea id="feedbackMessage" class="feedback-textarea" placeholder="Décrivez votre retour..." rows="5"></textarea>
+        <div id="feedbackError" class="feedback-error hidden"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn primary" id="feedbackSubmitBtn">Envoyer</button>
+          <button type="button" class="btn ghost" id="feedbackCancelBtn">Annuler</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    modal.querySelectorAll('.feedback-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        modal.querySelectorAll('.feedback-type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    document.getElementById('feedbackCancelBtn').addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.add('hidden');
+    });
+
+    document.getElementById('feedbackSubmitBtn').addEventListener('click', async () => {
+      const message = document.getElementById('feedbackMessage').value.trim();
+      const type = modal.querySelector('.feedback-type-btn.active')?.dataset.type || 'autre';
+      const errEl = document.getElementById('feedbackError');
+      const submitBtn = document.getElementById('feedbackSubmitBtn');
+      if (!message) { errEl.textContent = 'Veuillez écrire un message.'; errEl.classList.remove('hidden'); return; }
+      errEl.classList.add('hidden');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Envoi...';
+      try {
+        const res = await fetch(`${API_URL}/users/feedback`, {
+          method: 'POST',
+          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, message })
+        });
+        if (!res.ok) throw new Error();
+        modal.querySelector('.modal-content').innerHTML = `
+          <div style="text-align:center;padding:12px 0">
+            <i class="bi bi-check-circle" style="font-size:2.5rem;color:var(--green)"></i>
+            <h3 style="margin-top:12px">Merci !</h3>
+            <p class="muted">Votre retour a bien été envoyé.</p>
+            <div class="modal-actions" style="justify-content:center">
+              <button type="button" class="btn primary" id="feedbackDoneBtn">Fermer</button>
+            </div>
+          </div>`;
+        document.getElementById('feedbackDoneBtn').addEventListener('click', () => modal.classList.add('hidden'));
+      } catch (_) {
+        errEl.textContent = 'Erreur lors de l\'envoi. Réessayez.';
+        errEl.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Envoyer';
+      }
+    });
+  } else {
+    // Reset modal if reopened
+    const textarea = document.getElementById('feedbackMessage');
+    if (textarea) textarea.value = '';
+    document.getElementById('feedbackError')?.classList.add('hidden');
+  }
+  modal.classList.remove('hidden');
+  setTimeout(() => document.getElementById('feedbackMessage')?.focus(), 50);
 }
 
 function setupResumeButton() {

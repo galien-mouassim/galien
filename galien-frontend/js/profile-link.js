@@ -44,22 +44,7 @@
     });
 
     menu.querySelector('.logout')?.addEventListener('click', () => {
-      const keys = [
-        'token',
-        'role',
-        'module_id',
-        'favorite_tags',
-        'question_limit',
-        'exam_minutes',
-        'correction_system',
-        'score',
-        'total',
-        'raw_total',
-        'elapsed_seconds',
-        'time_limit_seconds',
-        'exam_timeout'
-      ];
-      keys.forEach(k => localStorage.removeItem(k));
+      if (typeof clearAuthState === 'function') clearAuthState();
       window.location.href = 'login.html';
     });
 

@@ -20,8 +20,10 @@ router.post('/login', loginLimiter, async (req, res) => {
         }
 
         const user = result.rows[0];
-        // Expired accounts cannot log in at all.
-        if (user.active_until && new Date(user.active_until).getTime() <= Date.now()) {
+        const isExpired = !!(user.active_until && new Date(user.active_until).getTime() <= Date.now());
+        // Expired non-user accounts (admin/manager/worker) cannot log in.
+        // Expired "user" accounts can log in but will have restricted access.
+        if (isExpired && user.role !== 'user') {
             return res.status(403).json({ message: 'Compte expire. Contactez un administrateur.' });
         }
         // Deactivated non-user roles (admin/manager/worker) cannot log in.
@@ -56,7 +58,8 @@ router.post('/login', loginLimiter, async (req, res) => {
         res.json({
             token,
             role: user.role,
-            is_active: user.is_active !== false
+            is_active: user.is_active !== false,
+            is_expired: isExpired
         });
 
     } catch (err) {

@@ -58,11 +58,12 @@ async function authMiddleware(req, res, next) {
         if (result.rows[0].is_active === false && decoded.role !== 'user') {
             return res.status(403).json({ message: 'Compte desactive' });
         }
-        if (result.rows[0].active_until && new Date(result.rows[0].active_until).getTime() <= Date.now()) {
+        const isExpired = !!(result.rows[0].active_until && new Date(result.rows[0].active_until).getTime() <= Date.now());
+        if (isExpired && decoded.role !== 'user') {
             return res.status(403).json({ message: 'Compte expire' });
         }
 
-        req.user = { ...decoded, is_active: result.rows[0].is_active !== false };
+        req.user = { ...decoded, is_active: result.rows[0].is_active !== false, is_expired: isExpired };
         next();
     } catch (err) {
         if (err && err.code && err.code !== '22P02') {

@@ -32,9 +32,10 @@ async function login() {
       localStorage.setItem('token', data.token);
       localStorage.setItem('role', data.role || '');
       localStorage.setItem('is_active', data.is_active === false ? 'false' : 'true');
+      localStorage.setItem('is_expired', data.is_expired === true ? 'true' : 'false');
       const params = new URLSearchParams(window.location.search);
       const next = params.get('next');
-      if (data.is_active === false) {
+      if (data.is_active === false || data.is_expired === true) {
         window.location.href = 'profile.html';
       } else if (next) {
         window.location.href = next;

@@ -60,8 +60,7 @@ function initProfileTabs() {
 }
 
 function logout() {
-  ['token', 'role', 'module_id', 'course_id', 'source_id', 'favorite_tags', 'question_limit', 'exam_minutes', 'correction_system', 'score', 'total', 'raw_total', 'elapsed_seconds', 'time_limit_seconds', 'exam_timeout', 'qcm_session_draft', 'pending_result_payload']
-    .forEach((k) => localStorage.removeItem(k));
+  clearAuthState();
   window.location.href = 'login.html';
 }
 
@@ -997,12 +996,15 @@ async function loadProfile() {
 
     // Sync localStorage
     localStorage.setItem('is_active', isDeactivated ? 'false' : 'true');
+    localStorage.setItem('is_expired', isExpired ? 'true' : 'false');
 
-    // Deactivated banner + hide back button
+    // Deactivated / expired banner + hide back button
     const banner = document.getElementById('deactivatedBanner');
     if (banner) banner.classList.toggle('hidden', !isDeactivated);
+    const expiredBanner = document.getElementById('expiredBanner');
+    if (expiredBanner) expiredBanner.classList.toggle('hidden', !isExpired);
     const sidebarBack = document.querySelector('.sidebar-back');
-    if (sidebarBack) sidebarBack.classList.toggle('hidden', isDeactivated);
+    if (sidebarBack) sidebarBack.classList.toggle('hidden', isDeactivated || isExpired);
 
     // Hero section
     const displayName = me.display_name || me.email || 'Utilisateur';

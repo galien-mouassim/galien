@@ -1,7 +1,7 @@
 ﻿if (localStorage.getItem('role') === 'worker') {
   window.location.href = 'admin.html';
 }
-if (localStorage.getItem('is_active') === 'false') {
+if (localStorage.getItem('is_active') === 'false' || localStorage.getItem('is_expired') === 'true') {
   window.location.href = 'profile.html';
 }
 

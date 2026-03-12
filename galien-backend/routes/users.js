@@ -462,9 +462,9 @@ router.get('/users/analytics', async (req, res) => {
                         COUNT(*)::int AS attempts
                  FROM session_question_results sqr
                  JOIN results r ON r.id = sqr.session_id
-                 LEFT JOIN questions q ON q.id = sqr.question_id
+                 JOIN questions q ON q.id = sqr.question_id
                  LEFT JOIN courses c ON c.id = q.course_id
-                 WHERE r.user_id = $1 AND sqr.question_id IS NOT NULL
+                 WHERE r.user_id = $1
                  GROUP BY q.module_id, q.course_id, c.name
                  ORDER BY avg_percent DESC NULLS LAST`,
                 [userId]

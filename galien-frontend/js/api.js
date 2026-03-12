@@ -40,7 +40,10 @@ function clearAuthState() {
     'token',
     'role',
     'is_active',
+    'is_expired',
     'module_id',
+    'course_id',
+    'source_id',
     'favorite_tags',
     'question_limit',
     'exam_minutes',
@@ -50,7 +53,9 @@ function clearAuthState() {
     'raw_total',
     'elapsed_seconds',
     'time_limit_seconds',
-    'exam_timeout'
+    'exam_timeout',
+    'qcm_session_draft',
+    'pending_result_payload'
   ];
   keys.forEach(k => localStorage.removeItem(k));
 }

@@ -411,7 +411,8 @@ router.get('/users/topbar-stats', async (req, res) => {
                 [req.user.id]
             ),
             pool.query(
-                `SELECT COUNT(sqr.id)::int AS questions_today
+                `SELECT COUNT(sqr.id)::int AS questions_today,
+                        ROUND(AVG(sqr.score) * 100.0, 1) AS avg_score_today
                  FROM session_question_results sqr
                  JOIN results r ON r.id = sqr.session_id
                  WHERE r.user_id = $1
@@ -438,9 +439,14 @@ router.get('/users/topbar-stats', async (req, res) => {
             }
         }
 
+        const avgScoreToday = todayRes.rows[0]?.avg_score_today != null
+            ? Math.round(Number(todayRes.rows[0].avg_score_today))
+            : null;
+
         const payload = {
             streak_days: streak,
-            questions_today: todayRes.rows[0]?.questions_today || 0
+            questions_today: todayRes.rows[0]?.questions_today || 0,
+            avg_score_today: avgScoreToday
         };
         cacheSet(cacheKey, payload, 60 * 1000); // 1 min cache
         res.json(payload);

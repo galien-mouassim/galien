@@ -346,9 +346,7 @@ async function ensurePerformanceIndexes() {
         'CREATE INDEX IF NOT EXISTS idx_module_sources_source ON module_sources(source_id)'
     ];
 
-    for (const q of queries) {
-        await pool.query(q);
-    }
+    await Promise.all(queries.map((q) => pool.query(q)));
 
     // Flags table can be either legacy or current depending on historical migrations.
     await pool.query(`

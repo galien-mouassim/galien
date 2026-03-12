@@ -144,13 +144,15 @@ function initApp() {
         initPromise = shouldSkipSchemaInit
             ? Promise.resolve()
             : ensureCoreSchema()
-                .then(() => ensureModuleSourceBackfill())
-                .then(() => ensurePerformanceIndexes())
-                .then(() => ensureAuthSchema())
-                .then(() => ensureQuestionNotesSchema())
-                .then(() => ensureSessionResultsSchema())
-                .then(() => ensureUserPreferencesSchema())
-                .then(() => ensureRequestedCourses())
+                .then(() => Promise.all([
+                    ensureModuleSourceBackfill(),
+                    ensurePerformanceIndexes(),
+                    ensureAuthSchema(),
+                    ensureQuestionNotesSchema(),
+                    ensureSessionResultsSchema(),
+                    ensureUserPreferencesSchema(),
+                    ensureRequestedCourses()
+                ]))
                 .then(() => initAdmin());
     }
     return initPromise;

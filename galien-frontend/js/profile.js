@@ -1043,8 +1043,10 @@ async function loadProfile() {
 
     // Account info list
     const roleLabels2 = { admin: 'Administrateur', manager: 'Manager', worker: 'Correcteur', user: 'Étudiant' };
-    const expiryText = me.active_until ? formatActiveUntil(me.active_until) : 'Illimité';
+    const expiryText = isDeactivated ? 'Accès suspendu' : (me.active_until ? formatActiveUntil(me.active_until) : 'Illimité');
     const expiryWarn = nearExpiry ? `<span class="prof-expiry-warn">⚠ ${daysLeft}j restants</span>` : '';
+    const statusIcon = (isDeactivated || isExpired) ? '🔴' : '🟢';
+    const statusText = isDeactivated ? 'Désactivé' : isExpired ? 'Expiré' : 'Actif';
     document.getElementById('profileInfo').innerHTML = `
       <div class="prof-info-row">
         <span class="prof-info-icon">✉</span>
@@ -1057,9 +1059,9 @@ async function loadProfile() {
         <span class="prof-info-value">${roleLabels2[me.role] || me.role}</span>
       </div>
       <div class="prof-info-row">
-        <span class="prof-info-icon">${isExpired ? '🔴' : '🟢'}</span>
+        <span class="prof-info-icon">${statusIcon}</span>
         <span class="prof-info-label">Statut</span>
-        <span class="prof-info-value">${isExpired ? 'Expiré' : 'Actif'}</span>
+        <span class="prof-info-value">${statusText}</span>
       </div>
       <div class="prof-info-row">
         <span class="prof-info-icon">📅</span>

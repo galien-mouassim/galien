@@ -916,8 +916,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .status-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:99px;font-size:.7rem;font-weight:700}
 .status-pill.pill-active{background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);color:#16a34a}
 .status-pill.pill-expired{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+.status-pill.pill-inactive{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444}
 .status-pill.pill-active::before{content:"●";font-size:.5rem;color:#16a34a}
 .status-pill.pill-expired::before{content:"●";font-size:.5rem;color:#ef4444}
+.status-pill.pill-inactive::before{content:"●";font-size:.5rem;color:#ef4444}
+/* deactivated banner */
+.deactivated-banner{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;border-radius:var(--radius);background:rgba(239,68,68,.07);border:1.5px solid rgba(239,68,68,.28);color:#dc2626;margin-bottom:16px}
+.deactivated-banner strong{display:block;font-weight:700;margin-bottom:3px}
+.deactivated-banner span{font-size:.85rem;opacity:.85}
+.deactivated-banner-icon{width:22px;height:22px;flex-shrink:0;fill:currentColor;margin-top:1px}
 /* quick stats bar */
 .prof-stats-bar{display:flex;align-items:center;background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden}
 .prof-stat-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:16px 8px;gap:4px}

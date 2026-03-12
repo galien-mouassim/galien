@@ -984,9 +984,19 @@ async function loadProfile() {
 
     const nowTs = Date.now();
     const activeUntilTs = me.active_until ? new Date(me.active_until).getTime() : null;
-    const isExpired = activeUntilTs && activeUntilTs <= nowTs;
+    const isDeactivated = me.is_active === false;
+    const isExpired = !isDeactivated && activeUntilTs && activeUntilTs <= nowTs;
     const daysLeft = activeUntilTs ? Math.ceil((activeUntilTs - nowTs) / 86400000) : null;
-    const nearExpiry = !isExpired && daysLeft !== null && daysLeft <= 14;
+    const nearExpiry = !isExpired && !isDeactivated && daysLeft !== null && daysLeft <= 14;
+
+    // Sync localStorage
+    localStorage.setItem('is_active', isDeactivated ? 'false' : 'true');
+
+    // Deactivated banner + hide back button
+    const banner = document.getElementById('deactivatedBanner');
+    if (banner) banner.classList.toggle('hidden', !isDeactivated);
+    const sidebarBack = document.querySelector('.sidebar-back');
+    if (sidebarBack) sidebarBack.classList.toggle('hidden', isDeactivated);
 
     // Hero section
     const displayName = me.display_name || me.email || 'Utilisateur';
@@ -1002,8 +1012,16 @@ async function loadProfile() {
     }
     const heroStatusPill = document.getElementById('heroStatusPill');
     if (heroStatusPill) {
-      heroStatusPill.textContent = isExpired ? 'Expiré' : 'Actif';
-      heroStatusPill.className = `status-pill ${isExpired ? 'pill-expired' : 'pill-active'}`;
+      if (isDeactivated) {
+        heroStatusPill.textContent = 'Désactivé';
+        heroStatusPill.className = 'status-pill pill-inactive';
+      } else if (isExpired) {
+        heroStatusPill.textContent = 'Expiré';
+        heroStatusPill.className = 'status-pill pill-expired';
+      } else {
+        heroStatusPill.textContent = 'Actif';
+        heroStatusPill.className = 'status-pill pill-active';
+      }
     }
 
     // Quick stats bar

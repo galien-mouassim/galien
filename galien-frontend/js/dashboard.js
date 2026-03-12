@@ -371,14 +371,18 @@ function getInitials(name) {
 
 async function loadUser() {
   try {
-    const [userRes, notifRes] = await Promise.all([
+    const [userRes, notifRes, statsRes] = await Promise.all([
       fetch(`${API_URL}/users/me`, { headers: getAuthHeaders() }),
-      fetch(`${API_URL}/messages/unread-count`, { headers: getAuthHeaders() })
+      fetch(`${API_URL}/messages/unread-count`, { headers: getAuthHeaders() }),
+      fetch(`${API_URL}/users/topbar-stats`, { headers: getAuthHeaders() })
     ]);
     if (!userRes.ok) return;
     const user = await userRes.json();
     const notif = notifRes.ok ? await notifRes.json() : { unread: 0 };
+    const stats = statsRes.ok ? await statsRes.json() : {};
     const unread = notif.unread || 0;
+    const streak = stats.streak_days || 0;
+    const questionsToday = stats.questions_today || 0;
 
     const area = document.getElementById('dashUserArea');
     if (!area) return;
@@ -390,6 +394,8 @@ async function loadUser() {
 
     area.innerHTML = `
       <div class="topbar-right">
+        ${streak > 0 ? `<div class="topbar-stat-pill" title="Série en cours"><span class="topbar-stat-pill-icon">🔥</span>${streak}j</div>` : ''}
+        ${questionsToday > 0 ? `<div class="topbar-stat-pill" title="Questions répondues aujourd'hui"><span class="topbar-stat-pill-icon">✓</span>${questionsToday}</div>` : ''}
         <a href="profile.html" class="topbar-notif-btn" title="Messages">
           <i class="bi bi-bell"></i>
           ${unread > 0 ? `<span class="topbar-badge">${unread > 99 ? '99+' : unread}</span>` : ''}

@@ -394,6 +394,61 @@ router.get('/users/stats', async (req, res) => {
     }
 });
 
+router.get('/users/topbar-stats', async (req, res) => {
+    try {
+        const cacheKey = `user:topbar:${req.user.id}`;
+        const cached = cacheGet(cacheKey);
+        if (cached) return res.json(cached);
+
+        const [streakRes, todayRes] = await Promise.all([
+            pool.query(
+                `SELECT DATE(created_at AT TIME ZONE 'UTC') AS day
+                 FROM results
+                 WHERE user_id = $1
+                 GROUP BY day
+                 ORDER BY day DESC
+                 LIMIT 365`,
+                [req.user.id]
+            ),
+            pool.query(
+                `SELECT COUNT(sqr.id)::int AS questions_today
+                 FROM session_question_results sqr
+                 JOIN results r ON r.id = sqr.session_id
+                 WHERE r.user_id = $1
+                   AND r.created_at >= CURRENT_DATE`,
+                [req.user.id]
+            )
+        ]);
+
+        // Compute streak from consecutive days ending today or yesterday
+        const days = streakRes.rows.map(r => new Date(r.day));
+        let streak = 0;
+        if (days.length) {
+            const today = new Date(); today.setHours(0,0,0,0);
+            const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+            let expected = days[0].getTime() === today.getTime() ? today : (days[0].getTime() === yesterday.getTime() ? yesterday : null);
+            if (expected) {
+                for (const d of days) {
+                    d.setHours(0,0,0,0);
+                    if (d.getTime() === expected.getTime()) {
+                        streak++;
+                        expected = new Date(expected); expected.setDate(expected.getDate() - 1);
+                    } else break;
+                }
+            }
+        }
+
+        const payload = {
+            streak_days: streak,
+            questions_today: todayRes.rows[0]?.questions_today || 0
+        };
+        cacheSet(cacheKey, payload, 60 * 1000); // 1 min cache
+        res.json(payload);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.get('/users/analytics', async (req, res) => {
     try {
         const userId = req.user.id;

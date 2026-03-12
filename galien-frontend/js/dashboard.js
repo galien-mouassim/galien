@@ -404,10 +404,6 @@ async function loadUser() {
             <a href="profile.html" class="topbar-dropdown-item">
               <i class="bi bi-person"></i> Mon profil
             </a>
-            <button type="button" class="topbar-dropdown-item" id="topbarThemeBtn">
-              <i class="bi bi-moon" id="topbarThemeIcon"></i>
-              <span id="topbarThemeLabel">Mode nuit</span>
-            </button>
             <div class="topbar-dropdown-divider"></div>
             <button type="button" class="topbar-dropdown-item topbar-dropdown-item--danger" id="topbarLogoutBtn">
               <i class="bi bi-box-arrow-right"></i> Déconnexion
@@ -415,24 +411,6 @@ async function loadUser() {
           </div>
         </div>
       </div>`;
-
-    // Remove floating theme toggle injected by theme.js
-    document.getElementById('themeToggle')?.remove();
-
-    // Theme toggle
-    function updateThemeBtn() {
-      const dark = document.documentElement.getAttribute('data-theme') === 'dark';
-      document.getElementById('topbarThemeLabel').textContent = dark ? 'Mode clair' : 'Mode nuit';
-      document.getElementById('topbarThemeIcon').className = dark ? 'bi bi-sun' : 'bi bi-moon';
-    }
-    updateThemeBtn();
-    document.getElementById('topbarThemeBtn')?.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme') || 'light';
-      const next = current === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      try { localStorage.setItem('theme_preference', next); localStorage.setItem('theme', next); } catch (_) {}
-      updateThemeBtn();
-    });
 
     // Avatar dropdown
     const avatarBtn = document.getElementById('topbarAvatarBtn');

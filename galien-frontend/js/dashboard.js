@@ -362,15 +362,97 @@ async function loadPreferences() {
   } catch (_) {}
 }
 
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
 async function loadUser() {
   try {
-    const res = await fetch(`${API_URL}/users/me`, { headers: getAuthHeaders() });
-    if (!res.ok) return;
-    const user = await res.json();
+    const [userRes, notifRes] = await Promise.all([
+      fetch(`${API_URL}/users/me`, { headers: getAuthHeaders() }),
+      fetch(`${API_URL}/messages/unread-count`, { headers: getAuthHeaders() })
+    ]);
+    if (!userRes.ok) return;
+    const user = await userRes.json();
+    const notif = notifRes.ok ? await notifRes.json() : { unread: 0 };
+    const unread = notif.unread || 0;
+
     const area = document.getElementById('dashUserArea');
-    if (area) {
-      area.innerHTML = `<a href="profile.html" style="font-size:.85rem;font-weight:600;color:var(--ink-2)">${user.display_name || user.email}</a>`;
+    if (!area) return;
+
+    const initials = getInitials(user.display_name || user.email);
+    const avatarImg = user.profile_photo
+      ? `<img src="${user.profile_photo}" alt="${initials}" class="topbar-avatar-img">`
+      : `<span>${initials}</span>`;
+
+    area.innerHTML = `
+      <div class="topbar-right">
+        <a href="profile.html" class="topbar-notif-btn" title="Messages">
+          <i class="bi bi-bell"></i>
+          ${unread > 0 ? `<span class="topbar-badge">${unread > 99 ? '99+' : unread}</span>` : ''}
+        </a>
+        <div class="topbar-avatar-wrap">
+          <button class="topbar-avatar" type="button" id="topbarAvatarBtn" aria-haspopup="true" aria-expanded="false">
+            ${avatarImg}
+          </button>
+          <div class="topbar-dropdown hidden" id="topbarDropdown">
+            <div class="topbar-dropdown-name">${user.display_name || user.email}</div>
+            <div class="topbar-dropdown-divider"></div>
+            <a href="profile.html" class="topbar-dropdown-item">
+              <i class="bi bi-person"></i> Mon profil
+            </a>
+            <button type="button" class="topbar-dropdown-item" id="topbarThemeBtn">
+              <i class="bi bi-moon" id="topbarThemeIcon"></i>
+              <span id="topbarThemeLabel">Mode nuit</span>
+            </button>
+            <div class="topbar-dropdown-divider"></div>
+            <button type="button" class="topbar-dropdown-item topbar-dropdown-item--danger" id="topbarLogoutBtn">
+              <i class="bi bi-box-arrow-right"></i> Déconnexion
+            </button>
+          </div>
+        </div>
+      </div>`;
+
+    // Remove floating theme toggle injected by theme.js
+    document.getElementById('themeToggle')?.remove();
+
+    // Theme toggle
+    function updateThemeBtn() {
+      const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      document.getElementById('topbarThemeLabel').textContent = dark ? 'Mode clair' : 'Mode nuit';
+      document.getElementById('topbarThemeIcon').className = dark ? 'bi bi-sun' : 'bi bi-moon';
     }
+    updateThemeBtn();
+    document.getElementById('topbarThemeBtn')?.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('theme_preference', next); localStorage.setItem('theme', next); } catch (_) {}
+      updateThemeBtn();
+    });
+
+    // Avatar dropdown
+    const avatarBtn = document.getElementById('topbarAvatarBtn');
+    const dropdown = document.getElementById('topbarDropdown');
+    avatarBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = !dropdown.classList.contains('hidden');
+      dropdown.classList.toggle('hidden');
+      avatarBtn.setAttribute('aria-expanded', String(!isOpen));
+    });
+    document.addEventListener('click', () => {
+      dropdown?.classList.add('hidden');
+      avatarBtn?.setAttribute('aria-expanded', 'false');
+    });
+
+    // Logout
+    document.getElementById('topbarLogoutBtn')?.addEventListener('click', () => {
+      clearAuthState();
+      window.location.href = 'login.html';
+    });
   } catch (_) {}
 }
 

@@ -19,7 +19,7 @@ const WB_CLASSES = {
   pharmaceutiques: {
     id: 'pharmaceutiques',
     name: 'Pharmaceutiques',
-    icon: 'fa-solid fa-graduation-cap',
+    icon: 'fa-solid fa-pills',
     color: '#d97706',
     ghost: '#fffbeb',
     desc: 'Pharmacologie, Toxicologie, Pharmacie galenique, etc.'

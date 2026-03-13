@@ -409,7 +409,7 @@ router.get('/users/topbar-stats', async (req, res) => {
         const cached = cacheGet(cacheKey);
         if (cached) return res.json(cached);
 
-        const [streakRes, todayRes] = await Promise.all([
+        const [streakRes, todayRes, timeRes] = await Promise.all([
             pool.query(
                 `SELECT DATE(created_at AT TIME ZONE 'UTC') AS day
                  FROM results
@@ -426,6 +426,13 @@ router.get('/users/topbar-stats', async (req, res) => {
                  JOIN results r ON r.id = sqr.session_id
                  WHERE r.user_id = $1
                    AND r.created_at >= CURRENT_DATE`,
+                [req.user.id]
+            ),
+            pool.query(
+                `SELECT COALESCE(SUM(elapsed_seconds), 0)::int AS time_today
+                 FROM results
+                 WHERE user_id = $1
+                   AND created_at >= CURRENT_DATE`,
                 [req.user.id]
             )
         ]);
@@ -452,10 +459,14 @@ router.get('/users/topbar-stats', async (req, res) => {
             ? Math.round(Number(todayRes.rows[0].avg_score_today))
             : null;
 
+        const timeTodaySec = timeRes.rows[0]?.time_today || 0;
+        const timeTodayMin = Math.round(timeTodaySec / 60);
+
         const payload = {
             streak_days: streak,
             questions_today: todayRes.rows[0]?.questions_today || 0,
-            avg_score_today: avgScoreToday
+            avg_score_today: avgScoreToday,
+            time_today_min: timeTodayMin
         };
         cacheSet(cacheKey, payload, 60 * 1000); // 1 min cache
         res.json(payload);

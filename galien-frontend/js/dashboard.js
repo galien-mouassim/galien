@@ -384,6 +384,8 @@ async function loadUser() {
     const streak = stats.streak_days || 0;
     const questionsToday = stats.questions_today || 0;
     const avgScoreToday = stats.avg_score_today;
+    const timeTodayMin = stats.time_today_min || 0;
+    const displayName = (user.display_name || user.email || '').split(' ')[0];
 
     const area = document.getElementById('dashUserArea');
     if (!area) return;
@@ -398,7 +400,9 @@ async function loadUser() {
         ${streak > 0 ? `<div class="topbar-stat-pill" data-tip="Série en cours"><span class="topbar-stat-pill-icon">🔥</span>${streak}j</div>` : ''}
         ${questionsToday > 0 ? `<div class="topbar-stat-pill" data-tip="Questions aujourd'hui"><span class="topbar-stat-pill-icon">✓</span>${questionsToday} Q</div>` : ''}
         ${avgScoreToday != null ? `<div class="topbar-stat-pill" data-tip="Score moyen aujourd'hui"><span class="topbar-stat-pill-icon">📊</span>${avgScoreToday}%</div>` : ''}
+        ${timeTodayMin > 0 ? `<div class="topbar-stat-pill" data-tip="Temps révisé aujourd'hui"><span class="topbar-stat-pill-icon">⏱</span>${timeTodayMin}min</div>` : ''}
         <div class="topbar-avatar-wrap">
+          <span class="topbar-username">${displayName}</span>
           <button class="topbar-avatar" type="button" id="topbarAvatarBtn" aria-haspopup="true" aria-expanded="false">
             ${avatarImg}
             ${unread > 0 ? `<span class="topbar-badge">${unread > 99 ? '99+' : unread}</span>` : ''}

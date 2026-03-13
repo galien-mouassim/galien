@@ -1162,10 +1162,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .toggle-switch input:checked + .toggle-track{background:var(--accent)}
 .toggle-switch input:checked + .toggle-track .toggle-thumb{left:23px}
 /* Theme picker */
-.theme-picker{display:flex;gap:8px;flex-shrink:0}
-.theme-btn{padding:8px 16px;background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.82rem;font-weight:600;color:var(--ink-2);cursor:pointer;transition:var(--t);white-space:nowrap}
+.theme-picker{display:flex;gap:8px;flex-wrap:wrap}
+.theme-btn{flex:1;min-width:0;padding:8px 12px;background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.82rem;font-weight:600;color:var(--ink-2);cursor:pointer;transition:var(--t);white-space:nowrap;text-align:center}
 .theme-btn:hover{border-color:var(--accent);color:var(--ink)}
 .theme-btn.active{background:var(--accent-ghost);border-color:var(--accent);color:var(--accent-2);box-shadow:0 0 0 3px rgba(13,148,136,.1)}
+@media(max-width:480px){.pref-row:has(.theme-picker){flex-direction:column;align-items:flex-start}.theme-picker{width:100%}}
 /* Save footer */
 .pref-footer{display:flex;align-items:center;gap:14px;padding:4px 0 2px}
 .prefs-msg{font-size:.84rem;font-weight:600}

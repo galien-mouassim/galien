@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Lora:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 </head>
 <body class="profile-page">
 <div class="profile-app container">
@@ -388,9 +389,11 @@
 </div>
 
 <div id="photoModal" class="modal hidden">
-  <div class="modal-content" style="max-width:380px;text-align:center">
+  <div class="modal-content photo-modal-content">
     <h3 style="margin-bottom:4px">Photo de profil</h3>
     <p class="muted" id="photoModalHint" style="margin-bottom:18px;font-size:.82rem">Cliquez sur la photo pour en choisir une nouvelle</p>
+
+    <!-- View state: current photo -->
     <div class="photo-modal-preview-wrap" id="photoModalPreviewWrap">
       <img id="photoModalPreview" class="photo-modal-preview" src="" alt="Aperçu">
       <div class="photo-modal-overlay">
@@ -399,6 +402,15 @@
       </div>
       <input type="file" id="photoModalInput" accept="image/*" style="display:none">
     </div>
+
+    <!-- Crop state: shown after file selected -->
+    <div class="photo-crop-wrap hidden" id="photoCropWrap">
+      <div class="photo-crop-container">
+        <img id="photoCropImage" src="" alt="">
+      </div>
+      <p class="muted" style="font-size:.78rem;margin-top:10px;text-align:center">Faites glisser pour ajuster · Molette pour zoomer</p>
+    </div>
+
     <div class="modal-actions" style="justify-content:center;flex-wrap:wrap">
       <button type="button" class="btn primary" id="photoModalSaveBtn" style="display:none">Enregistrer</button>
       <button type="button" class="btn ghost" id="photoModalDeleteBtn" style="display:none;color:var(--red)">Supprimer</button>
@@ -424,6 +436,7 @@
 <script src="js/api.js" defer></script>
 <script src="js/theme.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <script src="js/profile.js" defer></script>
 <script src="js/profile-link.js" defer></script>
 </body>

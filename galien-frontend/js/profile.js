@@ -1253,26 +1253,39 @@ async function savePrefs() {
   }
 }
 
-let _pendingPhotoFile = null;
+let _photoCropper = null;
+
+function _destroyCropper() {
+  if (_photoCropper) { _photoCropper.destroy(); _photoCropper = null; }
+}
+
+function _showPreviewState() {
+  document.getElementById('photoModalPreviewWrap').classList.remove('hidden');
+  document.getElementById('photoCropWrap').classList.add('hidden');
+}
+
+function _showCropState() {
+  document.getElementById('photoModalPreviewWrap').classList.add('hidden');
+  document.getElementById('photoCropWrap').classList.remove('hidden');
+}
 
 function openPhotoModal() {
-  const modal = document.getElementById('photoModal');
-  const preview = document.getElementById('photoModalPreview');
+  _destroyCropper();
+  _showPreviewState();
   const saveBtn = document.getElementById('photoModalSaveBtn');
   const deleteBtn = document.getElementById('photoModalDeleteBtn');
-  const hint = document.getElementById('photoModalHint');
-  _pendingPhotoFile = null;
   saveBtn.style.display = 'none';
   saveBtn.disabled = false;
   saveBtn.textContent = 'Enregistrer';
-  hint.textContent = 'Cliquez sur la photo pour en choisir une nouvelle';
+  document.getElementById('photoModalHint').textContent = 'Cliquez sur la photo pour en choisir une nouvelle';
   const currentSrc = document.getElementById('profilePhoto')?.src || '';
-  preview.src = currentSrc;
+  document.getElementById('photoModalPreview').src = currentSrc;
   const hasCustomPhoto = currentSrc && !currentSrc.includes('data:image/svg');
   deleteBtn.style.display = hasCustomPhoto ? '' : 'none';
   deleteBtn.disabled = false;
   deleteBtn.textContent = 'Supprimer';
-  modal.classList.remove('hidden');
+  document.getElementById('photoModalInput').value = '';
+  document.getElementById('photoModal').classList.remove('hidden');
 }
 
 document.getElementById('photoModalPreviewWrap')?.addEventListener('click', () => {
@@ -1282,31 +1295,46 @@ document.getElementById('photoModalPreviewWrap')?.addEventListener('click', () =
 document.getElementById('photoModalInput')?.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  _pendingPhotoFile = file;
   const reader = new FileReader();
   reader.onload = (ev) => {
-    document.getElementById('photoModalPreview').src = ev.target.result;
+    _destroyCropper();
+    const cropImg = document.getElementById('photoCropImage');
+    cropImg.src = ev.target.result;
+    _showCropState();
+    document.getElementById('photoModalHint').textContent = 'Ajustez le cadre puis cliquez Enregistrer';
     document.getElementById('photoModalSaveBtn').style.display = '';
     document.getElementById('photoModalDeleteBtn').style.display = 'none';
-    document.getElementById('photoModalHint').textContent = 'Aperçu — cliquez Enregistrer pour confirmer';
+    _photoCropper = new Cropper(cropImg, {
+      aspectRatio: 1,
+      viewMode: 1,
+      dragMode: 'move',
+      autoCropArea: 1,
+      cropBoxResizable: false,
+      cropBoxMovable: false,
+      toggleDragModeOnDblclick: false,
+      background: false,
+    });
   };
   reader.readAsDataURL(file);
 });
 
 document.getElementById('photoModalSaveBtn')?.addEventListener('click', async () => {
-  if (!_pendingPhotoFile) return;
+  if (!_photoCropper) return;
   const btn = document.getElementById('photoModalSaveBtn');
   btn.disabled = true;
   btn.textContent = 'Envoi...';
   try {
+    const canvas = _photoCropper.getCroppedCanvas({ width: 400, height: 400 });
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
     const formData = new FormData();
-    formData.append('photo', _pendingPhotoFile);
+    formData.append('photo', blob, 'photo.jpg');
     const res = await fetch(`${API_URL}/users/me/photo`, {
       method: 'POST',
       headers: { Authorization: getAuthHeaders().Authorization },
       body: formData
     });
     if (res.ok) {
+      _destroyCropper();
       document.getElementById('photoModal').classList.add('hidden');
       await loadProfile();
     } else {
@@ -1324,10 +1352,7 @@ document.getElementById('photoModalDeleteBtn')?.addEventListener('click', async 
   btn.disabled = true;
   btn.textContent = 'Suppression...';
   try {
-    const res = await fetch(`${API_URL}/users/me/photo`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
-    });
+    const res = await fetch(`${API_URL}/users/me/photo`, { method: 'DELETE', headers: getAuthHeaders() });
     if (res.ok) {
       document.getElementById('photoModal').classList.add('hidden');
       await loadProfile();
@@ -1342,6 +1367,7 @@ document.getElementById('photoModalDeleteBtn')?.addEventListener('click', async 
 });
 
 document.getElementById('photoModalCancelBtn')?.addEventListener('click', () => {
+  _destroyCropper();
   document.getElementById('photoModal').classList.add('hidden');
 });
 

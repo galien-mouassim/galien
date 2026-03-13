@@ -3,7 +3,7 @@ const WB_CLASSES = {
   biologiques: {
     id: 'biologiques',
     name: 'Biologiques',
-    icon: 'bi-capsule-pill',
+    icon: 'bi-dna',
     color: '#0d9488',
     ghost: '#f0fdfa',
     desc: 'Biochimie, Hemobiologie, Microbiologie, Parasitologie, Immunologie'
@@ -11,7 +11,7 @@ const WB_CLASSES = {
   fondamentaux: {
     id: 'fondamentaux',
     name: 'Fondamentaux',
-    icon: 'bi-bezier2',
+    icon: 'bi-atom',
     color: '#4f46e5',
     ghost: '#eef2ff',
     desc: 'Biophysique, Chimie analytique, Chimie minerale, Hydro bromatologie'
@@ -19,7 +19,7 @@ const WB_CLASSES = {
   pharmaceutiques: {
     id: 'pharmaceutiques',
     name: 'Pharmaceutiques',
-    icon: 'bi-heart-pulse',
+    icon: 'bi-mortarboard',
     color: '#d97706',
     ghost: '#fffbeb',
     desc: 'Pharmacologie, Toxicologie, Pharmacie galenique, etc.'

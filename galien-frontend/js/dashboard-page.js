@@ -3,7 +3,7 @@ const WB_CLASSES = {
   biologiques: {
     id: 'biologiques',
     name: 'Biologiques',
-    icon: 'bi-activity',
+    icon: 'fa-solid fa-dna',
     color: '#0d9488',
     ghost: '#f0fdfa',
     desc: 'Biochimie, Hemobiologie, Microbiologie, Parasitologie, Immunologie'
@@ -11,7 +11,7 @@ const WB_CLASSES = {
   fondamentaux: {
     id: 'fondamentaux',
     name: 'Fondamentaux',
-    icon: 'bi-diagram-3',
+    icon: 'fa-solid fa-atom',
     color: '#4f46e5',
     ghost: '#eef2ff',
     desc: 'Biophysique, Chimie analytique, Chimie minerale, Hydro bromatologie'
@@ -19,7 +19,7 @@ const WB_CLASSES = {
   pharmaceutiques: {
     id: 'pharmaceutiques',
     name: 'Pharmaceutiques',
-    icon: 'bi-mortarboard',
+    icon: 'fa-solid fa-graduation-cap',
     color: '#d97706',
     ghost: '#fffbeb',
     desc: 'Pharmacologie, Toxicologie, Pharmacie galenique, etc.'
@@ -282,7 +282,7 @@ function wbRender() {
         <div class="wb-block-num" style="background:${cls.color}">${i + 1}</div>
         <div class="wb-block-info">
           <div class="wb-block-title">
-            <span class="wb-block-cls" style="color:${cls.color}"><i class="bi ${cls.icon}"></i> ${cls.name}</span>
+            <span class="wb-block-cls" style="color:${cls.color}"><i class="${cls.icon}"></i> ${cls.name}</span>
             <span class="wb-block-mod"><i class="bi ${moduleIcon}"></i> ${b.moduleLabel}</span>
           </div>
           <div class="wb-block-chips">${courseChips}${sourceChips}${favChips}</div>
@@ -340,7 +340,7 @@ function wbRender() {
         const available = allModules.filter((m) => (m.module_class || 'pharmaceutiques').toLowerCase() === c.id && !usedModuleIds.has(String(m.id)));
         if (!available.length) return '';
         return `<button class="wb-class-card${classId === c.id ? ' selected' : ''}" data-class="${c.id}" type="button" style="--cc:${c.color};--cg:${c.ghost}">
-          <div class="wb-cc-top"><i class="bi ${c.icon} wb-cc-icon"></i><span class="wb-cc-name">${c.name}</span></div>
+          <div class="wb-cc-top"><i class="${c.icon} wb-cc-icon"></i><span class="wb-cc-name">${c.name}</span></div>
           <div class="wb-cc-desc">${c.desc}</div>
         </button>`;
       })
@@ -363,7 +363,7 @@ function wbRender() {
 
     body = `<div class="wb-crumb" style="--cc:${cls.color}">
       <div class="wb-snum done"><i class="bi bi-check"></i></div>
-      <span style="color:${cls.color};font-weight:700"><i class="bi ${cls.icon}"></i> ${cls.name}</span>
+      <span style="color:${cls.color};font-weight:700"><i class="${cls.icon}"></i> ${cls.name}</span>
     </div>
     <div class="wb-step-hd"><div class="wb-snum">2</div><span class="wb-slbl">Choisissez un module</span></div>
     <div class="wb-mod-grid">${cards || '<span class="wb-empty">Aucun module disponible.</span>'}</div>
@@ -378,7 +378,7 @@ function wbRender() {
 
     body = `<div class="wb-crumb" style="--cc:${cls.color}">
       <div class="wb-snum done"><i class="bi bi-check"></i></div>
-      <span style="color:${cls.color};font-weight:700"><i class="bi ${cls.icon}"></i> ${cls.name}</span>
+      <span style="color:${cls.color};font-weight:700"><i class="${cls.icon}"></i> ${cls.name}</span>
       <span class="wb-crumb-val"><i class="bi ${wbModuleIcon(moduleLabel)}"></i> ${moduleLabel}</span>
     </div>
     <div class="wb-step-hd"><div class="wb-snum">3</div><span class="wb-slbl">Cours a inclure</span><span class="wb-sval">${countLabel}</span></div>
@@ -394,7 +394,7 @@ function wbRender() {
 
     body = `<div class="wb-crumb" style="--cc:${cls.color}">
       <div class="wb-snum done"><i class="bi bi-check"></i></div>
-      <span style="color:${cls.color};font-weight:700"><i class="bi ${cls.icon}"></i> ${cls.name}</span>
+      <span style="color:${cls.color};font-weight:700"><i class="${cls.icon}"></i> ${cls.name}</span>
       <span class="wb-crumb-val"><i class="bi ${wbModuleIcon(moduleLabel)}"></i> ${moduleLabel}</span>
     </div>
     <div class="wb-step-hd"><div class="wb-snum">4</div><span class="wb-slbl">Sources</span><span class="wb-sval">${label}</span></div>
@@ -409,7 +409,7 @@ function wbRender() {
 
     body = `<div class="wb-crumb" style="--cc:${cls.color}">
       <div class="wb-snum done"><i class="bi bi-check"></i></div>
-      <span style="color:${cls.color};font-weight:700"><i class="bi ${cls.icon}"></i> ${cls.name}</span>
+      <span style="color:${cls.color};font-weight:700"><i class="${cls.icon}"></i> ${cls.name}</span>
       <span class="wb-crumb-val"><i class="bi ${wbModuleIcon(moduleLabel)}"></i> ${moduleLabel}</span>
     </div>
     <div class="wb-step-hd"><div class="wb-snum">5</div><span class="wb-slbl">Tags favoris</span><span class="wb-sval">Optionnel</span></div>

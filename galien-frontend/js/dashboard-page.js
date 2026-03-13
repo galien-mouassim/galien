@@ -3,7 +3,7 @@ const WB_CLASSES = {
   biologiques: {
     id: 'biologiques',
     name: 'Biologiques',
-    icon: 'bi-dna',
+    icon: 'bi-activity',
     color: '#0d9488',
     ghost: '#f0fdfa',
     desc: 'Biochimie, Hemobiologie, Microbiologie, Parasitologie, Immunologie'
@@ -11,7 +11,7 @@ const WB_CLASSES = {
   fondamentaux: {
     id: 'fondamentaux',
     name: 'Fondamentaux',
-    icon: 'bi-atom',
+    icon: 'bi-diagram-3',
     color: '#4f46e5',
     ghost: '#eef2ff',
     desc: 'Biophysique, Chimie analytique, Chimie minerale, Hydro bromatologie'

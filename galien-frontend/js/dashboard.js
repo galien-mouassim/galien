@@ -398,13 +398,10 @@ async function loadUser() {
         ${streak > 0 ? `<div class="topbar-stat-pill" data-tip="Série en cours">${streak}j</div>` : ''}
         ${questionsToday > 0 ? `<div class="topbar-stat-pill" data-tip="Questions aujourd'hui">${questionsToday} Q</div>` : ''}
         ${avgScoreToday != null ? `<div class="topbar-stat-pill" data-tip="Score moyen aujourd'hui">${avgScoreToday}%</div>` : ''}
-        <a href="profile.html" class="topbar-notif-btn" title="Messages">
-          <i class="bi bi-bell"></i>
-          ${unread > 0 ? `<span class="topbar-badge">${unread > 99 ? '99+' : unread}</span>` : ''}
-        </a>
         <div class="topbar-avatar-wrap">
           <button class="topbar-avatar" type="button" id="topbarAvatarBtn" aria-haspopup="true" aria-expanded="false">
             ${avatarImg}
+            ${unread > 0 ? `<span class="topbar-badge">${unread > 99 ? '99+' : unread}</span>` : ''}
           </button>
           <div class="topbar-dropdown hidden" id="topbarDropdown">
             <div class="topbar-dropdown-name">${user.display_name || user.email}</div>

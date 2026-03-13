@@ -249,9 +249,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .topbar-stat-pill::after{content:attr(data-tip);position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--ink);color:var(--surface);font-size:.75rem;font-weight:500;padding:5px 10px;border-radius:var(--radius-sm);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:100}
 .topbar-stat-pill::before{content:'';position:absolute;top:calc(100% + 3px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:var(--ink);pointer-events:none;opacity:0;transition:opacity .15s;z-index:100}
 .topbar-stat-pill:hover::after,.topbar-stat-pill:hover::before{opacity:1}
-.topbar-notif-btn{position:relative;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ink-2);font-size:1.05rem;text-decoration:none;transition:background .15s}
-.topbar-notif-btn:hover{background:var(--surface-2)}
-.topbar-badge{position:absolute;top:3px;right:3px;background:var(--red);color:#fff;font-size:.6rem;font-weight:700;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1;pointer-events:none}
+.topbar-badge{position:absolute;top:-3px;right:-3px;background:var(--red);color:#fff;font-size:.6rem;font-weight:700;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1;pointer-events:none}
 .topbar-avatar-wrap{position:relative}
 .topbar-avatar{width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;font-size:.8rem;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;transition:opacity .15s;padding:0}
 .topbar-avatar:hover{opacity:.85}

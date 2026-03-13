@@ -940,11 +940,14 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .prof-hero{position:relative;border-radius:var(--radius);overflow:hidden;border:1.5px solid var(--border);background:var(--surface-2)}
 .prof-hero-gradient{position:absolute;inset:0;height:90px;background:linear-gradient(135deg,rgba(13,148,136,.18) 0%,rgba(99,102,241,.13) 100%);pointer-events:none}
 .prof-hero-body{position:relative;display:flex;align-items:center;gap:18px;padding:22px 22px 18px;flex-wrap:wrap}
-.prof-avatar-wrap{position:relative;flex-shrink:0}
-.prof-avatar{width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid var(--surface);box-shadow:0 4px 16px rgba(13,148,136,.18);cursor:zoom-in}
-.prof-avatar-edit{position:absolute;bottom:2px;right:2px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.72rem;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.22);transition:background var(--t)}
-.prof-avatar-edit:hover{background:var(--accent-2)}
-.prof-avatar-edit input[type="file"]{display:none}
+.prof-avatar-wrap{position:relative;flex-shrink:0;cursor:pointer}
+.prof-avatar{width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid var(--surface);box-shadow:0 4px 16px rgba(13,148,136,.18);display:block}
+.prof-avatar-overlay{position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,0);color:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;cursor:pointer;transition:background .2s,color .2s;font-size:.6rem;font-weight:700;line-height:1.2;padding:0}
+.prof-avatar-wrap:hover .prof-avatar-overlay{background:rgba(0,0,0,.5);color:#fff}
+.photo-modal-preview-wrap{position:relative;width:150px;height:150px;border-radius:50%;overflow:hidden;margin:0 auto 16px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.15)}
+.photo-modal-preview{width:100%;height:100%;object-fit:cover;display:block}
+.photo-modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,0);color:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:.78rem;font-weight:700;transition:background .2s,color .2s}
+.photo-modal-preview-wrap:hover .photo-modal-overlay{background:rgba(0,0,0,.5);color:#fff}
 .prof-hero-info{flex:1;min-width:0}
 .prof-hero-name{font-size:1.25rem;font-weight:800;color:var(--ink);line-height:1.2;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prof-hero-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:6px}

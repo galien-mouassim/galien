@@ -67,10 +67,10 @@
         <div class="prof-hero-body">
           <div class="prof-avatar-wrap">
             <img id="profilePhoto" class="avatar prof-avatar" src="" alt="Photo de profil">
-            <label class="prof-avatar-edit" title="Changer la photo">
-              <input type="file" id="photoInput" accept="image/*">
-              <span>&#9998;</span>
-            </label>
+            <button class="prof-avatar-overlay" id="openPhotoModalBtn" type="button" aria-label="Modifier la photo">
+              <i class="bi bi-camera-fill"></i>
+              <span>Modifier</span>
+            </button>
           </div>
           <div class="prof-hero-info">
             <div class="prof-hero-name" id="heroDisplayName">Chargement&hellip;</div>
@@ -80,7 +80,6 @@
             </div>
             <div class="prof-hero-email" id="heroEmail"></div>
           </div>
-          <button id="uploadPhotoBtn" class="btn-inline prof-photo-btn">&#128247; Mettre &agrave; jour la photo</button>
         </div>
       </div>
 
@@ -388,12 +387,22 @@
   </div>
 </div>
 
-<div id="photoViewerModal" class="modal hidden">
-  <div class="modal-content" style="max-width:520px">
-    <h3>Photo de profil</h3>
-    <img id="photoViewerImage" src="" alt="Photo de profil agrandie" style="width:100%;border-radius:14px;object-fit:cover;max-height:70vh">
-    <div class="modal-actions">
-      <button type="button" class="btn ghost" id="photoViewerCloseBtn">Fermer</button>
+<div id="photoModal" class="modal hidden">
+  <div class="modal-content" style="max-width:380px;text-align:center">
+    <h3 style="margin-bottom:4px">Photo de profil</h3>
+    <p class="muted" id="photoModalHint" style="margin-bottom:18px;font-size:.82rem">Cliquez sur la photo pour en choisir une nouvelle</p>
+    <div class="photo-modal-preview-wrap" id="photoModalPreviewWrap">
+      <img id="photoModalPreview" class="photo-modal-preview" src="" alt="Aperçu">
+      <div class="photo-modal-overlay">
+        <i class="bi bi-camera-fill" style="font-size:1.4rem"></i>
+        <span>Changer</span>
+      </div>
+      <input type="file" id="photoModalInput" accept="image/*" style="display:none">
+    </div>
+    <div class="modal-actions" style="justify-content:center;flex-wrap:wrap">
+      <button type="button" class="btn primary" id="photoModalSaveBtn" style="display:none">Enregistrer</button>
+      <button type="button" class="btn ghost" id="photoModalDeleteBtn" style="display:none;color:var(--red)">Supprimer</button>
+      <button type="button" class="btn ghost" id="photoModalCancelBtn">Fermer</button>
     </div>
   </div>
 </div>

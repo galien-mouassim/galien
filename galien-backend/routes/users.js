@@ -107,6 +107,15 @@ router.post('/users/me/photo', upload.single('photo'), async (req, res) => {
     }
 });
 
+router.delete('/users/me/photo', async (req, res) => {
+    try {
+        await pool.query('UPDATE users SET profile_photo = NULL WHERE id = $1', [req.user.id]);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ----------------------
 // USER: Preferences
 // ----------------------

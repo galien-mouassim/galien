@@ -1253,29 +1253,100 @@ async function savePrefs() {
   }
 }
 
-async function uploadPhoto() {
-  const input = document.getElementById('photoInput');
-  if (!input.files || !input.files[0]) return;
-  const btn = document.getElementById('uploadPhotoBtn');
+let _pendingPhotoFile = null;
+
+function openPhotoModal() {
+  const modal = document.getElementById('photoModal');
+  const preview = document.getElementById('photoModalPreview');
+  const saveBtn = document.getElementById('photoModalSaveBtn');
+  const deleteBtn = document.getElementById('photoModalDeleteBtn');
+  const hint = document.getElementById('photoModalHint');
+  _pendingPhotoFile = null;
+  saveBtn.style.display = 'none';
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'Enregistrer';
+  hint.textContent = 'Cliquez sur la photo pour en choisir une nouvelle';
+  const currentSrc = document.getElementById('profilePhoto')?.src || '';
+  preview.src = currentSrc;
+  const hasCustomPhoto = currentSrc && !currentSrc.includes('data:image/svg');
+  deleteBtn.style.display = hasCustomPhoto ? '' : 'none';
+  deleteBtn.disabled = false;
+  deleteBtn.textContent = 'Supprimer';
+  modal.classList.remove('hidden');
+}
+
+document.getElementById('photoModalPreviewWrap')?.addEventListener('click', () => {
+  document.getElementById('photoModalInput')?.click();
+});
+
+document.getElementById('photoModalInput')?.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  _pendingPhotoFile = file;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    document.getElementById('photoModalPreview').src = ev.target.result;
+    document.getElementById('photoModalSaveBtn').style.display = '';
+    document.getElementById('photoModalDeleteBtn').style.display = 'none';
+    document.getElementById('photoModalHint').textContent = 'Aperçu — cliquez Enregistrer pour confirmer';
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('photoModalSaveBtn')?.addEventListener('click', async () => {
+  if (!_pendingPhotoFile) return;
+  const btn = document.getElementById('photoModalSaveBtn');
+  btn.disabled = true;
   btn.textContent = 'Envoi...';
   try {
     const formData = new FormData();
-    formData.append('photo', input.files[0]);
+    formData.append('photo', _pendingPhotoFile);
     const res = await fetch(`${API_URL}/users/me/photo`, {
       method: 'POST',
       headers: { Authorization: getAuthHeaders().Authorization },
       body: formData
     });
     if (res.ok) {
-      btn.textContent = 'Mis a jour';
+      document.getElementById('photoModal').classList.add('hidden');
       await loadProfile();
     } else {
-      btn.textContent = 'Mettre a jour';
+      btn.textContent = 'Erreur — réessayer';
+      btn.disabled = false;
     }
   } catch (_) {
-    btn.textContent = 'Mettre a jour';
+    btn.textContent = 'Erreur — réessayer';
+    btn.disabled = false;
   }
-}
+});
+
+document.getElementById('photoModalDeleteBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('photoModalDeleteBtn');
+  btn.disabled = true;
+  btn.textContent = 'Suppression...';
+  try {
+    const res = await fetch(`${API_URL}/users/me/photo`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if (res.ok) {
+      document.getElementById('photoModal').classList.add('hidden');
+      await loadProfile();
+    } else {
+      btn.textContent = 'Erreur';
+      btn.disabled = false;
+    }
+  } catch (_) {
+    btn.textContent = 'Erreur';
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('photoModalCancelBtn')?.addEventListener('click', () => {
+  document.getElementById('photoModal').classList.add('hidden');
+});
+
+document.getElementById('openPhotoModalBtn')?.addEventListener('click', openPhotoModal);
+document.getElementById('profilePhoto')?.addEventListener('click', openPhotoModal);
 
 function openFavoriteTagModal(id, tags) {
   editingFavoriteId = id;
@@ -1301,7 +1372,6 @@ document.getElementById('themePicker')?.addEventListener('click', (e) => {
 });
 
 document.getElementById('pref_auto_next_enabled')?.addEventListener('change', applyAutoNextDelayVisibility);
-document.getElementById('uploadPhotoBtn').addEventListener('click', uploadPhoto);
 document.getElementById('refreshMessagesBtn')?.addEventListener('click', loadMessages);
 document.getElementById('refreshNotesBtn')?.addEventListener('click', () => loadNotes(1));
 document.getElementById('favoriteTagFilter')?.addEventListener('change', applyFavoriteFilters);
@@ -1508,16 +1578,6 @@ document.getElementById('savedSessionsTable')?.addEventListener('click', async (
   }
 });
 
-document.getElementById('profilePhoto')?.addEventListener('click', () => {
-  const src = document.getElementById('profilePhoto')?.getAttribute('src') || '';
-  if (!src) return;
-  const img = document.getElementById('photoViewerImage');
-  if (img) img.src = src;
-  document.getElementById('photoViewerModal')?.classList.remove('hidden');
-});
-document.getElementById('photoViewerCloseBtn')?.addEventListener('click', () => {
-  document.getElementById('photoViewerModal')?.classList.add('hidden');
-});
 
 initProfileTabs();
 setActiveSection('profile');

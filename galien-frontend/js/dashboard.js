@@ -395,9 +395,9 @@ async function loadUser() {
 
     area.innerHTML = `
       <div class="topbar-right">
-        ${streak > 0 ? `<div class="topbar-stat-pill" data-tip="Série en cours"><span class="topbar-stat-pill-icon">🔥</span>${streak}j</div>` : ''}
-        ${questionsToday > 0 ? `<div class="topbar-stat-pill" data-tip="Questions aujourd'hui"><span class="topbar-stat-pill-icon">✓</span>${questionsToday}</div>` : ''}
-        ${avgScoreToday != null ? `<div class="topbar-stat-pill" data-tip="Score moyen aujourd'hui"><span class="topbar-stat-pill-icon">📊</span>${avgScoreToday}%</div>` : ''}
+        ${streak > 0 ? `<div class="topbar-stat-pill" data-tip="Série en cours">${streak}j</div>` : ''}
+        ${questionsToday > 0 ? `<div class="topbar-stat-pill" data-tip="Questions aujourd'hui">${questionsToday} Q</div>` : ''}
+        ${avgScoreToday != null ? `<div class="topbar-stat-pill" data-tip="Score moyen aujourd'hui">${avgScoreToday}%</div>` : ''}
         <a href="profile.html" class="topbar-notif-btn" title="Messages">
           <i class="bi bi-bell"></i>
           ${unread > 0 ? `<span class="topbar-badge">${unread > 99 ? '99+' : unread}</span>` : ''}

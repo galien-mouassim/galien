@@ -395,9 +395,9 @@ async function loadUser() {
 
     area.innerHTML = `
       <div class="topbar-right">
-        ${streak > 0 ? `<div class="topbar-stat-pill" data-tip="Série en cours">${streak}j</div>` : ''}
-        ${questionsToday > 0 ? `<div class="topbar-stat-pill" data-tip="Questions aujourd'hui">${questionsToday} Q</div>` : ''}
-        ${avgScoreToday != null ? `<div class="topbar-stat-pill" data-tip="Score moyen aujourd'hui">${avgScoreToday}%</div>` : ''}
+        ${streak > 0 ? `<div class="topbar-stat-pill" data-tip="Série en cours"><span class="topbar-stat-pill-icon">🔥</span>${streak}j</div>` : ''}
+        ${questionsToday > 0 ? `<div class="topbar-stat-pill" data-tip="Questions aujourd'hui"><span class="topbar-stat-pill-icon">✓</span>${questionsToday} Q</div>` : ''}
+        ${avgScoreToday != null ? `<div class="topbar-stat-pill" data-tip="Score moyen aujourd'hui"><span class="topbar-stat-pill-icon">📊</span>${avgScoreToday}%</div>` : ''}
         <div class="topbar-avatar-wrap">
           <button class="topbar-avatar" type="button" id="topbarAvatarBtn" aria-haspopup="true" aria-expanded="false">
             ${avatarImg}

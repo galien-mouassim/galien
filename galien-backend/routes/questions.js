@@ -17,6 +17,7 @@ router.get('/questions', requireActive, async (req, res) => {
         const courseIds = parseIntList(req.query.course);
         const guidedBlocks = parseGuidedBlocks(req.query.guided_filters);
         const reviewMode = String(req.query.review_mode || '').trim();
+        const unansweredOnly = req.query.unanswered_only === '1';
         const shouldPaginate = req.query.page !== undefined || req.query.page_size !== undefined || req.query.limit !== undefined;
         const { page, pageSize, offset } = getPagination(req, { page: 1, pageSize: 100, maxPageSize: 300 });
         const runQuery = async ({ withNotes, withReview }) => {
@@ -91,6 +92,19 @@ router.get('/questions', requireActive, async (req, res) => {
                 `);
                 params.push(req.user.id);
             }
+            if (withReview && unansweredOnly) {
+                filters.push(`
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM session_question_results sqr
+                        JOIN results r ON r.id = sqr.session_id
+                        WHERE r.user_id = $${params.length + 1}
+                          AND sqr.question_id = q.id
+                          AND COALESCE(NULLIF(BTRIM(sqr.user_answer), ''), '') <> ''
+                    )
+                `);
+                params.push(req.user.id);
+            }
             if (filters.length) query += ' WHERE ' + filters.join(' AND ');
             query += ' ORDER BY q.id ASC';
             if (shouldPaginate) {
@@ -148,6 +162,19 @@ router.get('/questions', requireActive, async (req, res) => {
                 `);
                 countParams.push(req.user.id);
             } else if (withReview && reviewMode === 'unanswered') {
+                countFilters.push(`
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM session_question_results sqr
+                        JOIN results r ON r.id = sqr.session_id
+                        WHERE r.user_id = $${countParams.length + 1}
+                          AND sqr.question_id = q.id
+                          AND COALESCE(NULLIF(BTRIM(sqr.user_answer), ''), '') <> ''
+                    )
+                `);
+                countParams.push(req.user.id);
+            }
+            if (withReview && unansweredOnly) {
                 countFilters.push(`
                     NOT EXISTS (
                         SELECT 1
@@ -233,6 +260,7 @@ router.get('/questions/count', async (req, res) => {
         const courseIds = parseIntList(req.query.course);
         const guidedBlocks = parseGuidedBlocks(req.query.guided_filters);
         const reviewMode = String(req.query.review_mode || '').trim();
+        const unansweredOnly = req.query.unanswered_only === '1';
         const runCount = async (withReview) => {
             let query = 'SELECT COUNT(*)::int AS total FROM questions q';
             const params = [];
@@ -285,6 +313,19 @@ router.get('/questions/count', async (req, res) => {
                 `);
                 params.push(req.user.id);
             } else if (withReview && reviewMode === 'unanswered') {
+                filters.push(`
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM session_question_results sqr
+                        JOIN results r ON r.id = sqr.session_id
+                        WHERE r.user_id = $${params.length + 1}
+                          AND sqr.question_id = q.id
+                          AND COALESCE(NULLIF(BTRIM(sqr.user_answer), ''), '') <> ''
+                    )
+                `);
+                params.push(req.user.id);
+            }
+            if (withReview && unansweredOnly) {
                 filters.push(`
                     NOT EXISTS (
                         SELECT 1

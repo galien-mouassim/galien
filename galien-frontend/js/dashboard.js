@@ -40,6 +40,8 @@ const trainingSliderMax = document.getElementById('training_slider_max');
 const examSliderMax = document.getElementById('exam_slider_max');
 const trainingReviewModeSel = document.getElementById('training_review_mode');
 const examReviewModeSel = document.getElementById('exam_review_mode');
+const trainingUnansweredToggle = document.getElementById('training_unanswered_toggle');
+const examUnansweredToggle = document.getElementById('exam_unanswered_toggle');
 const trainingHideMetaToggle = document.getElementById('training_hideMetaToggle');
 const examHideMetaToggle = document.getElementById('exam_hideMetaToggle');
 const examWarningInput = document.getElementById('exam_warning_minutes');
@@ -85,6 +87,13 @@ function selectMode(mode) {
   modeExam.classList.toggle('selected', mode === 'exam');
   trainingPanel.classList.toggle('hidden', mode !== 'training');
   examPanel.classList.toggle('hidden', mode !== 'exam');
+  // Swap which slider is visible in the shared question count panel
+  trainingQuestionCount?.classList.toggle('hidden', mode !== 'training');
+  examQuestionCount?.classList.toggle('hidden', mode !== 'exam');
+  trainingQuestionCountValue?.classList.toggle('hidden', mode !== 'training');
+  examQuestionCountValue?.classList.toggle('hidden', mode !== 'exam');
+  trainingSliderMax?.classList.toggle('hidden', mode !== 'training');
+  examSliderMax?.classList.toggle('hidden', mode !== 'exam');
   scheduleCountRefresh();
 }
 
@@ -98,13 +107,21 @@ function getActiveHideMeta() {
   return !!toggle?.checked;
 }
 
+function getActiveUnansweredOnly() {
+  const toggle = currentMode === 'exam' ? examUnansweredToggle : trainingUnansweredToggle;
+  return !!toggle?.checked;
+}
+
 function syncSharedOptions(fromMode) {
   const fromReview = fromMode === 'exam' ? examReviewModeSel : trainingReviewModeSel;
   const toReview = fromMode === 'exam' ? trainingReviewModeSel : examReviewModeSel;
   const fromHide = fromMode === 'exam' ? examHideMetaToggle : trainingHideMetaToggle;
   const toHide = fromMode === 'exam' ? trainingHideMetaToggle : examHideMetaToggle;
+  const fromUnanswered = fromMode === 'exam' ? examUnansweredToggle : trainingUnansweredToggle;
+  const toUnanswered = fromMode === 'exam' ? trainingUnansweredToggle : examUnansweredToggle;
   if (fromReview && toReview) toReview.value = fromReview.value;
   if (fromHide && toHide) toHide.checked = !!fromHide.checked;
+  if (fromUnanswered && toUnanswered) toUnanswered.checked = !!fromUnanswered.checked;
 }
 
 function updateCorrectionHelp() {
@@ -273,6 +290,7 @@ async function refreshQuestionCount() {
     const sourceIds = getSelectedValues(selSource);
     const favoriteTags = getSelectedValues(selFavTag);
     const reviewMode = getActiveReviewMode();
+    const unansweredOnly = getActiveUnansweredOnly();
     const wbMode = localStorage.getItem('wb_mode') || 'guided';
     const guidedFiltersRaw = localStorage.getItem('guided_filters');
     const countParams = new URLSearchParams();
@@ -284,6 +302,7 @@ async function refreshQuestionCount() {
       if (sourceIds.length) countParams.set('source', sourceIds.join(','));
     }
     if (reviewMode && reviewMode !== 'all') countParams.set('review_mode', reviewMode);
+    if (unansweredOnly) countParams.set('unanswered_only', '1');
 
     let total = 0;
     const countRes = await fetch(`${API_URL}/questions/count?${countParams.toString()}`, { headers: getAuthHeaders() });
@@ -619,6 +638,8 @@ selSource.addEventListener('change', () => { if (!isPopulatingFilters) scheduleC
 selFavTag?.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
 trainingReviewModeSel?.addEventListener('change', () => { syncSharedOptions('training'); if (!isPopulatingFilters) scheduleCountRefresh(); });
 examReviewModeSel?.addEventListener('change', () => { syncSharedOptions('exam'); if (!isPopulatingFilters) scheduleCountRefresh(); });
+trainingUnansweredToggle?.addEventListener('change', () => { syncSharedOptions('training'); if (!isPopulatingFilters) scheduleCountRefresh(); });
+examUnansweredToggle?.addEventListener('change', () => { syncSharedOptions('exam'); if (!isPopulatingFilters) scheduleCountRefresh(); });
 trainingHideMetaToggle?.addEventListener('change', () => syncSharedOptions('training'));
 examHideMetaToggle?.addEventListener('change', () => syncSharedOptions('exam'));
 
@@ -633,6 +654,7 @@ startBtn.addEventListener('click', () => {
   localStorage.setItem('source_id', getSelectedValues(selSource).join(','));
   localStorage.setItem('favorite_tags', getSelectedValues(selFavTag).join(','));
   localStorage.setItem('review_mode', getActiveReviewMode());
+  localStorage.setItem('unanswered_only', getActiveUnansweredOnly() ? '1' : '0');
   localStorage.setItem('hide_question_meta', getActiveHideMeta() ? '1' : '0');
 
   const corrSystem = currentMode === 'exam' ? correctionSel.value : trainingCorrectionSel.value;
@@ -681,6 +703,9 @@ startBtn.addEventListener('click', () => {
 const reviewModeSaved = localStorage.getItem('review_mode') || 'all';
 if (trainingReviewModeSel) trainingReviewModeSel.value = reviewModeSaved;
 if (examReviewModeSel) examReviewModeSel.value = reviewModeSaved;
+const unansweredOnlySaved = localStorage.getItem('unanswered_only') === '1';
+if (trainingUnansweredToggle) trainingUnansweredToggle.checked = unansweredOnlySaved;
+if (examUnansweredToggle) examUnansweredToggle.checked = unansweredOnlySaved;
 const hideMetaSaved = localStorage.getItem('hide_question_meta') === '1';
 if (trainingHideMetaToggle) trainingHideMetaToggle.checked = hideMetaSaved;
 if (examHideMetaToggle) examHideMetaToggle.checked = hideMetaSaved;

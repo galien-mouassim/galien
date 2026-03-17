@@ -169,27 +169,18 @@
               <option value="all">Toutes les questions</option>
               <option value="wrong_ever">Questions ratees (au moins une fois)</option>
               <option value="wrong_last">Questions ratees a la derniere tentative</option>
-              <option value="unanswered">Questions jamais repondues</option>
             </select>
           </div>
         </div>
-        <div class="panel-divider"></div>
-        <div class="filters-row filters-row--single">
-          <div class="field field--slider">
-            <div class="qcount-slider-wrap">
-              <div class="slider-header">
-                <span>Nombre de questions</span>
-                <div class="slider-count">
-                  <strong id="training_question_count_value">1 <span>questions</span></strong>
-                </div>
-              </div>
-              <input type="range" id="training_question_count" min="1" value="1">
-              <div class="slider-ends">
-                <span>1</span>
-                <span id="training_slider_max">-</span>
-              </div>
-            </div>
+        <div class="toggle-row toggle-row--flush">
+          <div class="toggle-label">
+            Questions jamais repondues uniquement
+            <small>Exclut les questions deja tentees</small>
           </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="training_unanswered_toggle">
+            <span class="toggle-slider"></span>
+          </label>
         </div>
         <div class="panel-divider"></div>
         <div class="toggle-row toggle-row--flush">
@@ -255,33 +246,24 @@
         </div>
         <div class="panel-divider"></div>
         <div class="filters-row filters-row--single">
-          <div class="field field--slider">
-            <div class="qcount-slider-wrap">
-              <div class="slider-header">
-                <span>Nombre de questions</span>
-                <div class="slider-count">
-                  <strong id="exam_question_count_value">1 <span>questions</span></strong>
-                </div>
-              </div>
-              <input type="range" id="exam_question_count" min="1" value="1">
-              <div class="slider-ends">
-                <span>1</span>
-                <span id="exam_slider_max">-</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="panel-divider"></div>
-        <div class="filters-row filters-row--single">
           <div class="field">
             <span>Questions a reviser</span>
             <select id="exam_review_mode">
               <option value="all">Toutes les questions</option>
               <option value="wrong_ever">Questions ratees (au moins une fois)</option>
               <option value="wrong_last">Questions ratees a la derniere tentative</option>
-              <option value="unanswered">Questions jamais repondues</option>
             </select>
           </div>
+        </div>
+        <div class="toggle-row toggle-row--flush">
+          <div class="toggle-label">
+            Questions jamais repondues uniquement
+            <small>Exclut les questions deja tentees</small>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="exam_unanswered_toggle">
+            <span class="toggle-slider"></span>
+          </label>
         </div>
         <div class="toggle-row toggle-row--flush">
           <div class="toggle-label">
@@ -298,6 +280,30 @@
       </div>
 
       
+
+      <div class="dash-panel" id="questionCountPanel">
+        <div class="dash-panel-title"><i class="bi bi-list-ol"></i> Nombre de questions</div>
+        <div class="options-panel-body">
+          <div class="field field--slider">
+            <div class="qcount-slider-wrap">
+              <div class="slider-header">
+                <span id="qcount_panel_label">Questions</span>
+                <div class="slider-count">
+                  <strong id="training_question_count_value">1 <span>questions</span></strong>
+                  <strong id="exam_question_count_value" class="hidden">1 <span>questions</span></strong>
+                </div>
+              </div>
+              <input type="range" id="training_question_count" min="1" value="1">
+              <input type="range" id="exam_question_count" min="1" value="1" class="hidden">
+              <div class="slider-ends">
+                <span>1</span>
+                <span id="training_slider_max">-</span>
+                <span id="exam_slider_max" class="hidden">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <button class="btn start-btn" id="startBtn" type="button"><i class="bi bi-play-fill"></i> Commencer</button>
       <button class="btn ghost hidden" id="resumeBtn" type="button" style="margin-top:8px"><i class="bi bi-arrow-counterclockwise"></i> Reprendre la session en cours</button>

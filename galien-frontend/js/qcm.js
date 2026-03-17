@@ -60,6 +60,7 @@ const courseIds = parseIdList(localStorage.getItem('course_id'));
 const sourceIds = parseIdList(localStorage.getItem('source_id'));
 const favoriteTagFilters = parseIdList(localStorage.getItem('favorite_tags'));
 const reviewMode = String(localStorage.getItem('review_mode') || 'all');
+const unansweredOnly = localStorage.getItem('unanswered_only') === '1';
 const wbMode = String(localStorage.getItem('wb_mode') || 'guided');
 const guidedFiltersRaw = localStorage.getItem('guided_filters') || '';
 const hideQuestionMeta = localStorage.getItem('hide_question_meta') === '1';
@@ -77,6 +78,7 @@ if (wbMode === 'guided' && guidedFiltersRaw) {
   if (sourceIds.length) queryParams.set('source', sourceIds.join(','));
 }
 if (reviewMode && reviewMode !== 'all') queryParams.set('review_mode', reviewMode);
+if (unansweredOnly) queryParams.set('unanswered_only', '1');
 const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
 
 fetch(`${API_URL}/questions${query}`, {

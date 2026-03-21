@@ -371,6 +371,23 @@ function renderQuestionsPagination() {
   info.textContent = `Page ${questionsPage} / ${totalPages} (${questionsTotal} questions)`;
   prev.disabled = questionsPage <= 1;
   next.disabled = questionsPage >= totalPages;
+
+  const goInput = document.getElementById('questionsGoToPage');
+  const goBtn   = document.getElementById('questionsGoToPageBtn');
+  if (goInput && !goInput._wired) {
+    goInput._wired = true;
+    goInput.max = String(totalPages);
+    const goTo = () => {
+      const p = parseInt(goInput.value, 10);
+      if (!Number.isFinite(p)) return;
+      questionsPage = Math.max(1, Math.min(p, totalPages));
+      goInput.value = '';
+      loadQuestionsAdmin();
+    };
+    goBtn?.addEventListener('click', goTo);
+    goInput.addEventListener('keydown', e => { if (e.key === 'Enter') goTo(); });
+  }
+  if (goInput) goInput.max = String(totalPages);
 }
 
 function renderQuestions(listData) {

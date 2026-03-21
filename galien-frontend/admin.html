@@ -268,7 +268,14 @@
       <p id="questionsActionStatus" class="muted" style="margin-top:8px"></p>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px;flex-wrap:wrap">
         <button type="button" id="prevQuestionsPageBtn" class="btn ghost btn-sm">← Précédent</button>
-        <span id="questionsPageInfo" class="muted" style="font-size:.82rem"></span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span id="questionsPageInfo" class="muted" style="font-size:.82rem"></span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:.78rem;color:var(--ink-3)">Aller à</span>
+            <input type="number" id="questionsGoToPage" min="1" style="width:58px;padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--ink);font-size:.82rem;text-align:center" placeholder="n°">
+            <button type="button" id="questionsGoToPageBtn" class="btn ghost btn-sm">OK</button>
+          </div>
+        </div>
         <button type="button" id="nextQuestionsPageBtn" class="btn ghost btn-sm">Suivant →</button>
       </div>
 

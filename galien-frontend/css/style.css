@@ -160,6 +160,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 /* â”€â”€ Toggle â”€â”€ */
 .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--border)}
+.toggle-row.disabled-row{opacity:.35;pointer-events:none}
 .toggle-label{font-size:.875rem;color:var(--ink-2);font-weight:500;flex:1}
 .toggle-label small{display:block;font-size:.75rem;color:var(--ink-3);font-weight:400;margin-top:1px}
 .toggle-switch{position:relative;width:40px;height:22px;flex-shrink:0}

@@ -655,8 +655,19 @@ selModule.addEventListener('change', () => {
 selCourse.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
 selSource.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
 selFavTag?.addEventListener('change', () => { if (!isPopulatingFilters) scheduleCountRefresh(); });
-trainingReviewModeSel?.addEventListener('change', () => { syncSharedOptions('training'); if (!isPopulatingFilters) scheduleCountRefresh(); });
-examReviewModeSel?.addEventListener('change', () => { syncSharedOptions('exam'); if (!isPopulatingFilters) scheduleCountRefresh(); });
+function syncUnansweredToggleState() {
+  const mode = getActiveReviewMode();
+  const blocked = mode === 'wrong_ever' || mode === 'wrong_last';
+  [trainingUnansweredToggle, examUnansweredToggle].forEach((toggle) => {
+    if (!toggle) return;
+    toggle.disabled = blocked;
+    toggle.closest('.toggle-row')?.classList.toggle('disabled-row', blocked);
+    if (blocked) toggle.checked = false;
+  });
+}
+
+trainingReviewModeSel?.addEventListener('change', () => { syncSharedOptions('training'); syncUnansweredToggleState(); if (!isPopulatingFilters) scheduleCountRefresh(); });
+examReviewModeSel?.addEventListener('change', () => { syncSharedOptions('exam'); syncUnansweredToggleState(); if (!isPopulatingFilters) scheduleCountRefresh(); });
 trainingUnansweredToggle?.addEventListener('change', () => { syncSharedOptions('training'); if (!isPopulatingFilters) scheduleCountRefresh(); });
 examUnansweredToggle?.addEventListener('change', () => { syncSharedOptions('exam'); if (!isPopulatingFilters) scheduleCountRefresh(); });
 trainingHideMetaToggle?.addEventListener('change', () => syncSharedOptions('training'));
@@ -737,6 +748,7 @@ if (examReviewModeSel) examReviewModeSel.value = reviewModeSaved;
 const unansweredOnlySaved = localStorage.getItem('unanswered_only') === '1';
 if (trainingUnansweredToggle) trainingUnansweredToggle.checked = unansweredOnlySaved;
 if (examUnansweredToggle) examUnansweredToggle.checked = unansweredOnlySaved;
+syncUnansweredToggleState();
 const hideMetaSaved = localStorage.getItem('hide_question_meta') === '1';
 if (trainingHideMetaToggle) trainingHideMetaToggle.checked = hideMetaSaved;
 if (examHideMetaToggle) examHideMetaToggle.checked = hideMetaSaved;

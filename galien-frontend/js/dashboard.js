@@ -659,7 +659,19 @@ startBtn.addEventListener('click', () => {
 
   const corrSystem = currentMode === 'exam' ? correctionSel.value : trainingCorrectionSel.value;
   localStorage.setItem('correction_system', corrSystem);
-  const questionLimit = getRequestedQuestionCount();
+  const wbModeStored = localStorage.getItem('wb_mode') || 'guided';
+  let questionLimit;
+  if (wbModeStored === 'guided') {
+    const raw = parseInt(localStorage.getItem('wb_guided_limit') || '', 10);
+    questionLimit = Number.isFinite(raw) && raw > 0 ? raw : null;
+    const slider = currentMode === 'exam' ? document.getElementById('exam_question_count') : document.getElementById('training_question_count');
+    const maxAvail = parseInt(slider?.max || '', 10);
+    if (questionLimit && Number.isFinite(maxAvail) && maxAvail > 1 && questionLimit > maxAvail) {
+      questionLimit = maxAvail;
+    }
+  } else {
+    questionLimit = getRequestedQuestionCount();
+  }
   if (questionLimit) localStorage.setItem('question_limit', String(questionLimit));
   else localStorage.removeItem('question_limit');
 

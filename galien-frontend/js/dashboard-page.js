@@ -665,6 +665,7 @@ function wbUpdateSelectedCounter() {
   const total = wbBlocks.reduce((sum, b) => sum + (Number.isFinite(b.questionCount) ? b.questionCount : 0), 0);
   const el = document.getElementById('wb-selected-count');
   if (el) el.textContent = total.toLocaleString('fr-FR');
+  localStorage.setItem('wb_guided_limit', total > 0 ? String(total) : '');
 }
 
 function wbSyncTotalCount() {

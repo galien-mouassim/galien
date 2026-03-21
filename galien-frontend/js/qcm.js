@@ -117,6 +117,13 @@ fetch(`${API_URL}/questions${query}`, {
       });
     }
 
+    // Shuffle for random order (skip when resuming a paused session)
+    if (localStorage.getItem('qcm_resume_requested') !== '1') {
+      for (let i = questions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [questions[i], questions[j]] = [questions[j], questions[i]];
+      }
+    }
     if (questionLimit && questions.length > questionLimit) {
       questions = questions.slice(0, questionLimit);
     }

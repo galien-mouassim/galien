@@ -450,11 +450,21 @@ function parseCorrectOptions(question) {
     if (typeof value === 'string') {
       const raw = value.trim().toUpperCase();
       if (!raw) return [];
-      if (raw.includes(',')) {
-        return raw.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+      const mapDigit = (ch) => ({ '1': 'A', '2': 'B', '3': 'C', '4': 'D', '5': 'E' }[ch] || ch);
+      const tokens = raw.split(/[^A-E1-5]+/).filter(Boolean);
+      const build = (arr) => {
+        const seen = new Set();
+        return arr.filter((c) => {
+          if (!'ABCDE'.includes(c) || seen.has(c)) return false;
+          seen.add(c);
+          return true;
+        });
+      };
+      if (tokens.length > 1) {
+        return build(tokens.flatMap(t => t.split('')).map(mapDigit));
       }
-      const cleaned = raw.replace(/[^A-E]/g, '');
-      return cleaned ? cleaned.split('') : [];
+      const compact = raw.replace(/[^A-E1-5]/g, '');
+      return compact ? build(compact.split('').map(mapDigit)) : [];
     }
     return [];
   };

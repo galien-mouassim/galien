@@ -232,7 +232,9 @@ function wbStartWizard(editIndex = null) {
       courseIds: [...(base.courseIds || [])],
       sourceIds: [...(base.sourceIds || [])],
       favtags: [...(base.favtags || [])],
-      favEnabled: !!base.favEnabled
+      favEnabled: !!base.favEnabled,
+      questionCount: base.questionCount ?? null,
+      totalAvailable: base.totalAvailable ?? 0
     };
   } else {
     wbWizard = {
@@ -245,7 +247,9 @@ function wbStartWizard(editIndex = null) {
       courseIds: [],
       sourceIds: [],
       favtags: [],
-      favEnabled: false
+      favEnabled: false,
+      questionCount: null,
+      totalAvailable: 0
     };
   }
   wbRender();
@@ -277,6 +281,8 @@ function wbRender() {
         })
         .join('');
       const favChips = (b.favEnabled ? b.favtags || [] : []).map((t) => `<span class="wb-chip wb-chip--fav"><i class="bi bi-heart-fill"></i> ${t}</span>`).join('');
+      const qCount = Number.isFinite(b.questionCount) ? b.questionCount : (b.totalAvailable || 0);
+      const qTotal = b.totalAvailable || 0;
 
       return `<div class="wb-block">
         <div class="wb-block-num" style="background:${cls.color}">${i + 1}</div>
@@ -286,6 +292,11 @@ function wbRender() {
             <span class="wb-block-mod"><i class="bi ${moduleIcon}"></i> ${b.moduleLabel}</span>
           </div>
           <div class="wb-block-chips">${courseChips}${sourceChips}${favChips}</div>
+          <div class="wb-block-qcount">
+            <span class="wb-block-qcount-sel"><i class="bi bi-list-check"></i> ${qCount} selectionnees</span>
+            <span class="wb-block-qcount-sep">·</span>
+            <span class="wb-block-qcount-avail">${qTotal} disponibles</span>
+          </div>
         </div>
         <div class="wb-block-actions">
           <button class="wb-edit-btn" data-edit="${i}" title="Modifier"><i class="bi bi-pencil-square"></i></button>
@@ -321,23 +332,25 @@ function wbRender() {
   });
 
   addWrap.style.display = wbMode === 'guided' && wbBlocks.length > 0 && !wbWizard ? 'block' : 'none';
+  wbUpdateSelectedCounter();
+  // In guided mode, question count is per-block — hide the global panel
+  document.getElementById('questionCountPanel')?.classList.add('hidden');
   if (!wbWizard || wbMode !== 'guided') {
     wizardEl.innerHTML = '';
     return;
   }
 
-  const { step, classId, moduleId, moduleLabel, availCourses, availSources, courseIds, sourceIds, favtags, favEnabled } = wbWizard;
+  const { step, classId, moduleId, moduleLabel, availCourses, availSources, courseIds, sourceIds, favtags, favEnabled, questionCount, totalAvailable } = wbWizard;
   const cls = WB_CLASSES[classId] || WB_CLASSES.pharmaceutiques;
   const allModules = Array.isArray(window.__dashboardModules) ? window.__dashboardModules : [];
-  const usedModuleIds = new Set(wbBlocks.map((b, idx) => (idx === wbEditingIndex ? null : String(b.moduleId))).filter(Boolean));
-  const dots = Array.from({ length: 5 }, (_, s) => `<div class="wb-dot${s === step ? ' active' : s < step ? ' done' : ''}"></div>`).join('');
+  const dots = Array.from({ length: 6 }, (_, s) => `<div class="wb-dot${s === step ? ' active' : s < step ? ' done' : ''}"></div>`).join('');
 
   let body = '';
 
   if (step === 0) {
     const cards = Object.values(WB_CLASSES)
       .map((c) => {
-        const available = allModules.filter((m) => (m.module_class || 'pharmaceutiques').toLowerCase() === c.id && !usedModuleIds.has(String(m.id)));
+        const available = allModules.filter((m) => (m.module_class || 'pharmaceutiques').toLowerCase() === c.id);
         if (!available.length) return '';
         return `<button class="wb-class-card${classId === c.id ? ' selected' : ''}" data-class="${c.id}" type="button" style="--cc:${c.color};--cg:${c.ghost}">
           <div class="wb-cc-top"><i class="${c.icon} wb-cc-icon"></i><span class="wb-cc-name">${c.name}</span></div>
@@ -351,7 +364,7 @@ function wbRender() {
   }
 
   if (step === 1) {
-    const mods = allModules.filter((m) => (m.module_class || 'pharmaceutiques').toLowerCase() === classId && !usedModuleIds.has(String(m.id)));
+    const mods = allModules.filter((m) => (m.module_class || 'pharmaceutiques').toLowerCase() === classId);
     const cards = mods
       .map((m) => {
         const icon = wbModuleIcon(m.name);
@@ -421,7 +434,30 @@ function wbRender() {
       <label class="toggle-switch"><input type="checkbox" id="wbFavToggle" ${favEnabled ? 'checked' : ''}><span class="toggle-slider"></span></label>
     </div>
     ${favEnabled ? `<div class="wb-chips-wrap wb-chips-fav">${tagChips || '<span class="wb-empty">Aucun tag favori.</span>'}</div>` : ''}
-    <div class="wb-nav"><button class="wb-back" id="wbB4" type="button"><i class="bi bi-arrow-left"></i> Retour</button><button class="wb-confirm" id="wbConfirm" type="button"><i class="bi bi-check-lg"></i> ${wbEditingIndex !== null ? 'Mettre a jour le filtre' : 'Confirmer ce filtre'}</button></div>`;
+    <div class="wb-nav"><button class="wb-back" id="wbB4" type="button"><i class="bi bi-arrow-left"></i> Retour</button><button class="wb-next" id="wbN4" type="button" style="background:${cls.color}">Suivant <i class="bi bi-arrow-right"></i></button></div>`;
+  }
+
+  if (step === 5) {
+    const qc = Number.isFinite(questionCount) && questionCount > 0 ? questionCount : totalAvailable;
+    const tot = totalAvailable || 0;
+    body = `<div class="wb-crumb" style="--cc:${cls.color}">
+      <div class="wb-snum done"><i class="bi bi-check"></i></div>
+      <span style="color:${cls.color};font-weight:700"><i class="${cls.icon}"></i> ${cls.name}</span>
+      <span class="wb-crumb-val"><i class="bi ${wbModuleIcon(moduleLabel)}"></i> ${moduleLabel}</span>
+    </div>
+    <div class="wb-step-hd"><div class="wb-snum">6</div><span class="wb-slbl">Nombre de questions</span><span class="wb-sval">${tot > 0 ? `${qc} / ${tot}` : 'Aucune'}</span></div>
+    ${tot > 0 ? `<div class="wb-qcount-step">
+      <div class="wb-qcount-context"><i class="bi bi-collection"></i> <strong>${tot}</strong> questions correspondent a ce filtre</div>
+      <div class="qcount-slider-wrap wb-qcount-incard">
+        <div class="slider-header">
+          <span>Questions a reviser</span>
+          <div class="slider-count"><strong id="wbQcountValue">${qc} <span>questions</span></strong></div>
+        </div>
+        <input type="range" id="wbQcountSlider" min="1" max="${tot}" value="${qc}">
+        <div class="slider-ends"><span>1</span><span>${tot}</span></div>
+      </div>
+    </div>` : '<div class="wb-empty" style="margin:12px 0">Aucune question disponible pour ce filtre.</div>'}
+    <div class="wb-nav"><button class="wb-back" id="wbB5" type="button"><i class="bi bi-arrow-left"></i> Retour</button><button class="wb-confirm" id="wbConfirm" type="button" ${tot < 1 ? 'disabled' : ''}><i class="bi bi-check-lg"></i> ${wbEditingIndex !== null ? 'Mettre a jour le filtre' : 'Confirmer ce filtre'}</button></div>`;
   }
 
   wizardEl.innerHTML = `<div class="wb-wizard-wrap">
@@ -563,12 +599,55 @@ function wbAttachWizardEvents() {
         wbApplyActiveFilters();
       });
     });
+    document.getElementById('wbN4')?.addEventListener('click', async () => {
+      const btn = document.getElementById('wbN4');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i>'; }
+      try {
+        const block = {
+          moduleId: Number(wbWizard.moduleId),
+          courseIds: (wbWizard.courseIds || []).map(Number).filter(Boolean),
+          sourceIds: (wbWizard.sourceIds || []).map(Number).filter(Boolean)
+        };
+        const params = new URLSearchParams();
+        params.set('guided_filters', JSON.stringify([block]));
+        const res = await fetch(`${API_URL}/questions/count?${params}`, { headers: getAuthHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          wbWizard.totalAvailable = Number(data.total || 0);
+        }
+      } catch (_) {
+        wbWizard.totalAvailable = 0;
+      }
+      if (!Number.isFinite(wbWizard.questionCount) || wbWizard.questionCount < 1 || wbWizard.questionCount > wbWizard.totalAvailable) {
+        wbWizard.questionCount = wbWizard.totalAvailable;
+      }
+      wbWizard.step = 5;
+      wbRender();
+    });
+  }
+
+  if (wbWizard.step === 5) {
+    const wbSlider = document.getElementById('wbQcountSlider');
+    const wbValEl = document.getElementById('wbQcountValue');
+    if (wbSlider && typeof paintSlider === 'function') paintSlider(wbSlider, wbValEl);
+
+    document.getElementById('wbB5')?.addEventListener('click', () => {
+      wbWizard.step = 4;
+      wbRender();
+    });
+    wbSlider?.addEventListener('input', () => {
+      const v = parseInt(wbSlider.value, 10);
+      wbWizard.questionCount = Number.isFinite(v) && v > 0 ? v : 1;
+      if (typeof paintSlider === 'function') paintSlider(wbSlider, wbValEl);
+    });
     document.getElementById('wbConfirm')?.addEventListener('click', () => {
       const ready = {
         ...wbWizard,
         courseIds: [...(wbWizard.courseIds || [])],
         sourceIds: [...(wbWizard.sourceIds || [])],
-        favtags: wbWizard.favEnabled ? [...(wbWizard.favtags || [])] : []
+        favtags: wbWizard.favEnabled ? [...(wbWizard.favtags || [])] : [],
+        questionCount: wbWizard.questionCount ?? wbWizard.totalAvailable,
+        totalAvailable: wbWizard.totalAvailable
       };
       if (!ready.moduleId) return;
       if (wbEditingIndex !== null && wbBlocks[wbEditingIndex]) wbBlocks[wbEditingIndex] = ready;
@@ -577,7 +656,34 @@ function wbAttachWizardEvents() {
       wbEditingIndex = null;
       wbRender();
       wbApplyActiveFilters();
+      wbSyncTotalCount();
     });
+  }
+}
+
+function wbUpdateSelectedCounter() {
+  const total = wbBlocks.reduce((sum, b) => sum + (Number.isFinite(b.questionCount) ? b.questionCount : 0), 0);
+  const el = document.getElementById('wb-selected-count');
+  if (el) el.textContent = total.toLocaleString('fr-FR');
+}
+
+function wbSyncTotalCount() {
+  const total = wbBlocks.reduce((sum, b) => sum + (Number.isFinite(b.questionCount) ? b.questionCount : 0), 0);
+  wbUpdateSelectedCounter();
+  if (!total) return;
+  const tSlider = document.getElementById('training_question_count');
+  const eSlider = document.getElementById('exam_question_count');
+  const tVal = document.getElementById('training_question_count_value');
+  const eVal = document.getElementById('exam_question_count_value');
+  [tSlider, eSlider].forEach((s) => {
+    if (!s) return;
+    s.max = String(Math.max(total, parseInt(s.max || '1', 10)));
+    s.value = String(total);
+    s.dataset.touched = '1';
+  });
+  if (typeof paintSlider === 'function') {
+    paintSlider(tSlider, tVal);
+    paintSlider(eSlider, eVal);
   }
 }
 
@@ -733,7 +839,18 @@ function wbSetMode(mode) {
   document.getElementById('wb-guided-mode')?.classList.toggle('hidden',wbMode!=='guided');
   document.getElementById('wb-advanced-mode')?.classList.toggle('hidden',wbMode!=='advanced');
   if (wbMode==='guided'&&!wbWizard&&!wbBlocks.length) wbStartWizard();
-  if (wbMode==='advanced') wbPopulateAdvancedFromNative();
+  if (wbMode==='advanced') {
+    wbPopulateAdvancedFromNative();
+    document.getElementById('questionCountPanel')?.classList.remove('hidden');
+    document.getElementById('wb-counter-disponibles')?.classList.remove('hidden');
+    document.getElementById('wb-counter-selected')?.classList.add('hidden');
+  }
+  if (wbMode==='guided') {
+    document.getElementById('questionCountPanel')?.classList.add('hidden');
+    document.getElementById('wb-counter-disponibles')?.classList.add('hidden');
+    document.getElementById('wb-counter-selected')?.classList.remove('hidden');
+    wbUpdateSelectedCounter();
+  }
   wbApplyActiveFilters();
 }
 

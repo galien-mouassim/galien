@@ -145,9 +145,37 @@
           </div>
         </div>
         <div class="filters-count-wrap" style="margin-top:12px">
-          <div class="question-counter">
+          <div class="question-counter" id="wb-counter-disponibles">
             <span class="question-counter-num js-questions-count">...</span>
             <span class="question-counter-label">questions disponibles</span>
+          </div>
+          <div class="question-counter hidden" id="wb-counter-selected">
+            <span class="question-counter-num" id="wb-selected-count">0</span>
+            <span class="question-counter-label">questions selectionnees</span>
+          </div>
+        </div>
+        <div id="questionCountPanel" class="hidden">
+          <div class="panel-divider"></div>
+          <div class="wb-qcount-section">
+            <div class="wb-qcount-hd"><i class="bi bi-list-ol"></i> Nombre de questions</div>
+            <div class="field field--slider">
+              <div class="qcount-slider-wrap">
+                <div class="slider-header">
+                  <span id="qcount_panel_label">Questions</span>
+                  <div class="slider-count">
+                    <strong id="training_question_count_value">1 <span>questions</span></strong>
+                    <strong id="exam_question_count_value" class="hidden">1 <span>questions</span></strong>
+                  </div>
+                </div>
+                <input type="range" id="training_question_count" min="1" value="1">
+                <input type="range" id="exam_question_count" min="1" value="1" class="hidden">
+                <div class="slider-ends">
+                  <span>1</span>
+                  <span id="training_slider_max">-</span>
+                  <span id="exam_slider_max" class="hidden">-</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -276,32 +304,6 @@
           </label>
         </div>
         <div class="help-text" id="correctionHelp">Vous devez cocher toutes les bonnes reponses et uniquement celles-ci.</div>
-        </div>
-      </div>
-
-      
-
-      <div class="dash-panel" id="questionCountPanel">
-        <div class="dash-panel-title"><i class="bi bi-list-ol"></i> Nombre de questions</div>
-        <div class="options-panel-body">
-          <div class="field field--slider">
-            <div class="qcount-slider-wrap">
-              <div class="slider-header">
-                <span id="qcount_panel_label">Questions</span>
-                <div class="slider-count">
-                  <strong id="training_question_count_value">1 <span>questions</span></strong>
-                  <strong id="exam_question_count_value" class="hidden">1 <span>questions</span></strong>
-                </div>
-              </div>
-              <input type="range" id="training_question_count" min="1" value="1">
-              <input type="range" id="exam_question_count" min="1" value="1" class="hidden">
-              <div class="slider-ends">
-                <span>1</span>
-                <span id="training_slider_max">-</span>
-                <span id="exam_slider_max" class="hidden">-</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 

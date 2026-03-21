@@ -472,6 +472,31 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .question-counter-num { font-size:1.5rem; font-weight:800; color:var(--accent); letter-spacing:-.04em; }
 .question-counter-label { font-size:.78rem; color:var(--ink-3); font-weight:500; }
 
+/* ── Question count inline section (inside filter panel, advanced mode) ── */
+.wb-qcount-section { padding: 4px 0 8px; }
+.wb-qcount-hd { font-size: .8rem; font-weight: 700; color: var(--ink-2); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+
+/* ── Wizard step 5 — per-block question count ── */
+.wb-qcount-step { margin: 8px 0; }
+.wb-qcount-context {
+  display: flex; align-items: center; gap: 6px;
+  font-size: .8rem; color: var(--ink-3); font-weight: 500;
+  background: var(--accent-ghost); border-radius: var(--radius-sm);
+  padding: 8px 12px; margin-bottom: 14px;
+}
+.wb-qcount-context strong { color: var(--accent); font-size: .95rem; font-weight: 800; }
+.wb-qcount-context i { color: var(--accent); font-size: .85rem; }
+.wb-qcount-incard { background: var(--surface-2); border-radius: var(--radius-sm); padding: 12px 14px; }
+
+/* ── Block card count row ── */
+.wb-block-qcount {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 6px; font-size: .75rem; font-weight: 600;
+}
+.wb-block-qcount-sel { color: var(--accent); display: flex; align-items: center; gap: 4px; }
+.wb-block-qcount-sep { color: var(--ink-4); font-size: .7rem; }
+.wb-block-qcount-avail { color: var(--ink-3); font-weight: 500; }
+
 /* ── Wizard wrapper ── */
 .wb-wizard-wrap {
   border:1px solid var(--border); border-radius:var(--radius-lg);

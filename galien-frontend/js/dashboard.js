@@ -328,6 +328,10 @@ async function refreshQuestionCount() {
       }).length;
     }
 
+    if (wbMode === 'guided') {
+      const guidedLimit = parseInt(localStorage.getItem('wb_guided_limit') || '', 10);
+      if (Number.isFinite(guidedLimit) && guidedLimit > 0) total = Math.min(total, guidedLimit);
+    }
     setCountText(Number(total).toLocaleString('fr-FR'));
     const maxQ = Math.max(1, total);
     syncQuestionSliders(maxQ);

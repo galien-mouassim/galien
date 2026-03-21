@@ -278,12 +278,18 @@ async function loadFavoriteTags() {
   } finally { isPopulatingFilters = false; }
 }
 
+const effectiveCountPanel = document.querySelector('.effective-count-panel');
+
+function setNoFilterState(hasFilter) {
+  if (effectiveCountPanel) effectiveCountPanel.classList.toggle('hidden', !hasFilter);
+  if (startBtn) startBtn.disabled = !hasFilter;
+}
+
 async function refreshQuestionCount() {
   if (!questionsCountEls.length) return;
   const setCountText = (v) => questionsCountEls.forEach((el) => { el.textContent = v; });
   try {
     if (isPopulatingFilters) return;
-    setCountText('...');
 
     const moduleIds = getSelectedValues(selModule);
     const courseIds = getSelectedValues(selCourse);
@@ -293,6 +299,15 @@ async function refreshQuestionCount() {
     const unansweredOnly = getActiveUnansweredOnly();
     const wbMode = localStorage.getItem('wb_mode') || 'guided';
     const guidedFiltersRaw = localStorage.getItem('guided_filters');
+
+    const hasFilter = wbMode === 'guided'
+      ? (!!guidedFiltersRaw && guidedFiltersRaw !== '[]')
+      : (moduleIds.length > 0 || courseIds.length > 0 || sourceIds.length > 0);
+
+    setNoFilterState(hasFilter);
+    if (!hasFilter) return;
+
+    setCountText('...');
     const countParams = new URLSearchParams();
     if (wbMode === 'guided' && guidedFiltersRaw) {
       countParams.set('guided_filters', guidedFiltersRaw);

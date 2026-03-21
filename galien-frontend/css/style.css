@@ -776,6 +776,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .qcount-slider-meta{display:flex;justify-content:space-between;align-items:center;font-size:.8rem}
 .qcount-slider-meta strong{font-size:.9rem;color:var(--ink)}
 .start-btn{width:100%;padding:13px;font-size:.95rem;font-weight:700;border-radius:var(--radius-lg)}
+.start-btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
 
 /* ── Effective count panel (after options, before start) ── */
 .effective-count-panel { padding: 10px 16px; }

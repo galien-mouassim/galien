@@ -7,6 +7,22 @@ const { getPagination, parseIntList, emptyPendingStats } = require('../lib/helpe
 const { cacheGet, cacheSet, invalidateUserAnalyticsCache, USER_ANALYTICS_CACHE_TTL_MS } = require('../lib/cache');
 const { ensureResultsSavedSchema, ensurePendingQuestionsSchema } = require('../lib/schema');
 
+const normalizeCorrectOptions = (value) => {
+    if (Array.isArray(value)) {
+        return value.map((s) => String(s).trim().toUpperCase()).filter(Boolean);
+    }
+    if (typeof value === 'string') {
+        const raw = value.trim().toUpperCase();
+        if (!raw) return [];
+        if (raw.includes(',')) {
+            return raw.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+        }
+        const cleaned = raw.replace(/[^A-E]/g, '');
+        return cleaned ? cleaned.split('') : [];
+    }
+    return [];
+};
+
 // ----------------------
 // USER: Profile
 // ----------------------
@@ -790,13 +806,9 @@ router.get('/users/questions/:id/detail', async (req, res) => {
             [questionId]
         );
 
-        const fromArray = Array.isArray(q.correct_options)
-            ? q.correct_options
-            : (typeof q.correct_options === 'string' ? q.correct_options.split(',') : []);
-
         res.json({
             ...q,
-            correct_options: fromArray.map((s) => s.trim().toUpperCase()).filter(Boolean),
+            correct_options: normalizeCorrectOptions(q.correct_options),
             comments: commentsRes.rows || []
         });
     } catch (err) {

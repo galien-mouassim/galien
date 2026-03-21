@@ -443,14 +443,24 @@ function populateJumpSelector() {
 }
 
 function parseCorrectOptions(question) {
-  if (Array.isArray(question.correct_options)) return question.correct_options;
-  if (typeof question.correct_option === 'string') {
-    return question.correct_option
-      .split(',')
-      .map(s => s.trim().toUpperCase())
-      .filter(Boolean);
-  }
-  return [];
+  const normalize = (value) => {
+    if (Array.isArray(value)) {
+      return value.map((s) => String(s).trim().toUpperCase()).filter(Boolean);
+    }
+    if (typeof value === 'string') {
+      const raw = value.trim().toUpperCase();
+      if (!raw) return [];
+      if (raw.includes(',')) {
+        return raw.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+      }
+      const cleaned = raw.replace(/[^A-E]/g, '');
+      return cleaned ? cleaned.split('') : [];
+    }
+    return [];
+  };
+  if (Array.isArray(question.correct_options)) return normalize(question.correct_options);
+  if (typeof question.correct_option === 'string') return normalize(question.correct_option);
+  return normalize(question.correct_options);
 }
 
 function applyCorrectionVisuals(question, selectedOptions) {
@@ -1353,4 +1363,3 @@ document.addEventListener('visibilitychange', () => {
     saveSessionDraft();
   }
 });
-

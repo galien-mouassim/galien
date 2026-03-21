@@ -7,6 +7,22 @@ const { normalizeQuestionText, buildOptionSignature, questionSimilarity, options
 const { invalidateMetadataCache } = require('../lib/cache');
 const { ensurePendingQuestionsSchema } = require('../lib/schema');
 
+const normalizeCorrectOptions = (value) => {
+    if (Array.isArray(value)) {
+        return value.map((s) => String(s).trim().toUpperCase()).filter(Boolean);
+    }
+    if (typeof value === 'string') {
+        const raw = value.trim().toUpperCase();
+        if (!raw) return [];
+        if (raw.includes(',')) {
+            return raw.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+        }
+        const cleaned = raw.replace(/[^A-E]/g, '');
+        return cleaned ? cleaned.split('') : [];
+    }
+    return [];
+};
+
 // ----------------------
 // GET QUESTIONS (training/exam)
 // ----------------------
@@ -213,16 +229,7 @@ router.get('/questions', requireActive, async (req, res) => {
         const { result, countRes } = queryResult;
 
         const questions = result.rows.map(q => {
-            const fromArray =
-                Array.isArray(q.correct_options)
-                    ? q.correct_options
-                    : (typeof q.correct_options === 'string'
-                        ? q.correct_options.split(',')
-                        : null);
-
-            const merged = (fromArray && fromArray.length ? fromArray : [])
-                .map(s => s.trim().toUpperCase())
-                .filter(Boolean);
+            const merged = normalizeCorrectOptions(q.correct_options);
 
             return {
                 ...q,
@@ -375,10 +382,7 @@ router.post('/questions/submit', requireActive, async (req, res) => {
 
             if (!result.rows.length) continue;
 
-            const correct = result.rows[0].correct_options
-                .split(',')
-                .map(a => a.trim())
-                .sort();
+            const correct = normalizeCorrectOptions(result.rows[0].correct_options).sort();
 
             const selected = (ans.selectedOptions || []).sort();
 

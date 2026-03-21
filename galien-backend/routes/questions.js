@@ -535,6 +535,24 @@ router.post('/questions', requireAdminOrWorker, async (req, res) => {
 });
 
 // ----------------------
+// ADMIN: Get single question by id
+// ----------------------
+router.get('/questions/:id', requireAdminOrManager, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT q.*, m.name AS module_name, c.name AS course_name, s.name AS source_name
+             FROM questions q
+             LEFT JOIN modules m ON q.module_id = m.id
+             LEFT JOIN courses c ON q.course_id = c.id
+             LEFT JOIN sources s ON q.source_id = s.id
+             WHERE q.id = $1`,
+            [req.params.id]
+        );
+        if (!result.rows.length) return res.status(404).json({ message: 'Question introuvable' });
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ADMIN: Supprimer question
 // ----------------------
 router.delete('/questions/:id', requireAdminOrManager, async (req, res) => {

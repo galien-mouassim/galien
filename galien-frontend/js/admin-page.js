@@ -1083,9 +1083,9 @@ async function deleteQuestion(id) {
 async function editQuestion(id) {
   if (isWorker) return;
   const token = localStorage.getItem('token');
-  const res = await fetch(`${API_URL}/questions`,{headers:{'Authorization':'Bearer '+token}});
-  const data = await res.json();
-  const q = data.questions.find(x=>x.id===id);
+  const res = await fetch(`${API_URL}/questions/${id}`,{headers:{'Authorization':'Bearer '+token}});
+  if(!res.ok)return;
+  const q = await res.json();
   if(!q)return;
   document.getElementById('edit_id').value=q.id;
   document.getElementById('edit_question').value=q.question||'';

@@ -68,6 +68,9 @@ function switchPanel(name) {
   if (name === 'feedback') {
     loadFeedback();
   }
+  if (name === 'stats') {
+    initStats();
+  }
 }
 
 document.querySelectorAll('.adm-nav-item[data-panel]').forEach(item => {
@@ -1856,4 +1859,248 @@ async function loadFeedback() {
 }
 
 
+// ─────────────────────────────────────────────────────────
+// STATS PANEL
+// ─────────────────────────────────────────────────────────
+let _statsInited = false;
+let _statsCharts = {};
+
+function statsGetRange() {
+  const from = document.getElementById('statsFrom')?.value || '';
+  const to   = document.getElementById('statsTo')?.value   || '';
+  return { from, to };
+}
+
+function statsSetPreset(preset) {
+  const to = new Date();
+  let from = null;
+  if (preset === '7d')  { from = new Date(to); from.setDate(from.getDate() - 6); }
+  if (preset === '30d') { from = new Date(to); from.setDate(from.getDate() - 29); }
+  if (preset === '3m')  { from = new Date(to); from.setMonth(from.getMonth() - 3); }
+  const fmt = d => d.toISOString().slice(0,10);
+  const fromEl = document.getElementById('statsFrom');
+  const toEl   = document.getElementById('statsTo');
+  if (fromEl) fromEl.value = from ? fmt(from) : '';
+  if (toEl)   toEl.value   = preset === 'all' ? '' : fmt(to);
+}
+
+function statsDestroyCharts() {
+  Object.values(_statsCharts).forEach(c => { try { c.destroy(); } catch(_) {} });
+  _statsCharts = {};
+}
+
+async function statsLoadAll() {
+  const { from, to } = statsGetRange();
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to)   qs.set('to',   to);
+  const q = qs.toString() ? `?${qs}` : '';
+
+  statsDestroyCharts();
+
+  await Promise.all([
+    statsLoadOverview(q),
+    statsLoadTimeline(q),
+    statsLoadModuleStats(q),
+    statsLoadTopUsers(q),
+    statsLoadFailedQuestions(),
+  ]);
+}
+
+async function statsLoadOverview(q) {
+  try {
+    const res = await fetch(`${API_URL}/admin/stats/overview${q}`, { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const d = await res.json();
+    document.getElementById('kpi-sessions').textContent   = (d.total_sessions   ?? '—').toLocaleString('fr-FR');
+    document.getElementById('kpi-users').textContent      = (d.active_users      ?? '—').toLocaleString('fr-FR');
+    document.getElementById('kpi-score').textContent      = d.avg_score_pct != null ? `${d.avg_score_pct} %` : '—';
+    document.getElementById('kpi-questions').textContent  = (d.questions_answered ?? '—').toLocaleString('fr-FR');
+  } catch(_) {}
+}
+
+async function statsLoadTimeline(q) {
+  try {
+    const res = await fetch(`${API_URL}/admin/stats/sessions-over-time${q}`, { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const rows = await res.json();
+    const labels = rows.map(r => r.day);
+    const data   = rows.map(r => r.sessions);
+    const ctx = document.getElementById('sessionsTimelineChart');
+    if (!ctx) return;
+    _statsCharts.timeline = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Sessions',
+          data,
+          borderColor: '#0d9488',
+          backgroundColor: 'rgba(13,148,136,.12)',
+          borderWidth: 2,
+          pointRadius: data.length > 60 ? 0 : 3,
+          pointBackgroundColor: '#0d9488',
+          tension: 0.3,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 10, color: '#94a3b8', font: { size: 11 } }, grid: { color: 'rgba(148,163,184,.1)' } },
+          y: { beginAtZero: true, ticks: { color: '#94a3b8', font: { size: 11 }, stepSize: 1 }, grid: { color: 'rgba(148,163,184,.1)' } }
+        }
+      }
+    });
+  } catch(_) {}
+}
+
+async function statsLoadModuleStats(q) {
+  try {
+    const res = await fetch(`${API_URL}/admin/stats/module-stats${q}`, { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const rows = await res.json();
+    const labels  = rows.map(r => r.name);
+    const success = rows.map(r => parseFloat(r.avg_score_pct) || 0);
+    const fail    = rows.map(r => parseFloat(r.fail_rate)     || 0);
+    const ctx = document.getElementById('moduleStatsChart');
+    if (!ctx) return;
+    _statsCharts.modules = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Réussite %',  data: success, backgroundColor: 'rgba(13,148,136,.75)',  borderRadius: 4 },
+          { label: 'Échec %',     data: fail,    backgroundColor: 'rgba(239,68,68,.65)',   borderRadius: 4 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+        scales: {
+          x: { beginAtZero: true, max: 100, ticks: { color: '#94a3b8', font: { size: 11 } }, grid: { color: 'rgba(148,163,184,.1)' } },
+          y: { ticks: { color: '#cbd5e1', font: { size: 11 } }, grid: { display: false } }
+        }
+      }
+    });
+  } catch(_) {}
+}
+
+async function statsLoadTopUsers(q) {
+  try {
+    const res = await fetch(`${API_URL}/admin/stats/top-users${q}`, { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const rows = await res.json();
+    const el = document.getElementById('topUsersTable');
+    if (!el) return;
+    if (!rows.length) { el.innerHTML = '<p class="muted" style="padding:12px 0">Aucune donnée.</p>'; return; }
+    el.innerHTML = `
+      <table class="stats-table">
+        <thead><tr>
+          <th>#</th><th>Utilisateur</th><th>Sessions</th><th>Score moy.</th><th>Questions</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map((r,i) => `<tr>
+            <td class="stats-rank">${i+1}</td>
+            <td class="stats-name">${escHtml(r.name)}</td>
+            <td>${(r.sessions).toLocaleString('fr-FR')}</td>
+            <td><span class="stats-score-pill ${r.avg_score_pct >= 70 ? 'good' : r.avg_score_pct >= 40 ? 'mid' : 'bad'}">${r.avg_score_pct ?? '—'} %</span></td>
+            <td>${(r.questions_answered).toLocaleString('fr-FR')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(_) {}
+}
+
+async function statsLoadFailedQuestions() {
+  try {
+    const { from, to } = statsGetRange();
+    const qs = new URLSearchParams();
+    if (from) qs.set('from', from);
+    if (to)   qs.set('to',   to);
+    const moduleId = document.getElementById('statsFailedModule')?.value;
+    const courseId = document.getElementById('statsFailedCourse')?.value;
+    const sourceId = document.getElementById('statsFailedSource')?.value;
+    if (moduleId) qs.set('module_id', moduleId);
+    if (courseId) qs.set('course_id', courseId);
+    if (sourceId) qs.set('source_id', sourceId);
+
+    const res = await fetch(`${API_URL}/admin/stats/top-failed-questions?${qs}`, { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const rows = await res.json();
+    const el = document.getElementById('topFailedQuestionsTable');
+    if (!el) return;
+    if (!rows.length) { el.innerHTML = '<p class="muted" style="padding:12px 0">Aucune question avec suffisamment de données.</p>'; return; }
+    el.innerHTML = `
+      <table class="stats-table stats-table--failed">
+        <thead><tr>
+          <th>#</th><th>Question</th><th>Module</th><th>Cours</th><th>Source</th><th>Tentatives</th><th>Taux d'échec</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map((r,i) => `<tr>
+            <td class="stats-rank">${i+1}</td>
+            <td class="stats-q-text">${escHtml(r.question)}${r.question.length >= 120 ? '…' : ''}</td>
+            <td><span class="stats-tag">${escHtml(r.module_name||'—')}</span></td>
+            <td><span class="stats-tag stats-tag--course">${escHtml(r.course_name||'—')}</span></td>
+            <td><span class="stats-tag stats-tag--source">${escHtml(r.source_name||'—')}</span></td>
+            <td>${r.attempts}</td>
+            <td><div class="stats-fail-bar-wrap"><div class="stats-fail-bar" style="width:${r.fail_rate}%"></div><span>${r.fail_rate} %</span></div></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(_) {}
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function statsPopulateFilters() {
+  try {
+    const [mRes, cRes, sRes] = await Promise.all([
+      fetch(`${API_URL}/modules`, { headers: getAuthHeaders() }),
+      fetch(`${API_URL}/courses`, { headers: getAuthHeaders() }),
+      fetch(`${API_URL}/sources`, { headers: getAuthHeaders() }),
+    ]);
+    const [modules, courses, sources] = await Promise.all([mRes.json(), cRes.json(), sRes.json()]);
+    const mSel = document.getElementById('statsFailedModule');
+    const cSel = document.getElementById('statsFailedCourse');
+    const sSel = document.getElementById('statsFailedSource');
+    if (mSel) modules.forEach(m => { const o = document.createElement('option'); o.value = m.id; o.textContent = m.name; mSel.appendChild(o); });
+    if (cSel) courses.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; cSel.appendChild(o); });
+    if (sSel) sources.forEach(s => { const o = document.createElement('option'); o.value = s.id; o.textContent = s.name; sSel.appendChild(o); });
+  } catch(_) {}
+}
+
+function initStats() {
+  if (_statsInited) { statsLoadAll(); return; }
+  _statsInited = true;
+
+  // preset buttons
+  document.querySelectorAll('.stats-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.stats-preset').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      statsSetPreset(btn.dataset.preset);
+      statsLoadAll();
+    });
+  });
+
+  // custom apply
+  document.getElementById('statsApplyCustom')?.addEventListener('click', () => {
+    document.querySelectorAll('.stats-preset').forEach(b => b.classList.remove('active'));
+    statsLoadAll();
+  });
+
+  // failed questions filters
+  ['statsFailedModule','statsFailedCourse','statsFailedSource'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', statsLoadFailedQuestions);
+  });
+
+  statsPopulateFilters();
+  statsSetPreset('30d');
+  statsLoadAll();
+}
 

@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/admin-page.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -106,6 +107,11 @@
       <line x1="12" y1="15" x2="12" y2="3"/>
     </svg>
     Mes envois
+  </div>
+
+  <div class="adm-nav-item" data-panel="stats" data-admin-only="1">
+    <i class="bi bi-bar-chart-line adm-nav-icon"></i>
+    Statistiques
   </div>
 
   <div class="adm-sidebar-spacer"></div>
@@ -605,6 +611,100 @@
         <div id="usersAdminList"></div>
       </div>
     </div>
+
+    <!-- ── STATS PANEL ── -->
+    <div class="adm-panel" id="panel-stats" data-admin-only="1">
+      <div class="adm-section-header">
+        <div>
+          <div class="adm-section-title">Statistiques</div>
+          <div class="adm-section-desc">Vue d'ensemble de l'activité de la plateforme.</div>
+        </div>
+      </div>
+
+      <!-- Period selector -->
+      <div class="stats-period-bar adm-card">
+        <div class="stats-period-presets">
+          <button class="stats-preset active" data-preset="7d">7 jours</button>
+          <button class="stats-preset" data-preset="30d">30 jours</button>
+          <button class="stats-preset" data-preset="3m">3 mois</button>
+          <button class="stats-preset" data-preset="all">Tout</button>
+        </div>
+        <div class="stats-period-custom">
+          <input type="date" id="statsFrom" title="Date de début">
+          <span class="stats-period-arrow">→</span>
+          <input type="date" id="statsTo" title="Date de fin">
+          <button class="btn btn-sm" id="statsApplyCustom">Appliquer</button>
+        </div>
+      </div>
+
+      <!-- KPI cards -->
+      <div class="stats-kpi-row">
+        <div class="stats-kpi-card">
+          <div class="stats-kpi-icon"><i class="bi bi-collection-play"></i></div>
+          <div class="stats-kpi-body">
+            <div class="stats-kpi-value" id="kpi-sessions">—</div>
+            <div class="stats-kpi-label">Sessions lancées</div>
+          </div>
+        </div>
+        <div class="stats-kpi-card">
+          <div class="stats-kpi-icon"><i class="bi bi-people"></i></div>
+          <div class="stats-kpi-body">
+            <div class="stats-kpi-value" id="kpi-users">—</div>
+            <div class="stats-kpi-label">Utilisateurs actifs</div>
+          </div>
+        </div>
+        <div class="stats-kpi-card">
+          <div class="stats-kpi-icon"><i class="bi bi-patch-check"></i></div>
+          <div class="stats-kpi-body">
+            <div class="stats-kpi-value" id="kpi-score">—</div>
+            <div class="stats-kpi-label">Score moyen</div>
+          </div>
+        </div>
+        <div class="stats-kpi-card">
+          <div class="stats-kpi-icon"><i class="bi bi-ui-checks"></i></div>
+          <div class="stats-kpi-body">
+            <div class="stats-kpi-value" id="kpi-questions">—</div>
+            <div class="stats-kpi-label">Questions répondues</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sessions over time -->
+      <div class="adm-card stats-chart-card">
+        <div class="stats-chart-title"><i class="bi bi-graph-up"></i> Sessions par jour</div>
+        <div class="stats-chart-wrap"><canvas id="sessionsTimelineChart"></canvas></div>
+      </div>
+
+      <!-- Two-column row: top users + module stats -->
+      <div class="stats-two-col">
+        <div class="adm-card stats-chart-card">
+          <div class="stats-chart-title"><i class="bi bi-trophy"></i> Top 10 utilisateurs</div>
+          <div id="topUsersTable"></div>
+        </div>
+        <div class="adm-card stats-chart-card">
+          <div class="stats-chart-title"><i class="bi bi-bar-chart-steps"></i> Taux de réussite par module</div>
+          <div class="stats-chart-wrap"><canvas id="moduleStatsChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Top failed questions -->
+      <div class="adm-card stats-chart-card">
+        <div class="stats-chart-title" style="margin-bottom:12px"><i class="bi bi-exclamation-triangle"></i> Top 20 questions les plus ratées</div>
+        <div class="stats-failed-filters">
+          <select id="statsFailedModule" class="stats-filter-sel">
+            <option value="">Tous les modules</option>
+          </select>
+          <select id="statsFailedCourse" class="stats-filter-sel">
+            <option value="">Tous les cours</option>
+          </select>
+          <select id="statsFailedSource" class="stats-filter-sel">
+            <option value="">Toutes les sources</option>
+          </select>
+        </div>
+        <div id="topFailedQuestionsTable"></div>
+      </div>
+    </div>
+    <!-- /STATS PANEL -->
 
   </div><!-- /adm-content -->
 </main>

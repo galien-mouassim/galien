@@ -600,4 +600,136 @@ router.put('/admin/feedback/:id/read', requireAdminOrManager, async (req, res) =
     }
 });
 
+// ──────────────────────────────────────────────
+// ADMIN STATISTICS
+// ──────────────────────────────────────────────
+
+function buildDateFilter(col, from, to, params) {
+    const parts = [];
+    if (from) { params.push(from); parts.push(`${col} >= $${params.length}::date`); }
+    if (to)   { params.push(to);   parts.push(`${col} < ($${params.length}::date + INTERVAL '1 day')`); }
+    return parts.length ? parts.join(' AND ') : null;
+}
+
+// GET /admin/stats/overview
+router.get('/admin/stats/overview', requireAdmin, async (req, res) => {
+    try {
+        const { from, to } = req.query;
+        const p = [];
+        const df = buildDateFilter('r.created_at', from, to, p);
+        const w = df ? `WHERE ${df}` : '';
+        const [sess, users, score, qAnswered] = await Promise.all([
+            pool.query(`SELECT COUNT(*)::int AS v FROM results r ${w}`, p),
+            pool.query(`SELECT COUNT(DISTINCT r.user_id)::int AS v FROM results r ${w}`, p),
+            pool.query(`SELECT ROUND(AVG(r.score / NULLIF(r.total,0) * 100),1) AS v FROM results r ${w.replace('WHERE','WHERE r.total > 0 AND')||'WHERE r.total > 0'}`, p),
+            pool.query(`SELECT COUNT(sqr.id)::int AS v FROM session_question_results sqr JOIN results r ON r.id = sqr.session_id ${w}`, p),
+        ]);
+        res.json({
+            total_sessions:      sess.rows[0].v,
+            active_users:        users.rows[0].v,
+            avg_score_pct:       score.rows[0].v,
+            questions_answered:  qAnswered.rows[0].v,
+        });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /admin/stats/sessions-over-time
+router.get('/admin/stats/sessions-over-time', requireAdmin, async (req, res) => {
+    try {
+        const { from, to } = req.query;
+        const p = [];
+        const df = buildDateFilter('r.created_at', from, to, p);
+        const w = df ? `WHERE ${df}` : '';
+        const result = await pool.query(`
+            SELECT DATE_TRUNC('day', r.created_at)::date AS day,
+                   COUNT(*)::int AS sessions
+            FROM results r ${w}
+            GROUP BY day ORDER BY day`, p);
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /admin/stats/top-failed-questions
+router.get('/admin/stats/top-failed-questions', requireAdmin, async (req, res) => {
+    try {
+        const { from, to, module_id, course_id, source_id } = req.query;
+        const p = [];
+        const conditions = [];
+        const df = buildDateFilter('r.created_at', from, to, p);
+        if (df) conditions.push(df);
+        if (module_id)  { p.push(parseInt(module_id,10));  conditions.push(`q.module_id = $${p.length}`); }
+        if (course_id)  { p.push(parseInt(course_id,10));  conditions.push(`q.course_id = $${p.length}`); }
+        if (source_id)  { p.push(parseInt(source_id,10));  conditions.push(`q.source_id = $${p.length}`); }
+        conditions.push('sqr.question_id IS NOT NULL');
+        const w = `WHERE ${conditions.join(' AND ')}`;
+        const result = await pool.query(`
+            SELECT q.id,
+                   LEFT(q.question, 120) AS question,
+                   m.name AS module_name, c.name AS course_name, s.name AS source_name,
+                   COUNT(sqr.id)::int AS attempts,
+                   ROUND(SUM(CASE WHEN sqr.score < 1 THEN 1 ELSE 0 END)::numeric
+                         / NULLIF(COUNT(sqr.id),0) * 100, 1) AS fail_rate
+            FROM session_question_results sqr
+            JOIN results r ON r.id = sqr.session_id
+            JOIN questions q ON q.id = sqr.question_id
+            LEFT JOIN modules m ON q.module_id = m.id
+            LEFT JOIN courses c ON q.course_id = c.id
+            LEFT JOIN sources s ON q.source_id = s.id
+            ${w}
+            GROUP BY q.id, q.question, m.name, c.name, s.name
+            HAVING COUNT(sqr.id) >= 2
+            ORDER BY fail_rate DESC, attempts DESC
+            LIMIT 20`, p);
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /admin/stats/module-stats
+router.get('/admin/stats/module-stats', requireAdmin, async (req, res) => {
+    try {
+        const { from, to } = req.query;
+        const p = [];
+        const df = buildDateFilter('r.created_at', from, to, p);
+        const w = df ? `WHERE ${df}` : '';
+        const result = await pool.query(`
+            SELECT m.id, m.name,
+                   COUNT(sqr.id)::int AS attempts,
+                   ROUND(AVG(sqr.score) * 100, 1) AS avg_score_pct,
+                   ROUND(SUM(CASE WHEN sqr.score < 1 THEN 1 ELSE 0 END)::numeric
+                         / NULLIF(COUNT(sqr.id),0) * 100, 1) AS fail_rate
+            FROM session_question_results sqr
+            JOIN results r ON r.id = sqr.session_id
+            JOIN questions q ON q.id = sqr.question_id
+            JOIN modules m ON q.module_id = m.id
+            ${w}
+            GROUP BY m.id, m.name
+            ORDER BY attempts DESC`, p);
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /admin/stats/top-users
+router.get('/admin/stats/top-users', requireAdmin, async (req, res) => {
+    try {
+        const { from, to } = req.query;
+        const p = [];
+        const df = buildDateFilter('r.created_at', from, to, p);
+        const w = df ? `WHERE ${df}` : '';
+        const result = await pool.query(`
+            SELECT u.id,
+                   COALESCE(NULLIF(u.display_name,''), u.email) AS name,
+                   COUNT(DISTINCT r.id)::int AS sessions,
+                   ROUND(AVG(r.score / NULLIF(r.total,0) * 100),1) AS avg_score_pct,
+                   COUNT(sqr.id)::int AS questions_answered
+            FROM results r
+            JOIN users u ON u.id = r.user_id
+            LEFT JOIN session_question_results sqr ON sqr.session_id = r.id
+            ${w}
+            GROUP BY u.id, u.display_name, u.email
+            ORDER BY sessions DESC
+            LIMIT 10`, p);
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;

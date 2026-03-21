@@ -636,6 +636,33 @@
   </div>
 </div>
 
+<!-- ── Inline Question Edit Modal (CSV import & worker validation) ── -->
+<div id="qEditModal" class="modal hidden">
+  <div class="modal-content" style="max-width:600px">
+    <h3 id="qEditModalTitle">Modifier la question</h3>
+    <label class="field"><span>Question</span><textarea id="qedit_question" rows="3" placeholder="Texte de la question" required></textarea></label>
+    <div class="option-grid" style="margin-bottom:10px">
+      <div class="option-row"><div class="option-letter">A</div><input type="text" id="qedit_option_a" placeholder="Option A"></div>
+      <div class="option-row"><div class="option-letter">B</div><input type="text" id="qedit_option_b" placeholder="Option B"></div>
+      <div class="option-row"><div class="option-letter">C</div><input type="text" id="qedit_option_c" placeholder="Option C"></div>
+      <div class="option-row"><div class="option-letter">D</div><input type="text" id="qedit_option_d" placeholder="Option D"></div>
+      <div class="option-row"><div class="option-letter">E</div><input type="text" id="qedit_option_e" placeholder="Option E"></div>
+      <div class="correct-field"><label class="field" style="margin:0"><span>✓ Bonne(s) réponse(s)</span><input type="text" id="qedit_correct_option" placeholder="ex: A ou A,C"></label></div>
+    </div>
+    <label class="field"><span>Explication</span><textarea id="qedit_explanation" rows="2" placeholder="Explication (optionnel)"></textarea></label>
+    <div class="grid-3" style="margin-bottom:10px">
+      <label class="field" style="margin:0"><span>Module</span><select id="qedit_module_id"></select></label>
+      <label class="field" style="margin:0"><span>Cours</span><select id="qedit_course_id"></select></label>
+      <label class="field" style="margin:0"><span>Source</span><select id="qedit_source_id"></select></label>
+    </div>
+    <p id="qEditStatus" class="muted" style="font-size:.8rem;min-height:1.2em;color:var(--red)"></p>
+    <div class="modal-actions">
+      <button type="button" id="qEditSaveBtn" class="btn">Sauvegarder</button>
+      <button type="button" class="btn ghost" onclick="closeQEditModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
 <div id="similarityDetailModal" class="modal hidden">
   <div class="modal-content" style="max-width:760px">
     <h3>Détail de la question similaire</h3>

@@ -741,7 +741,7 @@ function renderPendingRows(rows) {
           <td style="padding:8px 10px">${statusLabel}</td>
           <td style="padding:8px 10px;display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn-inline btn-sm" onclick="showPendingQuestionDetail(${r.id})">Détail</button>
-            ${(!isWorker && r.status === 'pending') ? `<button class="btn-inline btn-sm" onclick="approvePendingQuestion(${r.id})">Approuver</button><button class="btn-inline btn-sm" style="color:var(--red)" onclick="rejectPendingQuestion(${r.id})">Rejeter</button>` : ''}
+            ${(!isWorker && r.status === 'pending') ? `<button class="btn-inline btn-sm" style="color:var(--accent)" onclick="editPendingQuestion(${r.id})">Éditer</button><button class="btn-inline btn-sm" onclick="approvePendingQuestion(${r.id})">Approuver</button><button class="btn-inline btn-sm" style="color:var(--red)" onclick="rejectPendingQuestion(${r.id})">Rejeter</button>` : ''}
           </td>
         </tr>`;
       }).join('')}
@@ -788,6 +788,154 @@ function closeSimilarityDetailModal() {
   document.getElementById('similarityDetailModal')?.classList.add('hidden');
 }
 window.closeSimilarityDetailModal = closeSimilarityDetailModal;
+
+/* ══════════════════════════════════════════════════
+   Inline Question Edit Modal (CSV import + worker validation)
+══════════════════════════════════════════════════ */
+let qEditSaveCallback = null;
+
+function openQEditModal(data, title, onSave) {
+  document.getElementById('qEditModalTitle').textContent = title || 'Modifier la question';
+  document.getElementById('qedit_question').value = data.question || '';
+  document.getElementById('qedit_option_a').value = data.option_a || '';
+  document.getElementById('qedit_option_b').value = data.option_b || '';
+  document.getElementById('qedit_option_c').value = data.option_c || '';
+  document.getElementById('qedit_option_d').value = data.option_d || '';
+  document.getElementById('qedit_option_e').value = data.option_e || '';
+  document.getElementById('qedit_correct_option').value = data.correct_options || data.correct_option || '';
+  document.getElementById('qedit_explanation').value = data.explanation || '';
+  document.getElementById('qEditStatus').textContent = '';
+  qEditSaveCallback = onSave;
+  qEditLoadModules(data.module_id).then(() => qEditLoadCourses(data.module_id, data.course_id)).then(() => qEditLoadSources(data.module_id, data.source_id));
+  document.getElementById('qEditModal').classList.remove('hidden');
+}
+
+function closeQEditModal() {
+  document.getElementById('qEditModal').classList.add('hidden');
+  qEditSaveCallback = null;
+}
+window.closeQEditModal = closeQEditModal;
+
+async function qEditLoadModules(selectedId) {
+  const res = await fetch(`${API_URL}/modules`, { headers: getAuthHeaders() });
+  const modules = res.ok ? await res.json() : [];
+  const sel = document.getElementById('qedit_module_id');
+  sel.innerHTML = '<option value="">-- Module --</option>';
+  modules.forEach(m => { const o = document.createElement('option'); o.value = m.id; o.textContent = m.name; sel.appendChild(o); });
+  if (selectedId) sel.value = String(selectedId);
+}
+
+async function qEditLoadCourses(moduleId, selectedId) {
+  const url = moduleId ? `${API_URL}/courses?module_id=${moduleId}` : `${API_URL}/courses`;
+  const res = await fetch(url, { headers: getAuthHeaders() });
+  const courses = res.ok ? await res.json() : [];
+  const sel = document.getElementById('qedit_course_id');
+  sel.innerHTML = '<option value="">-- Cours --</option>';
+  courses.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); });
+  if (selectedId) sel.value = String(selectedId);
+}
+
+async function qEditLoadSources(moduleId, selectedId) {
+  const url = moduleId ? `${API_URL}/sources?module_id=${moduleId}` : `${API_URL}/sources`;
+  const res = await fetch(url, { headers: getAuthHeaders() });
+  const sources = res.ok ? await res.json() : [];
+  const sel = document.getElementById('qedit_source_id');
+  sel.innerHTML = '<option value="">-- Source --</option>';
+  sources.forEach(s => { const o = document.createElement('option'); o.value = s.id; o.textContent = s.name; sel.appendChild(o); });
+  if (selectedId) sel.value = String(selectedId);
+}
+
+document.getElementById('qedit_module_id')?.addEventListener('change', function() {
+  qEditLoadCourses(this.value, '');
+  qEditLoadSources(this.value, '');
+});
+
+document.getElementById('qEditSaveBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('qEditSaveBtn');
+  const statusEl = document.getElementById('qEditStatus');
+  const data = {
+    question: document.getElementById('qedit_question').value.trim(),
+    option_a: document.getElementById('qedit_option_a').value.trim(),
+    option_b: document.getElementById('qedit_option_b').value.trim(),
+    option_c: document.getElementById('qedit_option_c').value.trim(),
+    option_d: document.getElementById('qedit_option_d').value.trim(),
+    option_e: document.getElementById('qedit_option_e').value.trim(),
+    correct_options: document.getElementById('qedit_correct_option').value.trim(),
+    correct_option: document.getElementById('qedit_correct_option').value.trim(),
+    module_id: document.getElementById('qedit_module_id').value || null,
+    course_id: document.getElementById('qedit_course_id').value || null,
+    source_id: document.getElementById('qedit_source_id').value || null,
+    explanation: document.getElementById('qedit_explanation').value.trim(),
+  };
+  if (!data.question) { statusEl.textContent = 'La question est requise.'; return; }
+  btn.disabled = true; btn.textContent = 'Sauvegarde...';
+  try {
+    if (qEditSaveCallback) await qEditSaveCallback(data);
+    closeQEditModal();
+  } catch (err) {
+    statusEl.textContent = 'Erreur : ' + (err.message || 'Inconnue');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sauvegarder';
+  }
+});
+
+/* Edit a CSV import row inline */
+function editImportRow(index) {
+  const r = analyzedImportRows[index];
+  if (!r) return;
+  const raw = r.raw || {};
+  openQEditModal({
+    question: raw.question,
+    option_a: raw.option_a,
+    option_b: raw.option_b,
+    option_c: raw.option_c,
+    option_d: raw.option_d,
+    option_e: raw.option_e,
+    correct_options: raw.correct_option || raw.correct_options,
+    explanation: raw.explanation,
+    module_id: raw.module_id,
+    course_id: raw.course_id,
+    source_id: raw.source_id,
+  }, 'Modifier avant import', (updated) => {
+    analyzedImportRows[index].raw = { ...analyzedImportRows[index].raw, ...updated };
+    updateImportSummary();
+    renderImportPreviewPage();
+  });
+}
+window.editImportRow = editImportRow;
+
+/* Edit a pending question before approving */
+async function editPendingQuestion(id) {
+  const q = pendingRowsCache.find(x => Number(x.id) === Number(id));
+  if (!q) return;
+  openQEditModal({
+    question: q.question,
+    option_a: q.option_a,
+    option_b: q.option_b,
+    option_c: q.option_c,
+    option_d: q.option_d,
+    option_e: q.option_e,
+    correct_options: q.correct_options,
+    explanation: q.explanation,
+    module_id: q.module_id,
+    course_id: q.course_id,
+    source_id: q.source_id,
+  }, 'Modifier avant approbation', async (updated) => {
+    const res = await fetch(`${API_URL}/admin/pending-questions/${id}`, {
+      method: 'PUT',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Erreur serveur');
+    }
+    const idx = pendingRowsCache.findIndex(x => Number(x.id) === Number(id));
+    if (idx >= 0) pendingRowsCache[idx] = { ...pendingRowsCache[idx], ...updated };
+    renderPendingRows(pendingRowsCache);
+  });
+}
+window.editPendingQuestion = editPendingQuestion;
 
 function openSimilarityDetail(questionId) {
   const q = (allQuestionsForSimilarity.length ? allQuestionsForSimilarity : allQuestions)
@@ -1552,6 +1700,7 @@ function renderImportPreviewPage(){
       <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Question</th>
       <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Similarité</th>
       <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Statut</th>
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border)">Actions</th>
     </tr></thead>
     <tbody>${pageRows.map((r,i)=>{
       const rowClass=r.validationError?'sim-red':r.percent>=90?'sim-red':r.percent>=70?'sim-orange':'';
@@ -1567,9 +1716,10 @@ function renderImportPreviewPage(){
         <td style="padding:8px 10px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="toggleImportDetail(${absIndex})" title="Voir détails">${sourceDiffTag}${esc(r.raw.question||'')}</td>
         <td style="padding:8px 10px;font-weight:700">${r.percent}%</td>
         <td style="padding:8px 10px">${r.validationError?`<span style="color:var(--red);font-size:.75rem">${r.validationError}</span>`:r.percent>=90?'<span style="color:#991b1b">Doublon probable</span>':r.percent>=70?'<span style="color:#92400e">Similaire</span>':'<span style="color:#166534">OK</span>'}</td>
+        <td style="padding:8px 10px">${!r.validationError?`<button class="btn-inline btn-sm" style="color:var(--accent)" onclick="editImportRow(${absIndex})">Éditer</button>`:'—'}</td>
       </tr>
       <tr id="import_detail_${absIndex}" class="hidden">
-        <td colspan="5" style="padding:0 10px 10px 10px">
+        <td colspan="6" style="padding:0 10px 10px 10px">
           <div style="border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface-2)">
             ${renderImportDetail(r)}
           </div>

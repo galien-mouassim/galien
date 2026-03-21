@@ -414,6 +414,29 @@ router.get('/admin/pending-questions/stats', requireAdminOrManager, async (req, 
     }
 });
 
+router.put('/admin/pending-questions/:id', requireAdminOrManager, async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid id' });
+    const { question, option_a, option_b, option_c, option_d, option_e, correct_options, module_id, course_id, source_id, explanation } = req.body;
+    if (!question || !String(question).trim()) return res.status(400).json({ message: 'Question text required' });
+    try {
+        await ensurePendingQuestionsSchema();
+        const result = await pool.query(
+            `UPDATE pending_questions
+             SET question=$1, option_a=$2, option_b=$3, option_c=$4, option_d=$5, option_e=$6,
+                 correct_options=$7, module_id=$8, course_id=$9, source_id=$10, explanation=$11
+             WHERE id=$12 AND status='pending'
+             RETURNING *`,
+            [question, option_a, option_b, option_c, option_d, option_e, correct_options,
+             module_id || null, course_id || null, source_id || null, explanation || null, id]
+        );
+        if (!result.rows.length) return res.status(404).json({ message: 'Question not found or not pending' });
+        res.json({ message: 'Question mise à jour', question: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.post('/admin/pending-questions/:id/approve', requireAdminOrManager, async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid id' });

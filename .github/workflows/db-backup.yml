@@ -22,7 +22,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DB_BACKUP_URL }}
         run: |
-          pg_dump "$DATABASE_URL" --no-owner --no-acl --format=plain > backup.sql
+          /usr/lib/postgresql/17/bin/pg_dump "$DATABASE_URL" --no-owner --no-acl --format=plain > backup.sql
           echo "Dump size: $(du -sh backup.sql | cut -f1)"
 
       - name: Checkout backup repository

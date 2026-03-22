@@ -25,18 +25,27 @@ jobs:
           /usr/lib/postgresql/17/bin/pg_dump "$DATABASE_URL" --no-owner --no-acl --format=plain > backup.sql
           echo "Dump size: $(du -sh backup.sql | cut -f1)"
 
-      - name: Checkout backup repository
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ secrets.BACKUP_REPO }}
-          token: ${{ secrets.BACKUP_TOKEN }}
-          path: backup-repo
-
-      - name: Commit and push backup
+      - name: Push backup to repository
+        env:
+          BACKUP_TOKEN: ${{ secrets.BACKUP_TOKEN }}
+          BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
         run: |
           DATE=$(date +%Y-%m-%d)
-          cp backup.sql backup-repo/backup_${DATE}.sql
+          REPO_URL="https://x-access-token:${BACKUP_TOKEN}@github.com/${BACKUP_REPO}.git"
 
+          # Clone existing repo or init a new one if empty
+          if git clone "$REPO_URL" backup-repo 2>/dev/null; then
+            echo "Cloned existing repo"
+          else
+            echo "Initializing new empty repo"
+            mkdir -p backup-repo
+            cd backup-repo
+            git init
+            git remote add origin "$REPO_URL"
+            cd ..
+          fi
+
+          cp backup.sql "backup-repo/backup_${DATE}.sql"
           cd backup-repo
 
           # Keep only the last 30 backups
@@ -45,5 +54,10 @@ jobs:
           git config user.email "backup-bot@galien.app"
           git config user.name "Galien Backup Bot"
           git add .
-          git diff --cached --quiet && echo "No changes to commit" || git commit -m "Backup ${DATE}"
-          git push
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Backup ${DATE}"
+            git push origin HEAD:main 2>/dev/null || git push --set-upstream origin main
+          fi

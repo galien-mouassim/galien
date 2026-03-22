@@ -1,0 +1,44 @@
+name: Database Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # Every day at 2:00 AM UTC
+  workflow_dispatch:        # Allow manual trigger from GitHub Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Dump database
+        env:
+          DATABASE_URL: ${{ secrets.DB_BACKUP_URL }}
+        run: |
+          pg_dump "$DATABASE_URL" --no-owner --no-acl --format=plain > backup.sql
+          echo "Dump size: $(du -sh backup.sql | cut -f1)"
+
+      - name: Checkout backup repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.BACKUP_REPO }}
+          token: ${{ secrets.BACKUP_TOKEN }}
+          path: backup-repo
+
+      - name: Commit and push backup
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          cp backup.sql backup-repo/backup_${DATE}.sql
+
+          cd backup-repo
+
+          # Keep only the last 30 backups
+          ls -t backup_*.sql 2>/dev/null | tail -n +31 | xargs -r rm -f
+
+          git config user.email "backup-bot@galien.app"
+          git config user.name "Galien Backup Bot"
+          git add .
+          git diff --cached --quiet && echo "No changes to commit" || git commit -m "Backup ${DATE}"
+          git push
